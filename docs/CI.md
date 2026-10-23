@@ -5,8 +5,9 @@ Public GitHub-hosted checks run in its fork [angusu-de/p2s-harden](https://githu
 
 ## What is checked
 
-- Linux/Python 3.8: 71 core fixture/regression tests, exact embedded engine, Bash syntax, plus 7 CI-proof tests.
+- Linux/Python 3.8: the complete fixture/regression suite (including local HTTP, JSON, language and rollback tests), exact embedded engine, Bash syntax, plus CI-proof and FastCGI-protocol tests.
 - Linux/Python 3.12: the same checks in a separate disposable Debian container.
+- Real PHP 8.4 and 8.5 FPM containers: actual FastCGI requests, function operations, pool configuration, URL-include controls and comparison with the audit engine. Image identities and observed PHP versions are recorded in runtime evidence artifacts.
 - Windows: generated-file consistency and native PowerShell/SSH transport with a temporary fake SSH executable, including quoting and exit codes.
 
 Actual jobs and steps are recorded in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) and [JSON](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/public-proof.json). Each snapshot names its exact source commit, run and attempt. The badge counts measured job results; missing expected jobs remain visible and do not pass.

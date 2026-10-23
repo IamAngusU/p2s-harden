@@ -1,4 +1,4 @@
-# p2s-harden 2.2.0-rc.1
+# p2s-harden 2.2.0-rc.2
 
 Begrenzte PHP/FPM-Prüfung für Linux mit ausdrücklich ausgewiesenem Prüfumfang.
 `OK` ist ein belegter Einzelbefund; `OPEN` ist eine Abweichung oder ein zu
@@ -70,7 +70,7 @@ Windows-OpenSSH bevorzugt. Interaktive SSH-Aufrufe erlauben die bestehende
 Passwortanmeldung; nichtinteraktive Aufrufe bleiben im Batch-Modus.
 Der Linux-Kern benötigt Python 3.8+ und lesbares `/proc`. Weitere Helfer
 werden pro Teilprüfung erkannt. Ohne `ps` wird direkt `/proc` verwendet. Ohne
-`curl` werden die HTTP-Checks einmal als ausgelassen mit Paketvorschlag gemeldet;
+`curl` laufen HTTP-Prüfungen über die Python-Standardbibliothek;
 ohne `runuser` werden fremde Benutzer einmal pro Benutzer ausgelassen. Als
 nicht-root laufen die lesbaren Prüfungen weiter. Fehlende systemd-Zuordnung
 verhindert automatische INI-Fixes, aber nicht die unterstützte FPM-Datenträger-
@@ -128,7 +128,7 @@ wie `root@[::1]` und vorhandene SSH-Hostaliases werden unterstützt.
 Exitcodes: `0` alle ausgewiesenen Einzelprüfungen bestanden, `1` offene Punkte,
 `2` unbekannte Punkte, unvollständige Prüfung oder technischer Fehler. Ein Fix
 kann erfolgreich angewendet sein und trotzdem Exit 1/2 liefern, wenn andere
-Befunde verbleiben. `--json` ist für `--check`, `--doctor` und `--discover` vorgesehen und enthält
+Befunde verbleiben. `--json` ist in jedem Modus verfügbar und enthält
 `schema_version: 1`, Fähigkeiten, Befunde, Inventar und den passenden Exitcode.
 Phasenhinweise gehen im interaktiven Terminal auf stderr; `--no-progress`
 unterdrückt sie. Fehlende Fähigkeiten führen zu unvollständigen Ergebnissen
@@ -154,12 +154,12 @@ wirkungslose Kompatibilitätsoptionen angenommen.
   über HTTP ausführbaren Schreibpfaden; entsprechende Treffer bleiben sichtbar.
 - HTTP auf `/.env`, `/.git/config` und verschachtelte gefundene Git-Pfade jeder
   expliziten Dokumentwurzel, mit lokalem Ziel sowie korrektem Host und TLS-SNI.
-  `2xx` ist ein möglicher Dateizugriff zur weiteren Klärung; Catch-all-Routen
-  können dieselbe Antwort erzeugen. Inhalte werden nicht ausgewertet oder im
-  Bericht gespeichert. `401/403/404/410` sind für den jeweiligen Endpunkt geschützt.
+  `2xx` wird mit zwei zufälligen fehlenden Pfaden verglichen. Gleiche oder
+  dynamische Catch-all-Antworten bleiben unbekannt. Inhalte werden nur
+  gehasht, nicht im Bericht gespeichert. `401/403/404/410` sind für den jeweiligen Endpunkt geschützt.
   Redirects, Serverfehler, Timeouts und fehlgeschlagene Abfragen sind unbekannt.
-- `ptrace_scope`. ImageMagick-Policies bleiben zur regel- und versionsbezogenen
-  Prüfung ausdrücklich unbekannt; bloße XML-Schlüsselwörter beweisen nichts.
+- `ptrace_scope`. ImageMagick-Policies erscheinen als `INFO` zur separaten regel-
+  und versionsbezogenen Prüfung; bloße XML-Schlüsselwörter beweisen nichts.
 
 ## Änderungen, Sicherungen und Rücknahme
 
@@ -235,3 +235,40 @@ Die ergänzende Fehler-Injektionssuite prüft fehlende Programme, fehlendes Pyth
 SSH-Fehler, unvollständige Benutzerrechte, isolierte FPM-Fehler und gesperrte Fixes.
 Der Windows-Test wird mit `powershell -NoProfile -File test-windows-launcher.ps1`
 gestartet. [Prüfumgebungen und verbleibende Grenzen](VALIDATION.md).
+
+## Präzisierungen in rc.2
+
+`--lang en` ist Standard; `--lang de` übersetzt Befunde, Hilfe und Bootstrap.
+`INFO` verändert den Exitcode nicht. ImageMagick bleibt ausdrücklich außerhalb
+der automatischen Bewertung. Echte fehlende Abdeckung bleibt `UNKNOWN` und hat
+vor `OPEN` Vorrang (Exit 2). Vollständig ausgewertete Prüfungen können Exit 0
+oder 1 erreichen.
+
+`--runtime-dir /absoluter/pfad` deklariert einen existierenden, symlinkfreien
+Unterordner eines Prüfbereichs als benötigten Laufzeitspeicher. Das ist eine
+ausdrückliche Einordnung, keine automatisch erkannte Ausnahme. Schreibbare
+PHP-Dateien darin bleiben offen; Zugriffsfehler und Grenzen bleiben unbekannt.
+Der gesamte Prüfbereich kann nicht zum Runtime-Verzeichnis erklärt werden.
+
+Dateisystemläufe sind standardmäßig auf 20000 Einträge und 10 Sekunden begrenzt
+(`--max-paths`, `--walk-seconds`), einschließlich der Suche nach verschachtelten
+Git-Verzeichnissen. HTTP hat insgesamt 128 Anfragen (`--max-http-probes`), pro
+Antwort höchstens 1 MiB und 8 Sekunden. Zwei zufällige fehlende URLs bilden
+bei 2xx eine Soft-404-Baseline. Dynamische oder gleiche Fallback-Antworten sind
+unbekannt. Weiterleitungen werden nicht verfolgt. Bodies werden nur im Speicher
+gestreamt/gehasht und nicht gespeichert oder ausgegeben. Die lokale TLS-Prüfung
+verifiziert Routing/Antwort, nicht die Authentizität eines Zertifikats.
+
+`--json` funktioniert für jeden Modus. Neben Befunden und Inventar enthält es
+`language`, `plan` und `transaction` (je nach Modus auch `null`). Fix-Fehler
+bewahren vorherige Befunde und den verfügbaren Recovery-Status. Pfade und
+technische Werte werden nicht übersetzt.
+
+Fixes behalten keine alten Änderungszeitpunkte. Nur Rollback stellt die
+ursprünglichen Zeitstempel wieder her. Ohne ID wird ausschließlich die neueste
+Transaktion gewählt. Ist sie zurückgenommen, ist ein weiterer Aufruf ohne
+Wirkung; ein älterer Fix wird nicht stillschweigend zurückgenommen. Konflikte
+bei Inhalt, Owner, Mode, xattrs, Identität oder mtime verhindern das Überschreiben.
+Eine unterbrochene Wiederherstellung ist fortsetzbar.
+
+[Praktische FPM-Nachweise und Korrektur der Review-Vermutung](REVIEW-FOLLOWUP.md).

@@ -1,4 +1,39 @@
-# Validation of 2.2.0-rc.1
+# Validation
+
+## 2.2.0-rc.2
+
+Executed locally on 2026-10-23: **143 tool regressions and 18 protocol/proof
+tests passed** on the existing Linux host in protected disposable fixtures.
+Native Windows PowerShell 5.1 passed language/help, Unicode JSON errors,
+argument quoting, exact embedded payload and SSH exit/language transport checks.
+The real FPM experiment passed 20 cases each on PHP 8.1.34, 8.4.27 and 8.5.12.
+
+The final self-contained launcher also completed doctor, discovery, check and
+JSON dry-run on the existing host. Hash/owner/group/mode/mtime snapshots of
+monitored PHP/Nginx/Fail2ban/UFW configuration and protected web directories
+were unchanged. Doctor returned 0; discovery/check/dry-run returned 2 for
+explicit incomplete coverage. A real minimal PATH containing only Python
+retained FPM discovery via `/proc` and HTTP checks without curl; unavailable
+foreign-user checks were reported. No production fix was applied.
+
+The current workflow runs fixture tests on Python 3.8/3.12, native Windows
+PowerShell transport tests, and actual PHP 8.4/8.5 FPM requests. The public
+[commit-specific proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
+records executed jobs and steps; consult that result for the exact release
+commit. [Real FPM cases and the review follow-up](REVIEW-FOLLOWUP.md).
+
+Fix/recovery tests operate only on disposable files. Local HTTP tests cover
+actual sockets, soft-404s, redirect behavior, incomplete bodies, byte budgets
+and slow peers. JSON tests exercise real fixture fix/rollback and failed fix
+recovery; they reject output mixed with transaction progress. Dedicated
+transaction tests cover original timestamps, metadata conflicts, repeated
+rollback and recovery after interruption.
+
+The rc.1 record below is historical, including its then-current curl behavior
+and unconditional manual ImageMagick unknown. rc.2 removes those limitations;
+it continues to report actual incomplete checks as exit 2.
+
+## Historical validation of 2.2.0-rc.1
 
 Executed 2026-10-22. These are CLI correctness and compatibility checks, not a complete PHP-to-shell attack test.
 

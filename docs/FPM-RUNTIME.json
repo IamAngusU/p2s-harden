@@ -1,0 +1,933 @@
+{
+  "schema_version": 1,
+  "format": "p2s.fpm-runtime-evidence.v1",
+  "scope": "Curated real-FPM runtime and pool-audit evidence; not a full host hardening assessment.",
+  "recorded_at": "2026-10-23T04:56:16.279339+00:00",
+  "engine_snapshots": {
+    "before": {
+      "sha256": "3847a4c2668874fed18260d91f167373c123ae55e4ea205fe0168c88bf2af912",
+      "suite_exit_code": 1,
+      "note": "Historical snapshot before tokenizer correction; not a final release SHA."
+    },
+    "after": {
+      "sha256": "61c526fbd7fe8b908d020b31aaab43e3a45eee8cb2c0834f11d84001910a5e1a",
+      "suite_exit_code": 0,
+      "note": "Historical corrected snapshot used for this experiment; not a final release SHA."
+    }
+  },
+  "test_sources": [
+    "tools/test_fpm_runtime.py",
+    "tools/test_fpm_runtime_protocol.py"
+  ],
+  "protocol_tests": {
+    "passed": 10,
+    "verified_platforms": [
+      "Windows",
+      "Linux"
+    ]
+  },
+  "container_limits": {
+    "cpus": 0.5,
+    "memory_mib": 128,
+    "pids": 32,
+    "network": "none",
+    "published_ports": [],
+    "root_filesystem": "read-only",
+    "user": "33:33",
+    "production_mounts": false
+  },
+  "cleanup_verified": true,
+  "matrix": [
+    {
+      "image": "php:8.1-fpm-bookworm",
+      "image_id": "sha256:e3893eeb8f6fb719b6efa7e011e76a65cb1322054226250cedac1138b406aba4",
+      "repo_digests": [
+        "php@sha256:e3893eeb8f6fb719b6efa7e011e76a65cb1322054226250cedac1138b406aba4"
+      ],
+      "php_version": "8.1.34",
+      "sapi": "fpm-fcgi",
+      "purpose": "historical EOL compatibility",
+      "observed_cases": 20,
+      "runtime_assertion_failures_before": 0,
+      "audit_disagreements_before": {
+        "global-uppercase-not-disabled": [
+          "audit pool OK differs from real runtime OPEN"
+        ],
+        "pool-uppercase-not-disabled": [
+          "audit pool OK differs from real runtime OPEN"
+        ],
+        "global-space-separated": [
+          "audit pool OPEN differs from real runtime OK"
+        ],
+        "pool-space-separated": [
+          "audit pool OPEN differs from real runtime OK"
+        ]
+      },
+      "runtime_and_audit_passed_after": 20,
+      "baseline_unavailable_functions": [
+        "pcntl_exec"
+      ]
+    },
+    {
+      "image": "php:8.4.27-fpm-bookworm",
+      "image_id": "sha256:df5a5113e1179ddf4560cd15727eb3812f6457829756d2a96c6c11bb4c250089",
+      "repo_digests": [
+        "php@sha256:df5a5113e1179ddf4560cd15727eb3812f6457829756d2a96c6c11bb4c250089"
+      ],
+      "php_version": "8.4.27",
+      "sapi": "fpm-fcgi",
+      "purpose": "supported PHP branch sample",
+      "observed_cases": 20,
+      "runtime_assertion_failures_before": 0,
+      "audit_disagreements_before": {
+        "global-uppercase-not-disabled": [
+          "audit pool OK differs from real runtime OPEN"
+        ],
+        "pool-uppercase-not-disabled": [
+          "audit pool OK differs from real runtime OPEN"
+        ],
+        "global-space-separated": [
+          "audit pool OPEN differs from real runtime OK"
+        ],
+        "pool-space-separated": [
+          "audit pool OPEN differs from real runtime OK"
+        ]
+      },
+      "runtime_and_audit_passed_after": 20,
+      "baseline_unavailable_functions": [
+        "pcntl_exec"
+      ]
+    },
+    {
+      "image": "php:8.5-fpm-bookworm",
+      "image_id": "sha256:d3db5340c7ecfb1e3a26af5d3d9de8b4e160cdd75692a830b5cb74b0b85db2cf",
+      "repo_digests": [
+        "php@sha256:d3db5340c7ecfb1e3a26af5d3d9de8b4e160cdd75692a830b5cb74b0b85db2cf"
+      ],
+      "php_version": "8.5.12",
+      "sapi": "fpm-fcgi",
+      "purpose": "supported PHP branch sample",
+      "observed_cases": 20,
+      "runtime_assertion_failures_before": 0,
+      "audit_disagreements_before": {
+        "global-uppercase-not-disabled": [
+          "audit pool OK differs from real runtime OPEN"
+        ],
+        "pool-uppercase-not-disabled": [
+          "audit pool OK differs from real runtime OPEN"
+        ],
+        "global-space-separated": [
+          "audit pool OPEN differs from real runtime OK"
+        ],
+        "pool-space-separated": [
+          "audit pool OPEN differs from real runtime OK"
+        ]
+      },
+      "runtime_and_audit_passed_after": 20,
+      "baseline_unavailable_functions": [
+        "pcntl_exec"
+      ]
+    }
+  ],
+  "case_evidence": [
+    {
+      "name": "baseline",
+      "input": {
+        "global_disabled": "",
+        "pool": {}
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "global-inherited",
+      "input": {
+        "global_disabled": "exec",
+        "pool": {}
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec"
+            ],
+            "available_internal_functions": [
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-additive",
+      "input": {
+        "global_disabled": "exec",
+        "pool": {
+          "php_admin_value[disable_functions]": "system"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "system",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system"
+            ],
+            "available_internal_functions": [
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_admin_value[disable_functions]": "system"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "value-additive-ini-system",
+      "input": {
+        "global_disabled": "exec",
+        "pool": {
+          "php_value[disable_functions]": "system"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "system",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system"
+            ],
+            "available_internal_functions": [
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_value[disable_functions]": "system"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-empty-preserves-global",
+      "input": {
+        "global_disabled": "exec",
+        "pool": {
+          "php_admin_value[disable_functions]": ""
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec"
+            ],
+            "available_internal_functions": [
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_admin_value[disable_functions]": ""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "value-empty-preserves-global",
+      "input": {
+        "global_disabled": "exec",
+        "pool": {
+          "php_value[disable_functions]": ""
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec"
+            ],
+            "available_internal_functions": [
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_value[disable_functions]": ""
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-short-preserves-global",
+      "input": {
+        "global_disabled": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec",
+        "pool": {
+          "php_admin_value[disable_functions]": "exec"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "available_internal_functions": [],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {
+              "php_admin_value[disable_functions]": "exec"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "value-short-preserves-global",
+      "input": {
+        "global_disabled": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec",
+        "pool": {
+          "php_value[disable_functions]": "exec"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "available_internal_functions": [],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {
+              "php_value[disable_functions]": "exec"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "global-value-admin-all-additive",
+      "input": {
+        "global_disabled": "exec",
+        "pool": {
+          "php_value[disable_functions]": "system",
+          "php_admin_value[disable_functions]": "shell_exec"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "shell_exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "available_internal_functions": [
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {
+              "php_value[disable_functions]": "system",
+              "php_admin_value[disable_functions]": "shell_exec"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-only-complete",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_admin_value[disable_functions]": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "available_internal_functions": [],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {
+              "php_admin_value[disable_functions]": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "value-only-complete",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_value[disable_functions]": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "available_internal_functions": [],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {
+              "php_value[disable_functions]": "exec,system,shell_exec,passthru,popen,proc_open,pcntl_exec"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "php_value-url-on",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_value[allow_url_include]": "On"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "On",
+            "allow_url_include_access": 4,
+            "data_include_allowed": true,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_value[allow_url_include]": "On"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "php_flag-url-on",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_flag[allow_url_include]": "On"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "1",
+            "allow_url_include_access": 4,
+            "data_include_allowed": true,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_value[allow_url_include]": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "php_admin_value-url-on",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_admin_value[allow_url_include]": "On"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "On",
+            "allow_url_include_access": 4,
+            "data_include_allowed": true,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_admin_value[allow_url_include]": "On"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "php_admin_flag-url-on",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_admin_flag[allow_url_include]": "On"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "1",
+            "allow_url_include_access": 4,
+            "data_include_allowed": true,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_admin_value[allow_url_include]": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-url-off-wins",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_value[allow_url_include]": "On",
+          "php_admin_flag[allow_url_include]": "Off"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "0",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_value[allow_url_include]": "On",
+              "php_admin_value[allow_url_include]": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "global-uppercase-not-disabled",
+      "input": {
+        "global_disabled": "EXEC,SYSTEM,SHELL_EXEC,PASSTHRU,POPEN,PROC_OPEN,PCNTL_EXEC",
+        "pool": {}
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "EXEC,SYSTEM,SHELL_EXEC,PASSTHRU,POPEN,PROC_OPEN,PCNTL_EXEC",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "pool-uppercase-not-disabled",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_admin_value[disable_functions]": "EXEC,SYSTEM,SHELL_EXEC,PASSTHRU,POPEN,PROC_OPEN,PCNTL_EXEC"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "EXEC,SYSTEM,SHELL_EXEC,PASSTHRU,POPEN,PROC_OPEN,PCNTL_EXEC",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [],
+            "available_internal_functions": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "successful_sentinel_controls": [
+              "exec",
+              "system",
+              "shell_exec"
+            ],
+            "actual_pool_dump_settings": {
+              "php_admin_value[disable_functions]": "EXEC,SYSTEM,SHELL_EXEC,PASSTHRU,POPEN,PROC_OPEN,PCNTL_EXEC"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "global-space-separated",
+      "input": {
+        "global_disabled": "exec system shell_exec passthru popen proc_open pcntl_exec",
+        "pool": {}
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec system shell_exec passthru popen proc_open pcntl_exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "available_internal_functions": [],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "pool-space-separated",
+      "input": {
+        "global_disabled": "",
+        "pool": {
+          "php_value[disable_functions]": "exec system shell_exec passthru popen proc_open pcntl_exec"
+        }
+      },
+      "observations": [
+        {
+          "observed_on_versions": [
+            "8.1.34",
+            "8.4.27",
+            "8.5.12"
+          ],
+          "runtime": {
+            "disable_functions_ini_get": "exec system shell_exec passthru popen proc_open pcntl_exec",
+            "disable_functions_access": 4,
+            "allow_url_include_ini_get": "",
+            "allow_url_include_access": 4,
+            "data_include_allowed": false,
+            "functions_removed_from_baseline": [
+              "exec",
+              "system",
+              "shell_exec",
+              "passthru",
+              "popen",
+              "proc_open"
+            ],
+            "available_internal_functions": [],
+            "successful_sentinel_controls": [],
+            "actual_pool_dump_settings": {
+              "php_value[disable_functions]": "exec system shell_exec passthru popen proc_open pcntl_exec"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

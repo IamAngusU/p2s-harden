@@ -7,3 +7,5 @@ Edit the engine/templates, run `python3 build-standalone.py`, then `python3 buil
 Any new fix must include a concrete preview, capability checks before mutation, failure recovery, conflict detection and meaningful fixture tests. Tests must never change a real host's PHP, Nginx, firewall or SSH configuration. Do not publish unredacted server reports, credentials or application environments.
 
 The CI workflow is a definition; a passing local suite must not be described as a completed public CI run. A new supported FPM layout needs real configuration fixtures and integration evidence before expanding the support claim.
+
+For real FPM semantics, run `python3 tools/test_fpm_runtime.py --engine p2s_harden.py` on Linux with Docker. This uses disposable containers, real FastCGI requests and a fixed data-URI include control. See [the review follow-up](docs/REVIEW-FOLLOWUP.md) for the cases and limits.

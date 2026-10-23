@@ -15,11 +15,13 @@ out.mkdir(parents=True, exist_ok=True)
 version = re.search(r'^VERSION = "([0-9A-Za-z.+-]+)"$', (base / 'p2s_harden.py').read_text(encoding='utf-8'), re.M)[1]
 names = [
     'p2s-harden.sh', 'p2s-harden.ps1', 'p2s_harden.py', 'p2s-launcher.sh.in', 'p2s-launcher.ps1.in',
-    'build-standalone.py', 'test_p2s_harden.py', 'test_p2s_resilience.py', 'test-windows-launcher.ps1',
+    'build-standalone.py', 'test_p2s_harden.py', 'test_p2s_resilience.py', 'test_p2s_transactions.py',
+    'test_p2s_language.py', 'test_p2s_http.py', 'test_p2s_cli.py', 'test-windows-launcher.ps1',
     'README.md', 'README.de.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
     '.gitattributes', '.gitignore', '.github/workflows/ci.yml', '.github/workflows/public-proof-badge.yml',
-    'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/CI.md',
+    'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/CI.md', 'docs/REVIEW-FOLLOWUP.md', 'docs/FPM-RUNTIME.json',
     'tools/test-linux.sh', 'tools/package-release.py', 'tools/render-public-proof-badge.py', 'tools/test_public_proof.py',
+    'tools/test_fpm_runtime.py', 'tools/test_fpm_runtime_protocol.py',
 ]
 names += sorted(path.relative_to(base).as_posix() for path in (base / 'docs/assets/readme').glob('*.svg'))
 files = {name: (base / name).read_bytes() for name in sorted(names)}

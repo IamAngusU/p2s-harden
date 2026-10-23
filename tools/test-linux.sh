@@ -7,7 +7,7 @@ if [ "$(id -u)" != 0 ]; then
   exit 2
 fi
 missing=()
-for program in python3 bash curl runuser ps; do
+for program in python3 bash runuser ps; do
   command -v "$program" >/dev/null 2>&1 || missing+=("$program")
 done
 if ! id www-data >/dev/null 2>&1; then missing+=('Benutzer www-data'); fi
@@ -24,8 +24,13 @@ cleanup() {
 trap cleanup EXIT
 cp -- "$base"/p2s_harden.py "$base"/p2s-harden.sh "$base"/p2s-harden.ps1 \
   "$base"/p2s-launcher.sh.in "$base"/p2s-launcher.ps1.in "$base"/build-standalone.py \
-  "$base"/test_p2s_harden.py "$base"/test_p2s_resilience.py "$scratch/"
+  "$base"/test_p2s*.py "$scratch/"
+mkdir -p "$scratch/tools" "$scratch/docs/assets/readme"
+cp -- "$base"/tools/test_fpm_runtime.py "$base"/tools/test_fpm_runtime_protocol.py \
+  "$base"/tools/render-public-proof-badge.py "$base"/tools/test_public_proof.py "$scratch/tools/"
+cp -- "$base"/docs/assets/readme/public-proof-template.svg "$scratch/docs/assets/readme/"
 cd -- "$scratch"
 python3 -B build-standalone.py --check
 bash -n p2s-harden.sh
-python3 -B -m unittest -v test_p2s_harden test_p2s_resilience
+python3 -B -m unittest discover -v -s . -p 'test_p2s*.py'
+python3 -B -m unittest discover -v -s tools -p 'test_*.py'

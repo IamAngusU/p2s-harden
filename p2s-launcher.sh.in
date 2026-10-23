@@ -1,40 +1,106 @@
 #!/usr/bin/env bash
-# p2s-harden 2.2.0-rc.1 — self-contained; engine is embedded below.
+# p2s-harden 2.2.0-rc.2 — self-contained; engine is embedded below.
 set -uo pipefail
 
-usage() {
-  cat <<'HELP'
-p2s-harden 2.2.0-rc.1 — eine Datei, automatische Erkennung
+# Read language before handling --help or local/SSH prerequisite failures.
+# A later --lang therefore also applies to an earlier --help.
+lang=en
+p2s_next_language=0
+for p2s_argument in "$@"; do
+  if [ "$p2s_next_language" = 1 ]; then lang=$p2s_argument; p2s_next_language=0; continue; fi
+  case "$p2s_argument" in
+    --lang) p2s_next_language=1 ;;
+    --lang=*) lang=${p2s_argument#--lang=} ;;
+  esac
+done
+if [ "$p2s_next_language" = 1 ] || { [ "$lang" != en ] && [ "$lang" != de ]; }; then
+  printf '%s\n' '--lang requires en or de.' >&2
+  exit 2
+fi
 
-  sudo bash p2s-harden.sh                     Lokal erkennen und pruefen
-  bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und pruefen
-  bash p2s-harden.sh --doctor                  Voraussetzungen und naechste Schritte
+message() {
+  if [ "$lang" = de ]; then printf '%s\n' "$2"; else printf '%s\n' "$1"; fi
+}
+
+usage() {
+  if [ "$lang" = en ]; then
+    cat <<'HELP'
+p2s-harden 2.2.0-rc.2 — one file, automatic discovery
+
+  sudo bash p2s-harden.sh                     Discover and audit locally
+  bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
+  bash p2s-harden.sh --doctor                  Explain prerequisites and next steps
+  sudo bash p2s-harden.sh --discover           Show discovered mappings
+  sudo bash p2s-harden.sh --dry-run            Preview specific changes
+  sudo bash p2s-harden.sh --fix                Apply bounded INI fixes
+  sudo bash p2s-harden.sh --rollback           Restore the latest transaction
+
+No separate Python file, installation or configuration file.
+Requires a Linux target with Python 3.8+; --ssh uses your existing SSH access.
+Missing optional helpers are explained; independent checks continue.
+
+Options (override automatically discovered values):
+  --lang en|de                 Output language (default: en)
+  --root /path                 Limit the filesystem audit scope
+  --site URL=DOCUMENT_ROOT     Explicit virtual host; repeatable
+  --nginx-config /path         Custom Nginx main configuration
+  --web-user USER              Additional FPM user
+  --no-auto                   Use explicit mappings only
+  --max-sites 32              Limit automatic HTTP mappings
+  --max-paths COUNT           Limit filesystem traversal
+  --walk-seconds SECONDS      Limit filesystem traversal time
+  --max-http-probes COUNT     Limit HTTP requests
+  --runtime-dir /path          Review a known upload/cache directory separately
+  --protect-dir /path          Protect an explicit directory; non-recursive
+  --backup-root /root/path     Custom backup directory
+  --backup-id ID               Restore a specific transaction
+  --json                      Machine-readable output
+  --verbose                   Include all findings, including OK
+  --no-progress               Hide interactive progress messages
+
+Discovery never infers permission-change targets.
+--check/--discover/--dry-run do not modify configuration or reload services.
+Exit 0: selected checks passed; 1: open findings; 2: unknown/error.
+HELP
+    return
+  fi
+  cat <<'HELP'
+p2s-harden 2.2.0-rc.2 — eine Datei, automatische Erkennung
+
+  sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
+  bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
+  bash p2s-harden.sh --doctor                  Voraussetzungen und nächste Schritte
   sudo bash p2s-harden.sh --discover           Erkannte Zuordnungen anzeigen
-  sudo bash p2s-harden.sh --dry-run            Konkrete Aenderungen anzeigen
+  sudo bash p2s-harden.sh --dry-run            Konkrete Änderungen anzeigen
   sudo bash p2s-harden.sh --fix                Begrenzte INI-Fixes anwenden
-  sudo bash p2s-harden.sh --rollback           Letzte Transaktion zuruecknehmen
+  sudo bash p2s-harden.sh --rollback           Letzte Transaktion zurücknehmen
 
 Kein separates Python-Skript, keine Installation und keine Konfigurationsdatei.
 Voraussetzungen: Linux-Ziel mit Python 3.8+ und bestehender SSH-Zugang bei --ssh.
-Fehlende optionale Helfer werden erklaert; unabhaengige Pruefungen laufen weiter.
+Fehlende optionale Helfer werden erklärt; unabhängige Prüfungen laufen weiter.
 
-Optional (automatisch erkannte Werte lassen sich ueberschreiben):
-  --root /pfad                 Dateisystem-Pruefbereich einschraenken
+Optional (automatisch erkannte Werte lassen sich überschreiben):
+  --lang en|de                 Ausgabesprache (Standard: en)
+  --root /pfad                 Dateisystem-Prüfbereich einschränken
   --site URL=DOKUMENTWURZEL     Expliziter vHost, wiederholbar
   --nginx-config /pfad          Abweichende Nginx-Hauptkonfiguration
-  --web-user BENUTZER           Zusaetzlicher FPM-Benutzer
+  --web-user BENUTZER           Zusätzlicher FPM-Benutzer
   --no-auto                    Nur explizite Zuordnungen verwenden
   --max-sites 32               Limit automatischer HTTP-Zuordnungen
-  --protect-dir /pfad           Nur explizites Verzeichnis schuetzen; kein Rekurs
+  --max-paths ANZAHL           Dateisystem-Suchlauf begrenzen
+  --walk-seconds SEKUNDEN      Dauer des Dateisystem-Suchlaufs begrenzen
+  --max-http-probes ANZAHL     HTTP-Anfragen begrenzen
+  --runtime-dir /pfad           Bekanntes Upload-/Cache-Verzeichnis gesondert bewerten
+  --protect-dir /pfad           Nur explizites Verzeichnis schützen; kein Rekurs
   --backup-root /root/pfad      Anderes Backup-Verzeichnis
-  --backup-id ID                Bestimmte Transaktion zuruecknehmen
-  --json                       --check/--discover maschinenlesbar ausgeben
-  --verbose                    Alle Einzelbefunde einschliesslich OK anzeigen
+  --backup-id ID                Bestimmte Transaktion zurücknehmen
+  --json                       Maschinenlesbare Ausgabe
+  --verbose                    Alle Einzelbefunde einschließlich OK anzeigen
   --no-progress                Phasenhinweise im interaktiven Terminal ausblenden
 
-Erkennung leitet keine automatischen Rechteaenderungen ab.
+Erkennung leitet keine automatischen Rechteänderungen ab.
 --check/--discover/--dry-run schreiben keine Zielkonfiguration und laden nichts neu.
-Exit 0: ausgewiesene Einzelpruefungen bestanden; 1: offen; 2: unbekannt/Fehler.
+Exit 0: ausgewiesene Einzelprüfungen bestanden; 1: offen; 2: unbekannt/Fehler.
 HELP
 }
 
@@ -45,19 +111,19 @@ args=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --local)
-      [ "$target_set" = 0 ] || { echo 'Ziel mehrfach angegeben' >&2; exit 2; }
+      [ "$target_set" = 0 ] || { message 'Target specified more than once' 'Ziel mehrfach angegeben' >&2; exit 2; }
       target=local; target_set=1; shift ;;
     --ssh)
-      [ "$target_set" = 0 ] && [ "$#" -ge 2 ] && [ -n "$2" ] || { echo '--ssh braucht ein Ziel' >&2; exit 2; }
+      [ "$target_set" = 0 ] && [ "$#" -ge 2 ] && [ -n "$2" ] || { message '--ssh requires one target' '--ssh braucht ein Ziel' >&2; exit 2; }
       target=$2; target_set=1; shift 2
       name_pattern='^[A-Za-z0-9_][A-Za-z0-9_.@:-]*$'
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
-      [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { echo 'Ungueltiges SSH-Ziel' >&2; exit 2; } ;;
+      [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.2.0-rc.1'; exit 0 ;;
+    --version) echo 'p2s-harden 2.2.0-rc.2'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y|--no-self-guard)
-      echo "Hinweis: $1 ist wirkungslos; keine Firewall-/Fail2ban-Aenderungen." >&2; shift ;;
+      message "Note: $1 has no effect; no firewall/Fail2ban changes are made." "Hinweis: $1 ist wirkungslos; keine Firewall-/Fail2ban-Änderungen." >&2; shift ;;
     *) args+=("$1"); shift ;;
   esac
 done
@@ -81,18 +147,38 @@ payload() {
 bootstrap() {
   p2s_problem=''
   p2s_kernel=''
+  p2s_lang=${2:-en}
+  if [ "$p2s_lang" = de ]; then
+    p2s_platform='Linux-Ziel mit lesbarem /proc erforderlich; Windows/macOS können per --ssh prüfen.'
+    p2s_python_missing='Python 3.8+ fehlt; Paket python3 bereitstellen. Ohne Python sind die Konfigurationsprüfungen nicht ausführbar.'
+    p2s_python_old='Python 3.8+ erforderlich; vorhandenes python3 ist zu alt oder nicht ausführbar.'
+    p2s_title='Voraussetzungen'
+    p2s_header='p2s-harden: Voraussetzungen unvollständig'
+    p2s_missing='FEHLT'
+    p2s_helpers='ps ist optional (/proc-Fallback). HTTP nutzt Python, kein curl nötig. runuser: fremde FPM-Benutzer. systemctl: INI-Fixes.'
+    p2s_next='Nach Bereitstellung von Python denselben Befehl erneut ausführen. Es wurde nichts installiert oder geändert.'
+  else
+    p2s_platform='A Linux target with readable /proc is required; use --ssh from Windows/macOS.'
+    p2s_python_missing='Python 3.8+ is missing; install package python3. Configuration checks cannot run without Python.'
+    p2s_python_old='Python 3.8+ is required; the existing python3 is too old or cannot run.'
+    p2s_title='Prerequisites'
+    p2s_header='p2s-harden: prerequisites incomplete'
+    p2s_missing='MISSING'
+    p2s_helpers='ps is optional (/proc fallback). HTTP uses Python; curl is not needed. runuser: other FPM users. systemctl: INI fixes.'
+    p2s_next='Provide Python and run the same command again. Nothing was installed or changed.'
+  fi
   if [ -r /proc/sys/kernel/ostype ]; then IFS= read -r p2s_kernel < /proc/sys/kernel/ostype; fi
-  [ "$p2s_kernel" = Linux ] && [ -r /proc/self/stat ] || p2s_problem='Linux-Ziel mit lesbarem /proc erforderlich; Windows/macOS koennen per --ssh pruefen.'
+  [ "$p2s_kernel" = Linux ] && [ -r /proc/self/stat ] || p2s_problem=$p2s_platform
   if ! command -v python3 >/dev/null 2>&1; then
-    p2s_problem="${p2s_problem:+$p2s_problem }Python 3.8+ fehlt; Paket python3 bereitstellen. Ohne Python sind die Konfigurationspruefungen nicht ausfuehrbar."
+    p2s_problem="${p2s_problem:+$p2s_problem }$p2s_python_missing"
   elif ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
-    p2s_problem="${p2s_problem:+$p2s_problem }Python 3.8+ erforderlich; vorhandenes python3 ist zu alt oder nicht ausfuehrbar."
+    p2s_problem="${p2s_problem:+$p2s_problem }$p2s_python_old"
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":1,"version":"2.2.0-rc.1","exit_code":2,"findings":[{"status":"UNKNOWN","title":"Voraussetzungen","detail":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_problem"
+    printf '{"schema_version":1,"version":"2.2.0-rc.2","language":"%s","exit_code":2,"findings":[{"status":"UNKNOWN","title":"%s","detail":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem"
     p2s_comma=''
-    for p2s_tool in python3 ps curl runuser systemctl; do
+    for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
       command -v "$p2s_tool" >/dev/null 2>&1 && p2s_present=true
       printf '%s"%s":%s' "$p2s_comma" "$p2s_tool" "$p2s_present"
@@ -100,16 +186,16 @@ bootstrap() {
     done
     printf '}}}}\n'
   else
-    printf 'p2s-harden: Voraussetzungen unvollstaendig\n%s\n' "$p2s_problem" >&2
-    for p2s_tool in python3 ps curl runuser systemctl; do
-      command -v "$p2s_tool" >/dev/null 2>&1 || printf 'FEHLT   %s\n' "$p2s_tool" >&2
+    printf '%s\n%s\n' "$p2s_header" "$p2s_problem" >&2
+    for p2s_tool in python3 ps runuser systemctl; do
+      command -v "$p2s_tool" >/dev/null 2>&1 || printf '%s   %s\n' "$p2s_missing" "$p2s_tool" >&2
     done
-    printf '%s\n' 'ps ist optional (/proc-Fallback). curl: HTTP-Checks. runuser: fremde FPM-Benutzer. systemctl: INI-Fixes.' 'Nach Bereitstellung von Python denselben Befehl erneut ausfuehren. Es wurde nichts installiert oder geaendert.' >&2
+    printf '%s\n' "$p2s_helpers" "$p2s_next" >&2
   fi
   return 2
 }
 if [ "$target" = local ]; then
-  bootstrap "$json_mode" || exit 2
+  bootstrap "$json_mode" "$lang" || exit 2
   payload | python3 -B - "${args[@]}"
   exit "$?"
 fi
@@ -118,13 +204,14 @@ default_ssh=ssh
 ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
-    printf '%s\n' '{"schema_version":1,"version":"2.2.0-rc.1","exit_code":2,"findings":[{"status":"UNKNOWN","title":"SSH","detail":"OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen."}],"discovery":{}}'
+    detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
+    printf '{"schema_version":1,"version":"2.2.0-rc.2","language":"%s","exit_code":2,"findings":[{"status":"UNKNOWN","title":"SSH","detail":"%s"}],"discovery":{}}\n' "$lang" "$detail"
   else
-    printf '%s\n' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
+    message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
   exit 2
 fi
-remote="$(declare -f bootstrap); bootstrap $json_mode || exit 2; exec python3 -B -"
+remote="$(declare -f bootstrap); bootstrap $json_mode $lang || exit 2; exec python3 -B -"
 for argument in "${args[@]}"; do
   escaped=${argument//\'/\'\\\'\'}
   remote+=" '$escaped'"
@@ -136,9 +223,10 @@ payload | MSYS_NO_PATHCONV=1 "$ssh_bin" -T -o "BatchMode=$batch" -o ConnectTimeo
 result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
-    printf '%s\n' '{"schema_version":1,"version":"2.2.0-rc.1","exit_code":2,"findings":[{"status":"UNKNOWN","title":"SSH","detail":"Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang pruefen und erneut ausfuehren."}],"discovery":{}}'
+    detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
+    printf '{"schema_version":1,"version":"2.2.0-rc.2","language":"%s","exit_code":2,"findings":[{"status":"UNKNOWN","title":"SSH","detail":"%s"}],"discovery":{}}\n' "$lang" "$detail"
   else
-    printf '%s\n' 'SSH-Verbindung nicht verfuegbar. Vorhandenen SSH-Zugang pruefen; danach denselben Befehl erneut ausfuehren.' >&2
+    message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi
   exit 2
 fi

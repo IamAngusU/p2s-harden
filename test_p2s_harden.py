@@ -39,7 +39,10 @@ class ToolTests(unittest.TestCase):
     def scan(self, instance=None, probe=None, permission_error=False, **kwargs):
         data = dict(files=0, directories=0, file_sample=[], directory_sample=[], errors=[])
         as_user = patch.object(p, "as_user", side_effect=p.CheckError("runuser failed")) if permission_error else patch.object(p, "as_user", return_value=json.dumps(data))
-        with patch.object(p, "discover", return_value=([instance or self.instance()], [])), as_user, patch.object(p, "probe", side_effect=probe):
+        def observation(url, connect_ip="127.0.0.1"):
+            code = 403 if "/.p2s-missing-" in url or probe is None else probe(url)
+            return dict(status=code, bytes=0, sha256=p.digest(b""))
+        with patch.object(p, "discover", return_value=([instance or self.instance()], [])), as_user, patch.object(p, "http_observation", side_effect=observation):
             return p.scan(self.args(**kwargs))
 
     def test_commented_ini_is_not_active(self):
@@ -107,15 +110,15 @@ class ToolTests(unittest.TestCase):
                 self.assertTrue(all(r["status"] == expected for r in rows))
                 self.assertTrue(any("nested/.git/config" in r["title"] for r in rows))
 
-    def test_curl_failure_is_unknown(self):
+    def test_http_failure_is_unknown(self):
         def fail(_):
-            raise p.CheckError("curl failed")
+            raise p.CheckError("HTTP request failed: TimeoutError")
         report, _, _, _ = self.scan(site=["https://example.test=" + str(self.root)], probe=fail)
         self.assertTrue(all(r["status"] == "UNKNOWN" for r in report.rows if r["title"].startswith("HTTP https")))
 
     def test_status_000_is_not_a_success(self):
-        with patch.object(p, "command", return_value=("000", "")), self.assertRaises(p.CheckError):
-            p.probe("https://example.test/.git/config")
+        status, _ = p.classify_http(dict(status=0, bytes=0, sha256=p.digest(b"")), [])
+        self.assertEqual(status, "UNKNOWN")
 
     def test_unknown_never_prints_all_passed(self):
         report = p.Report()
@@ -212,10 +215,10 @@ class ToolTests(unittest.TestCase):
                 self.assertFalse(any(r["title"].startswith("HTTP https") for r in report.rows))
                 self.assertTrue(any(r["title"] == "HTTP-Konfiguration" and r["status"] == "UNKNOWN" for r in report.rows))
 
-    def test_curl_ignores_user_configuration(self):
-        with patch.object(p, "command", return_value=("403", "")) as mock:
+    def test_status_only_probe_preserves_its_public_interface(self):
+        with patch.object(p, "http_observation", return_value=dict(status=403, bytes=0, sha256=p.digest(b""))) as mock:
             self.assertEqual(p.probe("https://example.test/.env"), 403)
-        self.assertEqual(mock.call_args.args[0][:2], ["curl", "--disable"])
+        mock.assert_called_once_with("https://example.test/.env", "127.0.0.1")
 
     def test_master_environment_is_used_without_caller_leaks(self):
         with patch.object(Path, "read_bytes", return_value=b"FPM_DISABLED_FUNCTIONS=exec,system\0PATH=/usr/bin\0"), patch.dict(os.environ, {"UNRELATED_CALLER_SECRET": "must-not-leak"}):
@@ -367,12 +370,12 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue(all(s['connect_ip'] == '127.0.0.1' for s in inventory['sites']))
         self.assertEqual(inventory['issues'], [])
 
-    def test_ipv6_only_is_represented_and_passed_to_curl(self):
+    def test_ipv6_only_is_represented_and_passed_to_http_backend(self):
         inventory = self.inventory('http { server { listen [::]:443 ssl; server_name example.org; root /srv/site; } }')
         self.assertEqual(inventory['sites'][0]['connect_ip'], '::1')
-        with patch.object(p, 'command', return_value=('403', '')) as command:
+        with patch.object(p, 'http_observation', return_value=dict(status=403, bytes=0, sha256=p.digest(b''))) as observation:
             self.assertEqual(p.probe('https://example.org/.env', connect_ip='::1'), 403)
-        self.assertIn('example.org:443:[::1]', command.call_args.args[0])
+        observation.assert_called_once_with('https://example.org/.env', '::1')
 
     def test_http_root_inheritance_and_static_location_alias(self):
         inventory = self.inventory('http { root /srv/site; server { listen 80; server_name example.org; location /assets/ { alias /opt/assets/; } location /files/ { root /srv/files; } } }')

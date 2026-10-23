@@ -1,11 +1,14 @@
 name: CLI tests
 on:
   push:
-    branches-ignore: [ci-proof]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: cli-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   linux:
     runs-on: ubuntu-24.04
@@ -25,10 +28,36 @@ jobs:
           docker run --rm --cpus 2 --memory 768m \
             -v "$GITHUB_WORKSPACE:/source:ro" "$TEST_IMAGE" /bin/sh -c '
               apt-get update -qq &&
-              apt-get install -y -qq --no-install-recommends bash curl procps util-linux &&
-              bash /source/tools/test-linux.sh &&
-              python3 -B /source/tools/test_public_proof.py
+              apt-get install -y -qq --no-install-recommends bash procps util-linux &&
+              bash /source/tools/test-linux.sh
             '
+  fpm:
+    name: PHP-FPM ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.4", "8.5"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Real PHP-FPM settings and audit comparison
+        env:
+          PHP_IMAGE: php:${{ matrix.php }}-fpm-bookworm
+        run: |
+          mkdir -p artifacts
+          python3 -B tools/test_fpm_runtime.py --engine p2s_harden.py \
+            --image "$PHP_IMAGE" --json > artifacts/fpm-runtime.json
+      - name: Retain runtime image identities and observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fpm-runtime-php-${{ matrix.php }}
+          path: artifacts/fpm-runtime.json
+          if-no-files-found: error
+          retention-days: 30
   windows:
     runs-on: windows-latest
     timeout-minutes: 10

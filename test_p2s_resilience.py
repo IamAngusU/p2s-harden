@@ -34,19 +34,19 @@ class ResilienceTests(unittest.TestCase):
 
     def scan(self, instances=None, discovery_error=None):
         discover = patch.object(p, 'discover', side_effect=discovery_error) if discovery_error else patch.object(p, 'discover', return_value=(instances or [self.instance], []))
-        with patch.object(p, 'capabilities', return_value=self.cap), discover, patch.object(p, 'as_user', return_value=self.permissions) as permissions, patch.object(p, 'probe', return_value=403) as http:
+        with patch.object(p, 'capabilities', return_value=self.cap), discover, patch.object(p, 'as_user', return_value=self.permissions) as permissions, patch.object(p, 'http_observation', return_value=dict(status=403, bytes=0, sha256=p.digest(b''))) as http:
             result = p.scan(self.args)
         return result, permissions, http
 
-    def test_missing_curl_is_reported_once_and_permissions_continue(self):
+    def test_missing_curl_does_not_prevent_http_or_permission_checks(self):
         self.cap['tools']['curl'] = False
         self.args.site *= 10
         (report, _, _, _), permissions, http = self.scan()
-        self.assertEqual(len([r for r in report.rows if 'curl fehlt' in r['detail']]), 1)
+        self.assertFalse(any('curl fehlt' in r['detail'] for r in report.rows))
         self.assertTrue(permissions.called)
-        http.assert_not_called()
+        self.assertTrue(http.called)
         self.assertTrue(any(r['status'] == 'OK' and 'Pool ' in r['title'] for r in report.rows))
-        self.assertEqual(report.exit_code(), 2)
+        self.assertTrue(all(r['status'] == 'OK' for r in report.rows if r['title'].startswith('HTTP http')))
 
     def test_missing_runuser_is_reported_once_per_user_not_per_root(self):
         self.cap['tools']['runuser'] = False
@@ -116,15 +116,15 @@ class ResilienceTests(unittest.TestCase):
         report = p.Report()
         report.add('OK', 'HTTP fixture', '403')
         output = io.StringIO()
-        with patch.object(p, 'prepare_scope'), patch.object(p, 'scan', return_value=(report, {str(self.ini): {'allow_url_include': 'Off'}}, [self.instance], {'www-data'})), patch.object(p, 'capabilities', return_value=self.cap), patch.object(p.Transaction, 'begin', side_effect=AssertionError('must not mutate')), contextlib.redirect_stdout(output):
-            result = p.main(['--fix', '--verbose'])
+        with patch.object(p, 'prepare_scope'), patch.object(p, 'prepare_runtime_dirs'), patch.object(p, 'scan', return_value=(report, {str(self.ini): {'allow_url_include': 'Off'}}, [self.instance], {'www-data'})), patch.object(p, 'capabilities', return_value=self.cap), patch.object(p.Transaction, 'begin', side_effect=AssertionError('must not mutate')), contextlib.redirect_stdout(output):
+            result = p.main(['--fix', '--verbose', '--lang', 'de'])
         self.assertEqual(result, 2)
         self.assertIn('HTTP fixture', output.getvalue())
         self.assertIn('Fix gesperrt', output.getvalue())
         self.assertEqual(self.ini.read_text(), 'allow_url_include=Off\n')
 
     def test_missing_ssh_client_returns_json_without_traceback(self):
-        run = subprocess.run(['/bin/bash', str(Path('p2s-harden.sh').absolute()), '--ssh', 'example.test', '--json'],
+        run = subprocess.run(['/bin/bash', str(Path('p2s-harden.sh').absolute()), '--ssh', 'example.test', '--json', '--lang', 'de'],
                              env=dict(os.environ, SSH_BIN='/nonexistent/p2s-ssh'), capture_output=True, text=True)
         self.assertEqual(run.returncode, 2)
         self.assertIn('OpenSSH-Client fehlt', json.loads(run.stdout)['findings'][0]['detail'])
@@ -171,7 +171,7 @@ class ResilienceTests(unittest.TestCase):
     def test_python_missing_bootstrap_is_structured_and_lists_all_missing_tools(self):
         empty = self.root / 'empty-path'
         empty.mkdir()
-        run = subprocess.run(['/bin/bash', str(Path('p2s-harden.sh').absolute()), '--doctor', '--json'],
+        run = subprocess.run(['/bin/bash', str(Path('p2s-harden.sh').absolute()), '--doctor', '--json', '--lang', 'de'],
                              env=dict(os.environ, PATH=str(empty)), capture_output=True, text=True)
         self.assertEqual(run.returncode, 2, run.stderr)
         result = json.loads(run.stdout)
@@ -185,7 +185,7 @@ class ResilienceTests(unittest.TestCase):
         minimal = self.root / 'minimal-path'
         minimal.mkdir()
         (minimal / 'python3').symlink_to(sys.executable)
-        run = subprocess.run(['/bin/bash', str(Path('p2s-harden.sh').absolute()), '--doctor', '--json'],
+        run = subprocess.run(['/bin/bash', str(Path('p2s-harden.sh').absolute()), '--doctor', '--json', '--lang', 'de'],
                              env=dict(os.environ, PATH=str(minimal)), capture_output=True, text=True)
         result = json.loads(run.stdout)
         self.assertEqual(run.returncode, result['exit_code'])

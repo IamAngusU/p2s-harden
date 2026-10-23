@@ -24,15 +24,15 @@
 <p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.de.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-For Linux servers running PHP-FPM, especially conventional Debian/Ubuntu installations with Nginx. **2.2.0-rc.1 is a release candidate.** The default command audits the server. Changes require an explicit `--fix` or `--rollback`. Findings are currently explained in German. [Deutsch](README.de.md).
+For Linux servers running PHP-FPM, especially conventional Debian/Ubuntu installations with Nginx. **2.2.0-rc.2 is a release candidate.** The default command audits the server. Changes require an explicit `--fix` or `--rollback`. English output by default; use `--lang de` for German, including help and prerequisite messages. [Deutsch](README.de.md).
 
 ## Start here
 
 Download **one file** for the computer you will run it from:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0-rc.1/p2s-harden.ps1)
-- [Linux / macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0-rc.1/p2s-harden.sh)
-- [Full source package and checksums](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.0-rc.1)
+- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0-rc.2/p2s-harden.ps1)
+- [Linux / macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0-rc.2/p2s-harden.sh)
+- [Full source package and checksums](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.0-rc.2)
 
 Both launchers contain the complete Python engine. No pip, Composer or project configuration.
 
@@ -68,7 +68,7 @@ Full checks and fixes require root on the Linux target. **Root SSH disabled?** L
 2. It checks PHP settings, write permissions and selected HTTP endpoints.
 3. It shows open findings, incomplete checks and missing capabilities. No paths or domains need configuring for a common supported setup.
 
-`OK` means that individual check passed. `OPEN` needs review or a change. `UNKNOWN` means the check could not establish a result. A completed audit can have `UNKNOWN` findings; they stay visible.
+`OK` means that individual check passed. `OPEN` needs review or a change. `UNKNOWN` means the check could not establish a result. A completed audit can have `UNKNOWN` findings; they stay visible and take precedence in the exit code. `INFO` describes context outside the selected automated checks, including the manual ImageMagick assessment; it does not change the exit code.
 
 Need help with the environment? Run the same launcher with `--doctor`:
 
@@ -77,7 +77,7 @@ sudo bash p2s-harden.sh --doctor
 sudo bash p2s-harden.sh --discover
 ```
 
-Missing `ps` uses a `/proc` fallback. Missing `curl` skips HTTP checks once with a package suggestion. Missing `runuser` skips permission checks for affected foreign users once per user. Missing systemd/service mapping blocks automatic INI fixes while supported audit checks continue. A failed FPM inspection does not discard independent checks. Nothing is installed automatically.
+Missing `ps` uses a `/proc` fallback. HTTP checks use Python’s standard library and need no `curl`. Missing `runuser` skips permission checks for affected foreign users once per user. Missing systemd/service mapping blocks automatic INI fixes while supported audit checks continue. A failed FPM inspection does not discard independent checks. Nothing is installed automatically.
 
 Without Python, the bootstrap still lists missing helpers and explains the next step. Provide Python, then rerun the same command. An unreachable SSH target also receives a clear error.
 
@@ -103,7 +103,7 @@ sudo bash p2s-harden.sh --rollback
 
 `--fix` adds seven defined shell-related functions to existing FPM `disable_functions` and switches enabled `allow_url_include` off in supported FPM-specific INIs. These restrictions can affect applications. Verify the affected applications afterwards.
 
-Directory changes require an explicit `--protect-dir /absolute/path` and an identifiable web user. They affect that directory only. Discovery never selects permission changes for you. Required fix capabilities are checked before the transaction. Backups preserve file bytes and metadata; rollback refuses conflicting newer edits. [Detailed behavior and recovery](docs/DETAILS.de.md).
+Directory changes require an explicit `--protect-dir /absolute/path` and an identifiable web user. They affect that directory only. Discovery never selects permission changes for you. Required fix capabilities are checked before the transaction. Fixes receive a new modification time. Backups preserve the original bytes and metadata; rollback restores them and refuses conflicting newer content or metadata. `--rollback` targets only the latest transaction; repeating it is a no-op. Select an older transaction explicitly with `--backup-id ID`. [Detailed behavior and recovery](docs/DETAILS.de.md).
 
 Audit, doctor, inventory and dry-run leave target configuration, permissions and services unchanged. Reads and HTTP requests can update access times and ordinary server logs.
 
@@ -112,17 +112,18 @@ Audit, doctor, inventory and dry-run leave target configuration, permissions and
 - **A helper is missing:** `--doctor` explains what needs it. Independent checks continue; install only the helper you need, then rerun.
 - **A different Nginx layout:** use `--nginx-config /path/nginx.conf`.
 - **Scope one site:** use `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. `--site` and `--web-user` can be repeated.
-- **An HTTP limit is reported:** narrow the scope or increase `--max-sites` (default 32, maximum 512).
-- **Need every finding:** add `--verbose`. For automation use `--json`; progress goes to stderr. `--no-progress` suppresses phase hints.
+- **Expected uploads or cache:** declare `--runtime-dir /srv/site/uploads` (repeatable). Writable directories there become `INFO`; writable PHP files remain `OPEN`. Verify execution restrictions for those paths separately.
+- **A traversal or HTTP limit is reported:** narrow the scope or adjust `--max-paths` (20000 entries per walk), `--walk-seconds` (10 per walk), `--max-http-probes` (128 total requests), or `--max-sites` (32 automatic mappings). Reaching a limit stays `UNKNOWN`.
+- **Need every finding:** add `--verbose`. For automation use `--json` in any mode: previews include `plan`, fixes/recovery include `transaction`, and failures keep earlier findings. Progress goes to stderr. `--no-progress` suppresses phase hints.
 - **Exit 2 after an audit or fix:** inspect the `UNKNOWN` findings. Exit 0 means selected checks passed, 1 means open findings, 2 means incomplete coverage/error. It does not imply that all independent checks stopped. A completed fix can leave unrelated findings.
 
 ## Scope and release status
 
 Automatic INI fixes support conventional Debian/Ubuntu **host FPM** layouts (`/etc/php/VERSION/fpm`) with protected configuration files and a matching systemd service. Apache/mod_php, other FPM layouts, containers, dynamic Nginx mappings and ImageMagick rules require separate/manual assessment.
 
-This inspects disk configuration and selected permissions/endpoints. It does not prove that every running worker uses that configuration or that every PHP-to-shell technique is blocked. Writable runtime directories and HTTP 2xx catch-all responses need interpretation. The seven function restrictions and `open_basedir` do not replace process isolation.
+This inspects disk configuration and selected permissions/endpoints. It does not prove that every running worker uses that configuration or that every PHP-to-shell technique is blocked. HTTP 2xx responses are compared with two random missing paths. Matching or dynamic soft-404 pages stay `UNKNOWN`, rather than becoming false file-exposure findings or false passes. The seven function restrictions and `open_basedir` do not replace process isolation.
 
-[Actual validation and limitations](docs/VALIDATION.md) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE).
+[Review findings and real PHP-FPM evidence](docs/REVIEW-FOLLOWUP.md) · [Actual validation and limitations](docs/VALIDATION.md) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE).
 
 ## For contributors
 
@@ -133,10 +134,18 @@ python3 build-standalone.py --check
 sudo bash tools/test-linux.sh
 ```
 
-The Linux runner creates and removes protected disposable fixtures itself. Ownership/ACL/recovery tests require root, Python 3.8+, Bash, curl, runuser, ps and the `www-data` account. They never modify real PHP/Nginx/firewall configuration. Windows transport tests use a temporary fake SSH executable:
+The Linux runner creates and removes protected disposable fixtures itself. Ownership/ACL/recovery tests require root, Python 3.8+, Bash, runuser, ps and the `www-data` account. They never modify real PHP/Nginx/firewall configuration. Windows transport tests use a temporary fake SSH executable:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\test-windows-launcher.ps1
 ```
+
+For an additional real PHP-FPM check, use Docker on a Linux test machine:
+
+```bash
+python3 tools/test_fpm_runtime.py --engine p2s_harden.py
+```
+
+This starts disposable containers and sends real FastCGI requests. It checks function calls, pool inheritance and URL includes, and compares those observations with the audit. Docker is needed only for this contributor test. [Cases and limits](docs/REVIEW-FOLLOWUP.md).
 
 [Contributing](CONTRIBUTING.md) · [Security scope](SECURITY.md) · [CI workflow](.github/workflows/ci.yml).
