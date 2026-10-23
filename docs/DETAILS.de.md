@@ -213,8 +213,8 @@ gelten für die angegebenen lokalen Endpunkte, nicht für vorgeschaltete CDNs.
 `test_p2s_harden.py` ist eine isolierte Linux-Regressionssuite. Sie prüft unter
 anderem falsche Erfolgsmeldungen, Kommentare, Pool-Vererbung, HTTP-Fehler,
 Trockenlauf, mehrere Änderungen derselben Datei, Paralleländerungen, atomare
-Sicherung/Rücknahme und nichtrekursive Verzeichnisrechte. Als root in einem
-geschützten temporären Arbeitsordner ausführen:
+Sicherung/Rücknahme und nichtrekursive Verzeichnisrechte. Aus dem Hauptverzeichnis des vollständigen Quellpakets starten. Der Teststarter
+erstellt und entfernt den geschützten temporären Fixture-Ordner selbst:
 
 ```bash
 python3 build-standalone.py --check

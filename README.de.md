@@ -2,7 +2,7 @@
 
 **PHP-FPM-Server prüfen, fehlende Voraussetzungen verstehen und begrenzte Fixes vorab ansehen — direkt im Terminal.**
 
-Für Linux-Server mit PHP-FPM, insbesondere konventionelle Debian/Ubuntu-Installationen mit Nginx. **2.2.0-rc.1 ist ein Release Candidate.** Der Standardbefehl prüft. Änderungen brauchen `--fix`. [English](README.md).
+Für Linux-Server mit PHP-FPM, insbesondere konventionelle Debian/Ubuntu-Installationen mit Nginx. **2.2.0-rc.1 ist ein Release Candidate.** Der Standardbefehl prüft. Änderungen erfolgen ausdrücklich mit `--fix` oder `--rollback`. [English](README.md).
 
 ## Direkt starten
 
@@ -61,13 +61,25 @@ Auch ohne Python listet der Bootstrap fehlende Helfer auf und erklärt den näch
 
 ## Fixes erst ansehen, dann anwenden
 
+Zeige zuerst die geplanten Änderungen an:
+
 ```bash
 sudo bash p2s-harden.sh --dry-run
+```
+
+Nach Prüfung des Trockenlaufs die unterstützten Änderungen ausdrücklich anwenden:
+
+```bash
 sudo bash p2s-harden.sh --fix
+```
+
+Falls du eine angewendete Transaktion zurücknehmen möchtest, nutze separat:
+
+```bash
 sudo bash p2s-harden.sh --rollback
 ```
 
-Lies den Trockenlauf vor dem zweiten Befehl. `--fix` ergänzt sieben definierte Shell-Funktionen in vorhandenen FPM-`disable_functions` und setzt ein aktiviertes `allow_url_include` in unterstützten FPM-spezifischen INIs auf `Off`. Das kann Anwendungen betreffen. Prüfe die betroffenen Anwendungen anschließend.
+`--fix` ergänzt sieben definierte Shell-Funktionen in vorhandenen FPM-`disable_functions` und setzt ein aktiviertes `allow_url_include` in unterstützten FPM-spezifischen INIs auf `Off`. Das kann Anwendungen betreffen. Prüfe die betroffenen Anwendungen anschließend.
 
 Verzeichnisrechte ändern sich ausschließlich mit einem ausdrücklichen `--protect-dir /absoluter/pfad` und bekanntem Web-Benutzer. Die Änderung gilt nur für dieses Verzeichnis. Erkennung wählt keine Rechteänderungen aus. Erforderliche Fix-Fähigkeiten werden vor der Transaktion geprüft. Backups bewahren Dateiinhalte und Metadaten; Rollback lehnt widersprüchliche neuere Änderungen ab. [Details und Wiederherstellung](docs/DETAILS.de.md).
 

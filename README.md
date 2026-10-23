@@ -2,7 +2,7 @@
 
 **Check a PHP-FPM server, understand what is missing, and preview scoped fixes — from your terminal.**
 
-For Linux servers running PHP-FPM, especially conventional Debian/Ubuntu installations with Nginx. **2.2.0-rc.1 is a release candidate.** The default command audits the server. Changes require `--fix`. Findings are currently explained in German. [Deutsch](README.de.md).
+For Linux servers running PHP-FPM, especially conventional Debian/Ubuntu installations with Nginx. **2.2.0-rc.1 is a release candidate.** The default command audits the server. Changes require an explicit `--fix` or `--rollback`. Findings are currently explained in German. [Deutsch](README.de.md).
 
 ## Start here
 
@@ -61,13 +61,25 @@ Without Python, the bootstrap still lists missing helpers and explains the next 
 
 ## Review fixes before applying
 
+First inspect the proposed changes:
+
 ```bash
 sudo bash p2s-harden.sh --dry-run
+```
+
+After reviewing the preview, explicitly apply the supported changes:
+
+```bash
 sudo bash p2s-harden.sh --fix
+```
+
+If you need to undo an applied transaction, use the separate recovery command:
+
+```bash
 sudo bash p2s-harden.sh --rollback
 ```
 
-Read the preview before running the second command. `--fix` adds seven defined shell-related functions to existing FPM `disable_functions` and switches enabled `allow_url_include` off in supported FPM-specific INIs. These restrictions can affect applications. Verify the affected applications afterwards.
+`--fix` adds seven defined shell-related functions to existing FPM `disable_functions` and switches enabled `allow_url_include` off in supported FPM-specific INIs. These restrictions can affect applications. Verify the affected applications afterwards.
 
 Directory changes require an explicit `--protect-dir /absolute/path` and an identifiable web user. They affect that directory only. Discovery never selects permission changes for you. Required fix capabilities are checked before the transaction. Backups preserve file bytes and metadata; rollback refuses conflicting newer edits. [Detailed behavior and recovery](docs/DETAILS.de.md).
 
