@@ -4,6 +4,6 @@ This CLI audits selected host PHP-FPM disk configuration, Nginx mappings, user w
 
 Review particularly: privileged configuration loading, complete include provenance, environment confidentiality, argument transport, write targets, transaction recovery and rollback conflicts. An external command failure must not create a passed result. Missing optional capabilities must not stop independent read-only checks. Required fix capabilities must be checked before mutation.
 
-Reports may contain private domains, paths, usernames and service names. Review/redact them before sharing. Process environments are used only in memory for FPM reconstruction; they must not be printed or saved. HTTP response bodies are discarded.
+Normal reports may contain private domains, paths, usernames and service names. Use `--check --redact --json` for a shareable allowlisted report, or review normal reports before sharing. Redaction covers report stdout; SSH/system stderr may still identify the host. Shared instance IDs are fresh per report. Process environments are used only in memory for FPM reconstruction; they must not be printed or saved. HTTP response bodies are discarded.
 
 For a suspected vulnerability, use the repository's private vulnerability reporting channel when the published repository provides one. Do not put credentials, private configuration dumps or exploit targets in public issues. Ordinary compatibility reports should include a redacted `--doctor --json` result, tool version and Linux/FPM layout.

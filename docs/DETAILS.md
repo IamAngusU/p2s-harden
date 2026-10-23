@@ -110,7 +110,7 @@ This is not a replacement for server snapshots or database backups.
 
 ## Source and evidence
 
-Edit `src/*.py`; [the builder](../build-standalone.py) assembles eight source
+Edit `src/*.py`; [the builder](../build-standalone.py) assembles nine source
 components into the auditable generated engine and both standalone launchers.
 The Linux target does not need source components, imports, pip or package setup.
 English is the diagnostic source; the separate catalog supplies German.
@@ -121,3 +121,23 @@ have different scopes. [Validation](VALIDATION.md), [CI design](CI.md) and the
 tests never modify real host PHP/Nginx/firewall configuration. System-runtime
 tests require an explicit root-owned disposable-VM marker and environment flag;
 never use that developer test on a production server.
+
+## FPM boundaries and private reports (2.2.0)
+
+The audit now checks TCP listeners against literal-IP client allowlists, Unix
+socket configured/observed modes, `security.limit_extensions`, `clear_env`,
+shared numeric UIDs and `ffi.enable` when that directive is present in the
+inspected PHP configuration. Network reachability, host firewall, container
+publication, named ACL grant intent and production-worker values are not inferred.
+See [production scope](PRODUCTION.md) and [per-rule actions](FINDINGS.md).
+
+`--redact` supports check/doctor/discover, with human or JSON output. It uses
+an allowlist projection, so paths, domains, users, arbitrary diagnostics,
+inventory, preview and transaction data cannot enter the report through a
+new metadata field. Redacted instance IDs are fresh per output; original IDs
+remain the automation contract locally. Exit status, rule IDs, result counts
+and suppression status are preserved. Only report stdout is covered; existing
+SSH/system stderr is outside that projection. Masked change approval is refused.
+
+FPM include provenance walks are iterative and stop at 64 levels, 1024 files,
+2 MiB per file or 16 MiB total. Reaching a bound is incomplete coverage.

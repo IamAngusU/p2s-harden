@@ -36,6 +36,7 @@ def main(argv=None):
     parser.add_argument("--fail-on", choices=("complete", "open"), default="complete", help=text("Exit precedence: complete (UNKNOWN first) or open (OPEN first); unknowns never pass"))
     parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN exit impact; keep it visible; repeatable"))
     parser.add_argument("--json", action="store_true", help=text("Structured findings, stable IDs, remediation, preview and transaction state"))
+    parser.add_argument("--redact", action="store_true", help=text("Shareable read-only report: omit host details, inventory and original finding IDs"))
     parser.add_argument("--verbose", action="store_true", help=text('Show all findings, including OK'))
     parser.add_argument("--no-progress", action="store_true", help=text('Hide interactive progress messages'))
     parser.add_argument("--progress", action="store_true", help=text('Write progress to stderr even without a TTY'))
@@ -44,7 +45,7 @@ def main(argv=None):
     report, tx = None, None
     def show_report():
         report.configure(args.fail_on, args.ignore)
-        report.show(args.json, verbose=args.verbose, lang=args.lang)
+        report.show(args.json, verbose=args.verbose, lang=args.lang, redact=args.redact)
     def summarize(transaction):
         import shlex
         undo = ("sudo bash p2s-harden.sh --rollback --backup-id " + shlex.quote(transaction.path.name) +
@@ -64,6 +65,8 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
+        if args.redact and args.mode not in ("check", "doctor", "discover"):
+            raise CheckError("--redact supports --check, --doctor and --discover; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
             raise CheckError("--ignore requires a finding id or rule_id from --json")
         if args.mode == "doctor":

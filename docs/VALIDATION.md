@@ -1,5 +1,20 @@
 # Validation
 
+## Stable 2.2.0 release gate
+
+The stable release adds FPM listener/socket/extension/environment checks,
+loaded FFI context, private report projection and bounded include provenance.
+The real runtime test caught a dump-parser bug: a trailing empty assignment was
+lost after whitespace stripping, potentially hiding unrestricted script suffixes.
+The parser now retains empty values; unit and FastCGI regressions cover it.
+
+The required gate is 167 tool tests plus 23 protocol/proof/guard tests on each
+Linux Python job, 26 real FPM cases for each of PHP 8.2–8.5, eight integration
+stages on each supported distro VM, and the native PowerShell transport suite.
+See the [current exact-commit proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
+for measured results and retained runtime artifact identities. A workflow file
+alone is not a passed run. [Production scope](PRODUCTION.md) defines the claim.
+
 ## 2.2.0-rc.3
 
 Local Linux fixtures passed **153 tool regressions and 23 protocol/proof/guard tests**,

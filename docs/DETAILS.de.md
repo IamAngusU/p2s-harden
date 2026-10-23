@@ -1,4 +1,4 @@
-# p2s-harden 2.2.0-rc.3
+# p2s-harden 2.2.0
 
 Begrenzte PHP/FPM-Prüfung für Linux mit ausdrücklich ausgewiesenem Prüfumfang.
 `OK` ist ein belegter Einzelbefund; `OPEN` ist eine Abweichung oder ein zu
@@ -288,3 +288,22 @@ sichtbar und beeinflusst nur deren Exitwirkung; UNKNOWN besteht weiterhin nie.
 Die englische [vollständige Anleitung](DETAILS.md) und [Regelübersicht](FINDINGS.md)
 erläutern diese Verträge. Die englische Quellsprache und acht Komponenten in src/
 werden vom Builder weiterhin zu eigenständigen Ein-Datei-Launchern zusammengesetzt.
+
+## Stabile Version 2.2.0
+
+Zusätzlich werden TCP-Listener/Client-Freigaben, konfigurierte und tatsächliche
+Unix-Socket-Rechte, Skript-Endungen, clear_env, gemeinsame numerische UIDs und
+geladene FFI-Einstellungen geprüft. Netzwerk-Erreichbarkeit und bestehende
+Produktions-Worker werden dabei nicht attestiert. Pool- und Netzwerkänderungen
+bleiben manuell. [Umfang und Abnahme](PRODUCTION.md).
+
+Mit `--check --redact --json` entsteht ein teilbarer Bericht aus einer festen
+Auswahl: Regel-ID, Status, Schweregrad, Handlungshinweis und Zähler. Private
+Hostdaten, Rohdiagnosen, Inventar und Transaktionsdaten entfallen. Befund-IDs
+werden für geteilte Berichte neu erzeugt. Exit-Code und Ergebnisse bleiben
+erhalten. Auch doctor/discover und Textausgabe werden unterstützt. Fix-Vorschauen
+müssen lokal ohne Maskierung geprüft werden. Die Maskierung gilt für stdout,
+nicht für SSH-/Systemdiagnosen auf stderr.
+
+FPM-Includes sind auf 64 Ebenen, 1024 Dateien, 2 MiB je Datei und 16 MiB insgesamt
+begrenzt. Ein erreichtes Limit bleibt UNKNOWN; unabhängige Prüfungen laufen weiter.

@@ -103,13 +103,14 @@ public class FakeSSH {
     }
 
     foreach ($language in @('en', 'de')) {
-        $transport = Invoke-Launcher @('--ssh', 'tester@[::1]', '--lang', $language, '--root', $root, '--json', '--yes', '--fail-on', 'open', '--ignore', 'P2S-FS002')
+        $transport = Invoke-Launcher @('--ssh', 'tester@[::1]', '--lang', $language, '--root', $root, '--json', '--yes', '--fail-on', 'open', '--ignore', 'P2S-FS002', '--redact')
         if ($transport.ExitCode -ne 17) { throw 'Localized transport changed the SSH exit code.' }
         $argv = [IO.File]::ReadAllText($env:P2S_ARGUMENTS).Split([char]0)
         if ($argv[-2] -cne 'tester@[::1]') { throw 'Localized transport changed the SSH target.' }
         if (-not $argv[-1].Contains("; bootstrap 1 $language || exit 2;")) { throw 'Remote bootstrap did not receive the selected language.' }
         if (-not $argv[-1].Contains("exec python3 -B - '--lang' '$language' '--root' $quotedRoot '--json'")) { throw 'Engine language or native argument quoting changed.' }
         if (-not $argv[-1].Contains("'--yes' '--fail-on' 'open' '--ignore' 'P2S-FS002'")) { throw 'Automation/approval flags were dropped in SSH transport.' }
+        if (-not $argv[-1].Contains("'--redact'")) { throw 'Redaction flag was dropped in SSH transport.' }
         if ([IO.File]::ReadAllText($env:P2S_PAYLOAD) -cne [IO.File]::ReadAllText((Join-Path $base 'p2s_harden.py'))) { throw 'Localized transport altered the embedded UTF-8 engine.' }
     }
     $env:P2S_EXIT_CODE = '255'
@@ -118,6 +119,9 @@ public class FakeSSH {
     $failure = $unreachable.Stdout | ConvertFrom-Json
     if ($failure.language -cne 'de' -or $failure.findings[0].status -cne 'UNKNOWN' -or
         -not $failure.findings[0].detail.Contains('Ziel nicht erreichbar')) { throw 'SSH failure was not localized, structured JSON.' }
+    $redacted = Invoke-Launcher @('--ssh', 'PRIVATE-invalid-target!', '--json', '--redact')
+    $shared = $redacted.Stdout | ConvertFrom-Json
+    if ($redacted.ExitCode -ne 2 -or -not $shared.redacted -or $redacted.Stdout.Contains('PRIVATE-invalid-target')) { throw 'Redacted transport failure exposed host details.' }
     $tokens = $null
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $base 'p2s-harden.ps1'), [ref]$tokens, [ref]$errors)

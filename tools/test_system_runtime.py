@@ -107,8 +107,18 @@ def main(argv=None):
         checked=cli('--check')
         assert any(row['rule_id']=='P2S-PHP001' and row['status']=='OPEN' for row in checked['findings'])
         assert any(row['rule_id']=='P2S-FS002' and row['status']=='OPEN' for row in checked['findings'])
+        pool_rows=[row for row in checked['findings'] if row['rule_id'] in ('P2S-FPM002','P2S-FPM003','P2S-FPM004')]
+        assert {row['rule_id'] for row in pool_rows}=={'P2S-FPM002','P2S-FPM003','P2S-FPM004'}
+        assert all(row['status'] in ('OK','INFO') for row in pool_rows),pool_rows
         assert ini.read_bytes()==baseline
         evidence['cases'].append(dict(name='actual-audit-settings-and-php-user-permissions',status='PASS'))
+        shared=cli('--check','--redact')
+        assert shared['redacted'] and shared['exit_code']==checked['exit_code']
+        assert shared['counts']==checked['counts']
+        assert all(row['resource'] is None for row in shared['findings'])
+        assert str(root) not in json.dumps(shared) and 'p2s-ci.test' not in json.dumps(shared)
+        assert ini.read_bytes()==baseline
+        evidence['cases'].append(dict(name='shareable-report-preserves-results-without-host-details',status='PASS'))
         preview=cli('--dry-run')
         assert preview['plan']['ini'] and not preview['plan']['blockers']
         assert any('+disable_functions' in e['diff'] for e in preview['plan']['ini'])

@@ -24,15 +24,15 @@
 <p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **2.2.0-rc.3 ist ein Release Candidate.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
+**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **2.2.0 ist die stabile Version für die unten beschriebenen Host-Setups.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
 
 ## Direkt starten
 
 Lade **eine Datei** für deinen Startrechner:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0-rc.3/p2s-harden.ps1)
-- [Linux/macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0-rc.3/p2s-harden.sh)
-- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.0-rc.3)
+- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0/p2s-harden.ps1)
+- [Linux/macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0/p2s-harden.sh)
+- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.0)
 
 Auf dem Linux-Server:
 
@@ -78,6 +78,7 @@ OK: 12   OPEN: 1   UNKNOWN: 1   INFO: 0
 | Prüfung | Ausgewiesener Umfang | Automatische Änderung |
 | --- | --- | --- |
 | FPM-Einstellungen | Sieben Funktionen, additive Pool-Sperren, URL-Includes, open_basedir | Unterstützte Funktions-/Include-INI-Werte |
+| FPM-Grenzen | TCP-Bindung und Client-Freigaben, konfigurierte und tatsächliche Socket-Rechte, Skript-Endungen, Umgebungsbereinigung, gemeinsame UIDs und geladene FFI-Einstellung | Einzeln prüfen und manuell ändern |
 | Code und Verzeichnisse | Echte PHP-Benutzer/Gruppen und ACL-Wirkung; PHP-Dateien auch im Laufzeitspeicher | Nur ausdrückliches --protect-dir, nicht rekursiv |
 | Sensible HTTP-Pfade | .env, .git/config, gefundene .env*, SQL-/BAK-/Log-Dateien und benannte Debugskripte | Keine; Webserver/Anwendung manuell korrigieren |
 | Fehlpfad-Baseline | Zwei zufällige Pfade erkennen statische/dynamische Soft-404s | Keine |
@@ -112,6 +113,20 @@ Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includ
 
 Audit, Diagnose, Inventar und Trockenlauf ändern keine Zielkonfiguration, Rechte oder Dienste. Lesen und HTTP können Zugriffszeiten und gewöhnliche Logs aktualisieren.
 
+## Bericht ohne private Hostdetails teilen
+
+```bash
+sudo bash p2s-harden.sh --check --redact --json > p2s-report.json
+```
+
+`--redact` übernimmt ausschließlich Regel-IDs, Status, Schweregrad,
+Handlungshinweise und Zähler. Pfade, Domains, Nutzer, Originaldiagnosen,
+Inventar, Pläne und Transaktionen entfallen. Befund-IDs werden pro geteiltem
+Bericht neu erzeugt; für einzelne `--ignore`-Ausnahmen den lokalen Originalbericht
+verwenden. Ergebnisse und Exit-Code bleiben gleich. Unterstützt: check, doctor
+und discover. Fix-Vorschauen lokal ohne Maskierung prüfen. Die Maskierung gilt
+für den Bericht auf stdout; SSH-/Systemdiagnosen auf stderr können den Host nennen.
+
 ## Häufige Situationen
 
 - **Uploads/Cache:** `--runtime-dir /srv/site/uploads` wiederholen. Schreibbare Verzeichnisse dort werden INFO; schreibbare PHP-Dateien und fehlende Abdeckung bleiben sichtbar. Ausführungssperren separat prüfen.
@@ -144,7 +159,7 @@ Das entfernt die Downloadmarkierung, übersteuert aber weder Restricted noch Org
 
 ## Umfang und Reifegrad
 
-**RC.3 bleibt ein Release Candidate.** Datenträgerprüfung belegt nicht die Konfiguration jedes bestehenden Workers oder alle vHosts/Container/Angriffspfade. Separate Wegwerf-VM-Tests prüfen echten `/proc`-Discover, Nginx-Zuordnung, PHP-Benutzerrechte, systemd-Fix/Reload, HTTP-Workerwerte und Rollback auf Debian 12/PHP 8.2 und Ubuntu 24.04/PHP 8.3. Die FastCGI-Matrix umfasst PHP 8.2–8.5. [Prüfnachweise](docs/VALIDATION.md) · [Review-Entscheidungen](docs/REVIEW-rc3.md).
+**Stabil innerhalb des dokumentierten Umfangs.** Datenträgerprüfung belegt nicht die Konfiguration jedes bestehenden Workers oder alle vHosts/Container/Angriffspfade. Separate Wegwerf-VM-Tests prüfen echten `/proc`-Discover, Nginx-Zuordnung, PHP-Benutzerrechte, systemd-Fix/Reload, HTTP-Workerwerte und Rollback auf Debian 12/PHP 8.2 und Ubuntu 24.04/PHP 8.3. Die FastCGI-Matrix umfasst PHP 8.2–8.5. [Prüfnachweise](docs/VALIDATION.md) · [Release-Umfang und Abnahmekriterien](docs/PRODUCTION.md).
 
 Der Quellaccount kann derzeit keine GitHub-gehosteten Runner starten. Deshalb läuft öffentliche CI auf einem zweiten Account desselben Maintainers. Das ist kein unabhängiges Audit. Der Proof verlangt übereinstimmende getestete Quell-/Fork-Commits. [Jobs und Schritte](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [Synchronisierung](docs/CI.md).
 

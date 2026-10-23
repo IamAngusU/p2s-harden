@@ -187,4 +187,51 @@ matching soft-404 page cannot prove that a file is protected. The filename-based
 For incomplete discovery, fix the particular mapping/access issue and rerun. Raise limits only for a reviewed scope.
 For fix errors, inspect `transaction.status` and the backup ID before retrying. Do not overwrite a reported rollback conflict.
 
-[CLI and transaction manual](DETAILS.md) · [Readme](../README.md)
+[CLI and transaction manual](DETAILS.md) Â· [Readme](../README.md)
+
+## P2S-FPM001
+
+Default OPEN importance: `high`.
+
+Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication.
+
+## P2S-FPM002
+
+Default OPEN importance: `high`.
+
+Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart.
+
+## P2S-FPM003
+
+Default OPEN importance: `medium`.
+
+Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well.
+
+## P2S-FPM004
+
+Default OPEN importance: `medium`.
+
+Use clear_env=yes and declare only required env[] variables; test application configuration before reloading.
+
+## P2S-FPM005
+
+Default OPEN importance: `info`.
+
+Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain.
+
+## P2S-PHP004
+
+Default OPEN importance: `high`.
+
+Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application.
+
+These FPM rules assess disk configuration and, for Unix modes, the visible socket
+inode. A TCP allowlist does not prove firewall correctness or Internet isolation.
+Socket mode checks do not approve the intent of named ACL grants. `.php .phar`
+is informational; empty or additional script suffixes need review. Shared UIDs
+are informational because multiple pools may intentionally serve one trust domain.
+FFI `preload` is informational and still needs review of preloaded native scopes.
+Neither function restrictions nor these checks establish a sandbox.
+
+Primary semantics: [PHP FPM configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
+and [PHP FFI configuration](https://www.php.net/manual/en/ffi.configuration.php).

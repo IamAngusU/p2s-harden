@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.2.0-rc.3 — self-contained; engine is embedded below.
+# p2s-harden 2.2.0 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.2.0-rc.3 — one file, automatic discovery
+p2s-harden 2.2.0 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -55,6 +55,7 @@ Options (override automatically discovered values):
   --backup-root /root/path     Custom backup directory
   --backup-id ID               Restore a specific transaction
   --json                      Machine-readable output
+  --redact                    Shareable read-only report without host details
   --yes, -y                   Approve the fix without an interactive prompt
   --fail-on complete|open     Exit precedence; UNKNOWN never passes
   --ignore ID                 Keep a finding visible but suppress its OPEN exit
@@ -68,7 +69,7 @@ HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.2.0-rc.3 — eine Datei, automatische Erkennung
+p2s-harden 2.2.0 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -98,6 +99,7 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --backup-root /root/pfad      Anderes Backup-Verzeichnis
   --backup-id ID                Bestimmte Transaktion zurücknehmen
   --json                       Maschinenlesbare Ausgabe
+  --redact                     Teilbarer Prüfbericht ohne private Hostdetails
   --yes, -y                    Fix ohne interaktive Rückfrage freigeben
   --fail-on complete|open      Exit-Vorrang; UNKNOWN besteht niemals
   --ignore ID                  Befund sichtbar lassen, seine OPEN-Exitwirkung ausnehmen
@@ -126,7 +128,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.2.0-rc.3'; exit 0 ;;
+    --version) echo 'p2s-harden 2.2.0'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -183,7 +185,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.2.0-rc.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.2.0","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -212,7 +214,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.2.0-rc.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.2.0","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -231,7 +233,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.2.0-rc.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.2.0","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi
@@ -257,6 +259,7 @@ import difflib
 import hashlib
 import http.client
 import io
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -276,7 +279,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.2.0-rc.3"
+VERSION = "2.2.0"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -406,8 +409,9 @@ def pool_values(text):
             current = body[1:-1]
             if current != "global":
                 pools[current] = {}
-        elif current in pools and " = " in body:
-            key, value = body.split(" = ", 1)
+        elif current in pools and "=" in body:
+            # strip() removes the trailing space of an empty pool value.
+            key, value = body.split("=", 1)
             pools[current][key.strip()] = value.strip()
     if not pools:
         raise CheckError('Cannot parse the FPM pool dump')
@@ -528,22 +532,35 @@ def discover():
 def validate_fpm_files(path, seen=None):
     import glob
     seen = set() if seen is None else seen
-    path = trusted(path)
-    if str(path) in seen:
-        return
-    seen.add(str(path))
-    for line in path.read_text().splitlines():
-        match = re.match(r"^\s*include\s*=\s*(.*?)\s*(?:;.*)?$", line)
-        if not match:
+    pending, total = [(Path(path), 0)], 0
+    while pending:
+        current, depth = pending.pop()
+        current = trusted(current)
+        if str(current) in seen:
             continue
-        pattern = match[1].strip().strip("\"'")
-        if not os.path.isabs(pattern):
-            raise CheckError('A relative FPM include requires a manual context check')
-        files = sorted(glob.glob(pattern))
-        if not files:
-            raise CheckError(f'FPM include has no readable target: {pattern}')
-        for child in files:
-            validate_fpm_files(Path(child), seen)
+        if depth > 64 or len(seen) >= 1024:
+            raise CheckError("FPM include coverage limit reached (64 levels / 1024 files)")
+        seen.add(str(current))
+        with current.open("rb") as stream:
+            raw = stream.read(2 * 1024 * 1024 + 1)
+        total += len(raw)
+        if len(raw) > 2 * 1024 * 1024 or total > 16 * 1024 * 1024:
+            raise CheckError("FPM include byte budget reached (2 MiB per file / 16 MiB total)")
+        for line in raw.decode().splitlines():
+            match = re.match(r"^\s*include\s*=\s*(.*?)\s*(?:;.*)?$", line)
+            if not match:
+                continue
+            pattern = match[1].strip().strip("\"'")
+            if not os.path.isabs(pattern):
+                raise CheckError('A relative FPM include requires a manual context check')
+            files = []
+            for child in glob.iglob(pattern):
+                files.append(child)
+                if len(files) + len(pending) > 1024:
+                    raise CheckError("FPM include coverage limit reached (64 levels / 1024 files)")
+            if not files:
+                raise CheckError(f'FPM include has no readable target: {pattern}')
+            pending.extend((Path(child), depth + 1) for child in sorted(files, reverse=True))
 
 
 # Source: src/filesystem_http.py
@@ -1836,6 +1853,42 @@ _NEW_GERMAN = {
     "Resolve the execution error and rerun; consult transaction state before retrying a change.": "Ausführungsfehler beheben und erneut ausführen; vor erneuter Änderung den Transaktionsstatus prüfen.",
     "Review this diagnostic in its reported context.": "Diese Diagnose im angegebenen Kontext prüfen.",
 }
+_NEW_GERMAN.update({
+    "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review": "Hauptskript-Endungen sind unbeschränkt; nach Prüfung der Anwendung security.limit_extensions=.php setzen",
+    "Shareable read-only report: omit host details, inventory and original finding IDs": "Teilbarer Prüfbericht: Hostdetails, Inventar und ursprüngliche Befund-IDs weglassen",
+    "Host details omitted; rerun locally without --redact": "Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen",
+    "--redact supports --check, --doctor and --discover; review change previews locally without redaction": "--redact unterstützt --check, --doctor und --discover; Änderungsvorschauen lokal ohne Maskierung prüfen",
+    "Cannot parse the configured Unix socket mode": "Konfigurierte Unix-Socket-Rechte sind nicht auswertbar",
+    "Unix socket path has a symlink; verify the effective endpoint separately": "Unix-Socket-Pfad enthält einen Symlink; tatsächlichen Endpunkt separat prüfen",
+    "Configured Unix socket is missing or is not a socket": "Konfigurierter Unix-Socket fehlt oder ist kein Socket",
+    "Named Unix socket ACL grants require individual review; owner/group settings may be ignored": "Benannte Unix-Socket-ACL-Rechte einzeln prüfen; Eigentümer-/Gruppeneinstellungen können wirkungslos sein",
+    "Cannot classify the TCP listener or client allowlist; use literal IP addresses and verify the effective endpoint": "TCP-Listener oder Client-Freigaben nicht einordbar; konkrete IP-Adressen verwenden und tatsächlichen Endpunkt prüfen",
+    "Shared FPM account": "Gemeinsames FPM-Konto",
+    "FPM include coverage limit reached (64 levels / 1024 files)": "FPM-Include-Limit erreicht (64 Ebenen / 1024 Dateien)",
+    "FPM include byte budget reached (2 MiB per file / 16 MiB total)": "FPM-Include-Datenlimit erreicht (2 MiB je Datei / 16 MiB insgesamt)",
+    "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application.": "FFI-Bedarf prüfen; bei Kompatibilität ffi.enable=Off in wirksamer FPM-Konfiguration setzen, neu laden und Anwendung testen.",
+    "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication.": "Unix-Socket oder Loopback bevorzugen; bei erforderlichem TCP-Zugriff listen.allowed_clients auf vorgesehene Proxy-IPs setzen und Firewall/Container-Portfreigaben prüfen.",
+    "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart.": "Unix-Socket auf Webserver-Identität begrenzen, normalerweise Modus 0660 oder 0600; benannte ACL-Rechte und tatsächlichen Socket nach Neustart prüfen.",
+    "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well.": "Nach Prüfung der Anwendung security.limit_extensions=.php setzen; auch Ausführungsregeln für Uploads im Webserver korrigieren.",
+    "Use clear_env=yes and declare only required env[] variables; test application configuration before reloading.": "clear_env=yes verwenden und nur benötigte env[]-Variablen setzen; Anwendung vor Neuladen testen.",
+    "Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain.": "Für gegenseitig nicht vertrauenswürdige Anwendungen getrennte Unix-Konten und Code-Eigentümer verwenden; gemeinsame Pools können bei gleichem Vertrauen beabsichtigt sein.",
+})
+_POOL_TEMPLATES = {
+    "FPM listener [{pool}] {config}": "FPM-Listener [{pool}] {config}",
+    "FPM script extensions [{pool}] {config}": "FPM-Skriptendungen [{pool}] {config}",
+    "FPM environment clearing [{pool}] {config}": "FPM-Umgebungsbereinigung [{pool}] {config}",
+    "PHP FFI [{pool}] {config}": "PHP-FFI [{pool}] {config}",
+    "Configured Unix socket mode: {mode}": "Konfigurierte Unix-Socket-Rechte: {mode}",
+    "Observed Unix socket mode: {mode}; {path}": "Beobachtete Unix-Socket-Rechte: {mode}; {path}",
+    "Loopback TCP bind; local processes can still connect; {listener}": "TCP auf Loopback begrenzt; lokale Prozesse können weiterhin zugreifen; {listener}",
+    "Network TCP bind with an explicit client allowlist; verify firewall and network reachability separately; {listener}": "TCP-Netzwerkbindung mit konkreten Client-Freigaben; Firewall und Erreichbarkeit separat prüfen; {listener}",
+    "Network TCP bind accepts any client address; firewall and Internet reachability were not assessed; {listener}": "TCP-Netzwerkbindung akzeptiert jede Client-Adresse; Firewall und Internet-Erreichbarkeit wurden nicht geprüft; {listener}",
+    "Allowed main-script extensions: {extensions}; .php is the narrow recommended setting": "Erlaubte Hauptskript-Endungen: {extensions}; .php ist die eng begrenzte Empfehlung",
+    "clear_env={value}; explicit pool env[] values are not printed": "clear_env={value}; konkrete env[]-Werte des Pools werden nicht ausgegeben",
+    "ffi.enable={value}; native/preloaded code requires separate review; function restrictions are defense in depth": "ffi.enable={value}; nativen/vorgeladenen Code separat prüfen; Funktionssperren sind zusätzliche Härtung",
+    "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
+}
+_MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]
@@ -1893,6 +1946,12 @@ RULES = {
     "PHP001": ("high", "Review --dry-run, test application compatibility, then apply --fix --yes or set the required function restrictions manually."),
     "PHP002": ("high", "Set allow_url_include=Off in the effective FPM INI/pool and reload the matching service."),
     "PHP003": ("medium", "Review a narrow per-pool open_basedir with application testing; it is an additional restriction, not a sandbox."),
+    "PHP004": ("high", "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application."),
+    "FPM001": ("high", "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication."),
+    "FPM002": ("high", "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart."),
+    "FPM003": ("medium", "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well."),
+    "FPM004": ("medium", "Use clear_env=yes and declare only required env[] variables; test application configuration before reloading."),
+    "FPM005": ("info", "Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain."),
     "FS001": ("high", "Remove PHP-user write access to application code and verify ACLs; keep required runtime data separate."),
     "FS002": ("high", "Separate code from runtime storage; use --runtime-dir only for reviewed storage and --protect-dir only for an explicit code directory."),
     "FS003": ("info", "Resolve the reported user/access/coverage issue or narrow the scope; an incomplete walk cannot pass."),
@@ -1941,18 +2000,29 @@ class Report:
             return 2
         return int(self.has("OPEN"))
 
-    def show(self, as_json=False, verbose=False, lang="en"):
+    def show(self, as_json=False, verbose=False, lang="en", redact=False):
         rows = [dict(row, title=localize(row["title"], lang), detail=localize(row["detail"], lang),
                      remediation=localize(row["remediation"], lang)) for row in self.rows]
         discovery = localized_discovery(self.discovery, lang)
+        if redact:
+            # Allowlist projection, not regex replacement: even exception text,
+            # arbitrary discovery metadata and future resource shapes are omitted.
+            nonce = uuid.uuid4().hex
+            rows = [dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
+                         rule_id=row["rule_id"], resource=None, status=row["status"],
+                         title=row["rule_id"], detail=localize("Host details omitted; rerun locally without --redact", lang),
+                         severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
+                         suppressed=row["suppressed"]) for index, row in enumerate(self.rows)]
+            discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
+                             inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
-            print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, findings=rows,
+            print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
                                   suppressed_open=sum(r["suppressed"] for r in rows),
                                   fail_on=getattr(self, "fail_on", "complete"),
-                                  discovery=discovery, plan=getattr(self, "plan", None),
-                                  transaction=getattr(self, "transaction", None),
+                                  discovery=discovery, plan=None if redact else getattr(self, "plan", None),
+                                  transaction=None if redact else getattr(self, "transaction", None),
                                   exit_code=self.exit_code()), ensure_ascii=False, indent=2))
             return
         def emit(line):
@@ -1960,12 +2030,12 @@ class Report:
             print("".join(c if c.isprintable() else "?" for c in line))
         label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "Configuration audit"
         emit(f"p2s-harden {VERSION} – {localize(label, lang)}")
-        cap = self.discovery.get("capabilities", {})
+        cap = discovery.get("capabilities", {})
         missing_tools = [name for name, present in cap.get("tools", {}).items() if not present and name != "curl"]
         if missing_tools:
             emit(("Fehlende Helfer: " if lang == "de" else "Missing helpers: ") + ", ".join(missing_tools) +
                  ("; --doctor zeigt Zweck und nächste Schritte." if lang == "de" else "; --doctor explains their purpose and next steps."))
-        if self.discovery and not self.discovery.get("doctor"):
+        if self.discovery and not self.discovery.get("doctor") and not redact:
             pools = sum(len(i["pools"]) for i in self.discovery.get("fpm_instances", []))
             instance_count, site_count = len(self.discovery.get('fpm_instances', [])), len(self.discovery.get('selected_sites', []))
             emit(f"Erkannt: {instance_count} Host-FPM-Instanzen, {pools} Pools, {site_count} HTTP-Zuordnungen" if lang == "de" else
@@ -1995,6 +2065,120 @@ class Report:
         print("\n" + "   ".join(f"{s}: {n}" for s, n in counts.items()))
         emit("Nur die ausgewiesenen Host-Pfade/Instanzen wurden geprüft; keine Sicherheitszertifizierung." if lang == "de" else
              "Only the reported host paths and instances were checked; this is not a security certification.")
+        if self.discovery.get("assessment"):
+            emit("Datenträger-Konfiguration geprüft; bestehende Worker, Netzwerk-Erreichbarkeit und Anwendungsschwachstellen bleiben ungeprüft." if lang == "de" else
+                 "Disk configuration inspected; existing workers, network reachability and application vulnerabilities remain unverified.")
+
+
+# Source: src/pool_security.py
+"""Read-only FPM boundaries; never infer Internet reachability or tenant intent."""
+
+
+def pool_effective(values, settings, key):
+    value = values.get(key)
+    for prefix in ("php_value", "php_flag", "php_admin_value", "php_admin_flag"):
+        override = settings.get(prefix + "[" + key + "]")
+        if override is not None and override != "undefined":
+            value = override
+    return value
+
+
+def pool_security(report, instance):
+    for pool, settings in instance["pools"].items():
+        resource = dict(config=instance["config"], pool=pool)
+        title = "FPM listener [" + pool + "] " + instance["config"]
+        listener = settings.get("listen", "").strip()
+        if listener.startswith("/"):
+            raw_mode = settings.get("listen.mode", "0660")
+            if raw_mode == "undefined":
+                raw_mode = "0660"
+            if not re.fullmatch(r"0?[0-7]{3}", raw_mode):
+                status, detail = "UNKNOWN", "Cannot parse the configured Unix socket mode"
+            else:
+                world = int(raw_mode, 8) & 0o002
+                status = "OPEN" if world else "OK"
+                detail = "Configured Unix socket mode: " + raw_mode
+            report.add(status, title, detail, rule_id="P2S-FPM002", resource=dict(resource, source="configured"))
+            try:
+                path = Path(listener)
+                if any(p.is_symlink() for p in (path, *path.parents)):
+                    raise CheckError("Unix socket path has a symlink; verify the effective endpoint separately")
+                actual = path.lstat()
+                if not stat.S_ISSOCK(actual.st_mode):
+                    raise CheckError("Configured Unix socket is missing or is not a socket")
+                mode = stat.S_IMODE(actual.st_mode)
+                report.add("OPEN" if mode & 0o002 else "OK", title,
+                           "Observed Unix socket mode: " + format(mode, "04o") + "; " + listener,
+                           rule_id="P2S-FPM002", resource=dict(resource, source="observed"))
+            except (OSError, CheckError) as exc:
+                report.add("UNKNOWN", title, str(exc), rule_id="P2S-FPM002", resource=dict(resource, source="observed"))
+            if any(settings.get(key, "") not in ("", "undefined") for key in ("listen.acl_users", "listen.acl_groups")):
+                report.add("INFO", title, "Named Unix socket ACL grants require individual review; owner/group settings may be ignored",
+                           rule_id="P2S-FPM002", resource=dict(resource, source="acl"))
+        else:
+            try:
+                if listener.isdigit():
+                    host, port = "0.0.0.0", listener
+                elif listener.startswith("[") and "]:" in listener:
+                    host, port = listener[1:].rsplit("]:", 1)
+                elif listener.count(":") == 1:
+                    host, port = listener.rsplit(":", 1)
+                    host = "0.0.0.0" if host in ("", "*") else host
+                else:
+                    raise ValueError()
+                if not port.isdigit() or not 1 <= int(port) <= 65535:
+                    raise ValueError()
+                address = ipaddress.ip_address(host)
+                clients = settings.get("listen.allowed_clients", "").strip()
+                restricted = clients not in ("", "undefined")
+                if restricted:
+                    # PHP documents individual IPs, not hostnames/CIDR/wildcards.
+                    # Never resolve names or claim that a firewall was inspected.
+                    for client in clients.split(","):
+                        ipaddress.ip_address(client.strip())
+                local = address.is_loopback or (getattr(address, "ipv4_mapped", None) is not None and address.ipv4_mapped.is_loopback)
+                status = "OK" if local or restricted else "OPEN"
+                detail = ("Loopback TCP bind; local processes can still connect" if local else
+                          "Network TCP bind with an explicit client allowlist; verify firewall and network reachability separately" if restricted else
+                          "Network TCP bind accepts any client address; firewall and Internet reachability were not assessed")
+                report.add(status, title, detail + "; " + listener, rule_id="P2S-FPM001", resource=resource)
+            except ValueError:
+                report.add("UNKNOWN", title, "Cannot classify the TCP listener or client allowlist; use literal IP addresses and verify the effective endpoint",
+                           rule_id="P2S-FPM001", resource=resource)
+        extensions = settings.get("security.limit_extensions", ".php .phar")
+        tokens = extensions.split() if extensions != "undefined" else []
+        status = "OPEN" if not tokens or any(t not in (".php", ".phar") for t in tokens) else "OK" if set(tokens) == {".php"} else "INFO"
+        report.add(status, "FPM script extensions [" + pool + "] " + instance["config"],
+                   "Allowed main-script extensions: " + extensions + "; .php is the narrow recommended setting" if tokens else
+                   "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review",
+                   rule_id="P2S-FPM003", resource=resource)
+        clear = settings.get("clear_env", "yes").lower()
+        status = "OK" if clear in ("yes", "on", "1", "true") else "OPEN" if clear in ("no", "off", "0", "false", "") else "UNKNOWN"
+        report.add(status, "FPM environment clearing [" + pool + "] " + instance["config"],
+                   "clear_env=" + clear + "; explicit pool env[] values are not printed",
+                   rule_id="P2S-FPM004", resource=resource)
+        ffi = pool_effective(instance["values"], settings, "ffi.enable") if "ffi.enable" in instance["values"] else None
+        if ffi is not None:
+            value = ffi.lower()
+            status = "OK" if value in ("off", "0", "false", "no", "") else "INFO" if value == "preload" else "OPEN" if value in ("on", "1", "true", "yes") else "UNKNOWN"
+            report.add(status, "PHP FFI [" + pool + "] " + instance["config"],
+                       "ffi.enable=" + ffi + "; native/preloaded code requires separate review; function restrictions are defense in depth",
+                       rule_id="P2S-PHP004", resource=resource)
+
+
+def shared_pool_users(report, instances):
+    identities = {}
+    for instance in instances:
+        for pool, settings in instance["pools"].items():
+            try:
+                user = pwd.getpwnam(settings.get("user", ""))
+            except KeyError:
+                continue  # The independent permission checks report missing users.
+            identities.setdefault(user.pw_uid, []).append(dict(config=instance["config"], pool=pool))
+    for uid, pools in sorted(identities.items()):
+        if len(pools) > 1:
+            report.add("INFO", "Shared FPM account", str(len(pools)) + " pools share UID " + str(uid) + "; they do not form a Unix-user isolation boundary",
+                       rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools))
 
 
 # Source: src/audit.py
@@ -2025,6 +2209,7 @@ def scan(args, inventory_only=False):
     for instance in instances:
         saved_updates = {name: dict(values) for name, values in updates.items()}
         try:
+            pool_security(report, instance)
             label = instance["config"]
             values = instance["values"]
             disabled = functions(values.get("disable_functions", ""))
@@ -2078,6 +2263,9 @@ def scan(args, inventory_only=False):
         except (OSError, UnicodeError, ValueError, CheckError) as exc:
             updates = saved_updates
             report.add("UNKNOWN", f"FPM configuration {instance['config']}", str(exc), rule_id='P2S-DISC003', resource=instance["config"])
+    shared_pool_users(report, instances)
+    report.discovery["assessment"] = dict(configuration="disk", worker_attestation=False,
+        network_reachability=False, application_vulnerabilities=False)
     if not users:
         report.add("UNKNOWN", 'File permissions', 'No verified FPM user; specify --web-user', rule_id='P2S-FS003', resource="missing_user")
     stage(args, 'Checking file permissions as the discovered FPM users')
@@ -2653,6 +2841,7 @@ def main(argv=None):
     parser.add_argument("--fail-on", choices=("complete", "open"), default="complete", help=text("Exit precedence: complete (UNKNOWN first) or open (OPEN first); unknowns never pass"))
     parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN exit impact; keep it visible; repeatable"))
     parser.add_argument("--json", action="store_true", help=text("Structured findings, stable IDs, remediation, preview and transaction state"))
+    parser.add_argument("--redact", action="store_true", help=text("Shareable read-only report: omit host details, inventory and original finding IDs"))
     parser.add_argument("--verbose", action="store_true", help=text('Show all findings, including OK'))
     parser.add_argument("--no-progress", action="store_true", help=text('Hide interactive progress messages'))
     parser.add_argument("--progress", action="store_true", help=text('Write progress to stderr even without a TTY'))
@@ -2661,7 +2850,7 @@ def main(argv=None):
     report, tx = None, None
     def show_report():
         report.configure(args.fail_on, args.ignore)
-        report.show(args.json, verbose=args.verbose, lang=args.lang)
+        report.show(args.json, verbose=args.verbose, lang=args.lang, redact=args.redact)
     def summarize(transaction):
         import shlex
         undo = ("sudo bash p2s-harden.sh --rollback --backup-id " + shlex.quote(transaction.path.name) +
@@ -2681,6 +2870,8 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
+        if args.redact and args.mode not in ("check", "doctor", "discover"):
+            raise CheckError("--redact supports --check, --doctor and --discover; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
             raise CheckError("--ignore requires a finding id or rule_id from --json")
         if args.mode == "doctor":

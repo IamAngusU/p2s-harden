@@ -25,6 +25,7 @@ def scan(args, inventory_only=False):
     for instance in instances:
         saved_updates = {name: dict(values) for name, values in updates.items()}
         try:
+            pool_security(report, instance)
             label = instance["config"]
             values = instance["values"]
             disabled = functions(values.get("disable_functions", ""))
@@ -78,6 +79,9 @@ def scan(args, inventory_only=False):
         except (OSError, UnicodeError, ValueError, CheckError) as exc:
             updates = saved_updates
             report.add("UNKNOWN", f"FPM configuration {instance['config']}", str(exc), rule_id='P2S-DISC003', resource=instance["config"])
+    shared_pool_users(report, instances)
+    report.discovery["assessment"] = dict(configuration="disk", worker_attestation=False,
+        network_reachability=False, application_vulnerabilities=False)
     if not users:
         report.add("UNKNOWN", 'File permissions', 'No verified FPM user; specify --web-user', rule_id='P2S-FS003', resource="missing_user")
     stage(args, 'Checking file permissions as the discovered FPM users')

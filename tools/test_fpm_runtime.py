@@ -81,6 +81,7 @@ try {
 }
 $all = ini_get_all();
 echo json_encode(['sapi' => PHP_SAPI, 'php_version' => PHP_VERSION,
+    'parent_env_visible' => getenv('P2S_PARENT_CANARY') !== false,
     'disable_functions' => ini_get('disable_functions'),
     'disable_functions_access' => $all['disable_functions']['access'],
     'allow_url_include' => ini_get('allow_url_include'),
@@ -125,10 +126,10 @@ def receive_exact(stream, count):
     return bytes(chunks)
 
 
-def fastcgi_request(socket_path, timeout=3):
+def fastcgi_request(socket_path, timeout=3, script="/lab/probe.php", status_only=False):
     """Minimal FastCGI Responder client; rejects truncated/non-success replies."""
     params = {"GATEWAY_INTERFACE": "CGI/1.1", "REQUEST_METHOD": "GET",
-              "SCRIPT_FILENAME": "/lab/probe.php", "SCRIPT_NAME": "/probe.php",
+              "SCRIPT_FILENAME": script, "SCRIPT_NAME": "/" + Path(script).name,
               "REQUEST_URI": "/probe.php", "SERVER_PROTOCOL": "HTTP/1.1",
               "SERVER_NAME": "p2s-runtime.test", "SERVER_PORT": "80",
               "REMOTE_ADDR": "127.0.0.1", "QUERY_STRING": "", "CONTENT_LENGTH": "0"}
@@ -163,6 +164,13 @@ def fastcgi_request(socket_path, timeout=3):
     if not separator:
         header, separator, body = bytes(stdout).partition(b"\n\n")
     status = re.search(br"(?im)^Status:[ \t]*(\d{3})\b", header)
+    if status_only and separator:
+        code = int(status.group(1)) if status else 200
+        try:
+            executed = json.loads(body.decode()).get("sapi") == "fpm-fcgi"
+        except (UnicodeError, ValueError, AttributeError):
+            executed = False
+        return dict(http_status=code, script_executed=executed)
     if not separator or (status is not None and status.group(1) != b"200"):
         raise EvidenceError("Missing/successless CGI headers: " + header.decode(errors="replace")[:500])
     if b"content-type: application/json" not in header.lower():
@@ -198,6 +206,12 @@ def cases():
         dict(name="pool-uppercase-not-disabled", global_disabled="", pool={"php_admin_value[disable_functions]": all_functions.upper()}, disabled=set(), include=False),
         dict(name="global-space-separated", global_disabled=" ".join(REQUIRED), pool={}, disabled=set(REQUIRED), include=False),
         dict(name="pool-space-separated", global_disabled="", pool={"php_value[disable_functions]": " ".join(REQUIRED)}, disabled=set(REQUIRED), include=False),
+        dict(name="environment-inheritance", global_disabled="", pool={"clear_env":"no"}, disabled=set(), include=False, parent_env=True),
+        dict(name="unrestricted-script-extensions", global_disabled="", pool={"security.limit_extensions":""}, disabled=set(), include=False, txt=True),
+        dict(name="non-php-script-extension", global_disabled="", pool={"security.limit_extensions":".php .txt"}, disabled=set(), include=False, txt=True),
+        dict(name="default-php-phar-extensions", global_disabled="", pool={"security.limit_extensions":".php .phar"}, disabled=set(), include=False),
+        dict(name="network-listener-unrestricted", global_disabled="", pool={}, disabled=set(), include=False, network={"listen":"0.0.0.0:9000"}, listener_status="OPEN"),
+        dict(name="network-listener-allowlist", global_disabled="", pool={}, disabled=set(), include=False, network={"listen":"0.0.0.0:9000", "listen.allowed_clients":"127.0.0.1"}, listener_status="OK"),
     ]
 
 
@@ -206,11 +220,16 @@ def write_fixture(directory, case):
     (directory / "socket").mkdir(mode=0o777)
     os.chmod(directory / "socket", 0o777)
     (directory / "probe.php").write_text(PHP_PROBE)
+    (directory / "probe.txt").write_text(PHP_PROBE)
     (directory / "php.ini").write_text("[PHP]\ndisplay_errors=Off\nlog_errors=On\nallow_url_fopen=On\nallow_url_include=Off\ndisable_functions={}\n".format(case["global_disabled"]))
     settings = "\n".join('{} = {}'.format(k, v if k.startswith(("php_flag[", "php_admin_flag[")) else '"' + v + '"')
                          for k, v in case["pool"].items())
     (directory / "fpm.conf").write_text("[global]\nerror_log=/proc/self/fd/2\ndaemonize=no\n[fixture]\nuser=www-data\ngroup=www-data\nlisten=/lab/socket/fpm.sock\nlisten.mode=0600\npm=static\npm.max_children=1\ncatch_workers_output=yes\nclear_env=yes\nsecurity.limit_extensions=.php\n" + settings + "\n")
-    for name in ("probe.php", "php.ini", "fpm.conf"):
+    if case.get("network"):
+        with (directory / "fpm.conf").open("a") as stream:
+            stream.write("\n[network]\nuser=www-data\ngroup=www-data\npm=static\npm.max_children=1\n" +
+                         "\n".join(key + "=" + value for key,value in case["network"].items()) + "\n")
+    for name in ("probe.php", "probe.txt", "php.ini", "fpm.conf"):
         (directory / name).chmod(0o644)
 
 
@@ -239,16 +258,18 @@ def observe(image_id, case, run_id):
                  "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                  "--user", container_user(), "--mount", "type=bind,src=" + str(directory) + ",dst=/lab",
                  "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=16m", "--env", "PHP_INI_SCAN_DIR=",
+                 "--env", "P2S_PARENT_CANARY=fixture-only-nonsecret",
                  image_id, "php-fpm", "-F", "-y", "/lab/fpm.conf", "-c", "/lab/php.ini"])
             deadline, last_error = time.monotonic() + 15, "not ready"
             while time.monotonic() < deadline:
                 try:
                     evidence = fastcgi_request(directory / "socket/fpm.sock")
+                    evidence["txt_script"] = fastcgi_request(directory / "socket/fpm.sock", script="/lab/probe.txt", status_only=True)
                     # A dump is auxiliary configuration provenance, never the
                     # success oracle. The assertions above use the web reply.
                     dump = run(["docker", "exec", name, "php-fpm", "-tt", "-y", "/lab/fpm.conf", "-c", "/lab/php.ini"])
                     evidence["fpm_pool_dump"] = "\n".join(line for line in (dump.stdout + dump.stderr).splitlines()
-                        if re.search(r"NOTICE:\s+(?:\[fixture\]|php_(?:admin_)?(?:value|flag)\[(?:disable_functions|allow_url_include)\]\s*=)", line))
+                        if re.search(r"NOTICE:\s+(?:\[(?:fixture|network)\]|(?:user|listen(?:\.(?:mode|allowed_clients))?|clear_env|security\.limit_extensions|php_(?:admin_)?(?:value|flag)\[(?:disable_functions|allow_url_include)\])\s*=)", line))
                     return evidence
                 except (OSError, EvidenceError) as exc:
                     last_error = str(exc)
@@ -264,6 +285,11 @@ def observe(image_id, case, run_id):
 
 def assert_observation(case, data, baseline):
     failures = []
+    if data["parent_env_visible"] != case.get("parent_env", False):
+        failures.append("clear_env runtime inheritance mismatch")
+    expected_txt = case.get("txt", False)
+    if data["txt_script"] != dict(http_status=200 if expected_txt else 403, script_executed=expected_txt):
+        failures.append("security.limit_extensions runtime enforcement mismatch")
     for name in REQUIRED:
         expected = baseline["functions"][name]["exists"] and name not in case["disabled"]
         observed = data["functions"].get(name)
@@ -283,11 +309,11 @@ def audit_comparison(engine, case, data, directory):
     """Exercise real scan() pool decisions; isolate unrelated host checks only."""
     # Use the real dump: FPM normalizes php_flag into php_value and admin flags
     # into admin values. Testing input spelling alone would miss that boundary.
-    settings = dict(user="www-data", **engine.pool_values(data["fpm_pool_dump"])["fixture"])
+    pools = engine.pool_values(data["fpm_pool_dump"])
     instance = dict(pid=123, start="fixture", binary="/fixture/php-fpm", service=None,
                     config="/fixture/fpm.conf", inis=[str(directory / "php.ini")], env={},
                     values={"disable_functions": case["global_disabled"], "allow_url_include": "Off", "open_basedir": "/lab"},
-                    pools={"fixture": settings})
+                    pools=pools)
     args = argparse.Namespace(web_user=[], root=str(directory), roots=[str(directory)], site=[], discovery={})
     permissions = json.dumps(dict(files=0, directories=0, file_sample=[], directory_sample=[], errors=[]))
     with patch.object(engine, "discover", return_value=([instance], [])), patch.object(engine, "as_user", return_value=permissions):
@@ -297,6 +323,18 @@ def audit_comparison(engine, case, data, directory):
     runtime_pool = "OPEN" if any(v["exists"] for v in data["functions"].values()) else "OK"
     runtime_include = "OPEN" if data["data_include_allowed"] else "OK"
     failures = []
+    def state(rule, pool="fixture", source=None):
+        return [row["status"] for row in report.rows if row["rule_id"] == rule and row["resource"].get("pool") == pool
+                and (source is None or row["resource"].get("source") == source)]
+    expected_extension = "OPEN" if case.get("txt", False) else "INFO" if case["pool"].get("security.limit_extensions") == ".php .phar" else "OK"
+    if state("P2S-FPM003") != [expected_extension]:
+        failures.append("audit script-extension policy differs from real FPM fixture")
+    if state("P2S-FPM004") != ["OPEN" if data["parent_env_visible"] else "OK"]:
+        failures.append("audit environment policy differs from real FPM inheritance")
+    if state("P2S-FPM002", source="configured") != ["OK"]:
+        failures.append("audit configured socket mode differs from real FPM fixture")
+    if case.get("network") and state("P2S-FPM001", "network") != [case["listener_status"]]:
+        failures.append("audit TCP listener policy differs from real FPM dump")
     if pool["status"] != runtime_pool:
         failures.append("audit pool {} differs from real runtime {}".format(pool["status"], runtime_pool))
     if include["status"] != runtime_include:

@@ -13,6 +13,12 @@ RULES = {
     "PHP001": ("high", "Review --dry-run, test application compatibility, then apply --fix --yes or set the required function restrictions manually."),
     "PHP002": ("high", "Set allow_url_include=Off in the effective FPM INI/pool and reload the matching service."),
     "PHP003": ("medium", "Review a narrow per-pool open_basedir with application testing; it is an additional restriction, not a sandbox."),
+    "PHP004": ("high", "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application."),
+    "FPM001": ("high", "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication."),
+    "FPM002": ("high", "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart."),
+    "FPM003": ("medium", "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well."),
+    "FPM004": ("medium", "Use clear_env=yes and declare only required env[] variables; test application configuration before reloading."),
+    "FPM005": ("info", "Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain."),
     "FS001": ("high", "Remove PHP-user write access to application code and verify ACLs; keep required runtime data separate."),
     "FS002": ("high", "Separate code from runtime storage; use --runtime-dir only for reviewed storage and --protect-dir only for an explicit code directory."),
     "FS003": ("info", "Resolve the reported user/access/coverage issue or narrow the scope; an incomplete walk cannot pass."),
@@ -61,18 +67,29 @@ class Report:
             return 2
         return int(self.has("OPEN"))
 
-    def show(self, as_json=False, verbose=False, lang="en"):
+    def show(self, as_json=False, verbose=False, lang="en", redact=False):
         rows = [dict(row, title=localize(row["title"], lang), detail=localize(row["detail"], lang),
                      remediation=localize(row["remediation"], lang)) for row in self.rows]
         discovery = localized_discovery(self.discovery, lang)
+        if redact:
+            # Allowlist projection, not regex replacement: even exception text,
+            # arbitrary discovery metadata and future resource shapes are omitted.
+            nonce = uuid.uuid4().hex
+            rows = [dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
+                         rule_id=row["rule_id"], resource=None, status=row["status"],
+                         title=row["rule_id"], detail=localize("Host details omitted; rerun locally without --redact", lang),
+                         severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
+                         suppressed=row["suppressed"]) for index, row in enumerate(self.rows)]
+            discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
+                             inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
-            print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, findings=rows,
+            print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
                                   suppressed_open=sum(r["suppressed"] for r in rows),
                                   fail_on=getattr(self, "fail_on", "complete"),
-                                  discovery=discovery, plan=getattr(self, "plan", None),
-                                  transaction=getattr(self, "transaction", None),
+                                  discovery=discovery, plan=None if redact else getattr(self, "plan", None),
+                                  transaction=None if redact else getattr(self, "transaction", None),
                                   exit_code=self.exit_code()), ensure_ascii=False, indent=2))
             return
         def emit(line):
@@ -80,12 +97,12 @@ class Report:
             print("".join(c if c.isprintable() else "?" for c in line))
         label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "Configuration audit"
         emit(f"p2s-harden {VERSION} – {localize(label, lang)}")
-        cap = self.discovery.get("capabilities", {})
+        cap = discovery.get("capabilities", {})
         missing_tools = [name for name, present in cap.get("tools", {}).items() if not present and name != "curl"]
         if missing_tools:
             emit(("Fehlende Helfer: " if lang == "de" else "Missing helpers: ") + ", ".join(missing_tools) +
                  ("; --doctor zeigt Zweck und nächste Schritte." if lang == "de" else "; --doctor explains their purpose and next steps."))
-        if self.discovery and not self.discovery.get("doctor"):
+        if self.discovery and not self.discovery.get("doctor") and not redact:
             pools = sum(len(i["pools"]) for i in self.discovery.get("fpm_instances", []))
             instance_count, site_count = len(self.discovery.get('fpm_instances', [])), len(self.discovery.get('selected_sites', []))
             emit(f"Erkannt: {instance_count} Host-FPM-Instanzen, {pools} Pools, {site_count} HTTP-Zuordnungen" if lang == "de" else
@@ -115,3 +132,6 @@ class Report:
         print("\n" + "   ".join(f"{s}: {n}" for s, n in counts.items()))
         emit("Nur die ausgewiesenen Host-Pfade/Instanzen wurden geprüft; keine Sicherheitszertifizierung." if lang == "de" else
              "Only the reported host paths and instances were checked; this is not a security certification.")
+        if self.discovery.get("assessment"):
+            emit("Datenträger-Konfiguration geprüft; bestehende Worker, Netzwerk-Erreichbarkeit und Anwendungsschwachstellen bleiben ungeprüft." if lang == "de" else
+                 "Disk configuration inspected; existing workers, network reachability and application vulnerabilities remain unverified.")

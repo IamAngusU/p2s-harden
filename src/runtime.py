@@ -11,6 +11,7 @@ import difflib
 import hashlib
 import http.client
 import io
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -30,7 +31,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.2.0-rc.3"
+VERSION = "2.2.0"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -160,8 +161,9 @@ def pool_values(text):
             current = body[1:-1]
             if current != "global":
                 pools[current] = {}
-        elif current in pools and " = " in body:
-            key, value = body.split(" = ", 1)
+        elif current in pools and "=" in body:
+            # strip() removes the trailing space of an empty pool value.
+            key, value = body.split("=", 1)
             pools[current][key.strip()] = value.strip()
     if not pools:
         raise CheckError('Cannot parse the FPM pool dump')
@@ -282,19 +284,32 @@ def discover():
 def validate_fpm_files(path, seen=None):
     import glob
     seen = set() if seen is None else seen
-    path = trusted(path)
-    if str(path) in seen:
-        return
-    seen.add(str(path))
-    for line in path.read_text().splitlines():
-        match = re.match(r"^\s*include\s*=\s*(.*?)\s*(?:;.*)?$", line)
-        if not match:
+    pending, total = [(Path(path), 0)], 0
+    while pending:
+        current, depth = pending.pop()
+        current = trusted(current)
+        if str(current) in seen:
             continue
-        pattern = match[1].strip().strip("\"'")
-        if not os.path.isabs(pattern):
-            raise CheckError('A relative FPM include requires a manual context check')
-        files = sorted(glob.glob(pattern))
-        if not files:
-            raise CheckError(f'FPM include has no readable target: {pattern}')
-        for child in files:
-            validate_fpm_files(Path(child), seen)
+        if depth > 64 or len(seen) >= 1024:
+            raise CheckError("FPM include coverage limit reached (64 levels / 1024 files)")
+        seen.add(str(current))
+        with current.open("rb") as stream:
+            raw = stream.read(2 * 1024 * 1024 + 1)
+        total += len(raw)
+        if len(raw) > 2 * 1024 * 1024 or total > 16 * 1024 * 1024:
+            raise CheckError("FPM include byte budget reached (2 MiB per file / 16 MiB total)")
+        for line in raw.decode().splitlines():
+            match = re.match(r"^\s*include\s*=\s*(.*?)\s*(?:;.*)?$", line)
+            if not match:
+                continue
+            pattern = match[1].strip().strip("\"'")
+            if not os.path.isabs(pattern):
+                raise CheckError('A relative FPM include requires a manual context check')
+            files = []
+            for child in glob.iglob(pattern):
+                files.append(child)
+                if len(files) + len(pending) > 1024:
+                    raise CheckError("FPM include coverage limit reached (64 levels / 1024 files)")
+            if not files:
+                raise CheckError(f'FPM include has no readable target: {pattern}')
+            pending.extend((Path(child), depth + 1) for child in sorted(files, reverse=True))

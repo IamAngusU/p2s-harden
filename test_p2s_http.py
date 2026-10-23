@@ -261,7 +261,7 @@ class FullAuditExitTests(unittest.TestCase):
             web_user=["fixture-user"], no_progress=True, max_http_probes=http_limit)
         instance = dict(pid=1, config="/fake/fpm.conf", service=None, inis=[str(self.ini)],
             values=dict(disable_functions="exec" if missing_functions else ",".join(p.REQUIRED), allow_url_include="Off", open_basedir="/srv/site"),
-            pools={"www": {"user": "fixture-user"}})
+            pools={"www": {"user": "fixture-user", "listen": "127.0.0.1:9000"}})
         cap = dict(root=True, tools=dict(ps=True, curl=False, runuser=True, systemctl=False), systemd=False)
         if imagick:
             instance["values"]["imagick module"] = "enabled"

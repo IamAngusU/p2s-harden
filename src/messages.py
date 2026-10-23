@@ -715,6 +715,42 @@ _NEW_GERMAN = {
     "Resolve the execution error and rerun; consult transaction state before retrying a change.": "Ausführungsfehler beheben und erneut ausführen; vor erneuter Änderung den Transaktionsstatus prüfen.",
     "Review this diagnostic in its reported context.": "Diese Diagnose im angegebenen Kontext prüfen.",
 }
+_NEW_GERMAN.update({
+    "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review": "Hauptskript-Endungen sind unbeschränkt; nach Prüfung der Anwendung security.limit_extensions=.php setzen",
+    "Shareable read-only report: omit host details, inventory and original finding IDs": "Teilbarer Prüfbericht: Hostdetails, Inventar und ursprüngliche Befund-IDs weglassen",
+    "Host details omitted; rerun locally without --redact": "Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen",
+    "--redact supports --check, --doctor and --discover; review change previews locally without redaction": "--redact unterstützt --check, --doctor und --discover; Änderungsvorschauen lokal ohne Maskierung prüfen",
+    "Cannot parse the configured Unix socket mode": "Konfigurierte Unix-Socket-Rechte sind nicht auswertbar",
+    "Unix socket path has a symlink; verify the effective endpoint separately": "Unix-Socket-Pfad enthält einen Symlink; tatsächlichen Endpunkt separat prüfen",
+    "Configured Unix socket is missing or is not a socket": "Konfigurierter Unix-Socket fehlt oder ist kein Socket",
+    "Named Unix socket ACL grants require individual review; owner/group settings may be ignored": "Benannte Unix-Socket-ACL-Rechte einzeln prüfen; Eigentümer-/Gruppeneinstellungen können wirkungslos sein",
+    "Cannot classify the TCP listener or client allowlist; use literal IP addresses and verify the effective endpoint": "TCP-Listener oder Client-Freigaben nicht einordbar; konkrete IP-Adressen verwenden und tatsächlichen Endpunkt prüfen",
+    "Shared FPM account": "Gemeinsames FPM-Konto",
+    "FPM include coverage limit reached (64 levels / 1024 files)": "FPM-Include-Limit erreicht (64 Ebenen / 1024 Dateien)",
+    "FPM include byte budget reached (2 MiB per file / 16 MiB total)": "FPM-Include-Datenlimit erreicht (2 MiB je Datei / 16 MiB insgesamt)",
+    "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application.": "FFI-Bedarf prüfen; bei Kompatibilität ffi.enable=Off in wirksamer FPM-Konfiguration setzen, neu laden und Anwendung testen.",
+    "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication.": "Unix-Socket oder Loopback bevorzugen; bei erforderlichem TCP-Zugriff listen.allowed_clients auf vorgesehene Proxy-IPs setzen und Firewall/Container-Portfreigaben prüfen.",
+    "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart.": "Unix-Socket auf Webserver-Identität begrenzen, normalerweise Modus 0660 oder 0600; benannte ACL-Rechte und tatsächlichen Socket nach Neustart prüfen.",
+    "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well.": "Nach Prüfung der Anwendung security.limit_extensions=.php setzen; auch Ausführungsregeln für Uploads im Webserver korrigieren.",
+    "Use clear_env=yes and declare only required env[] variables; test application configuration before reloading.": "clear_env=yes verwenden und nur benötigte env[]-Variablen setzen; Anwendung vor Neuladen testen.",
+    "Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain.": "Für gegenseitig nicht vertrauenswürdige Anwendungen getrennte Unix-Konten und Code-Eigentümer verwenden; gemeinsame Pools können bei gleichem Vertrauen beabsichtigt sein.",
+})
+_POOL_TEMPLATES = {
+    "FPM listener [{pool}] {config}": "FPM-Listener [{pool}] {config}",
+    "FPM script extensions [{pool}] {config}": "FPM-Skriptendungen [{pool}] {config}",
+    "FPM environment clearing [{pool}] {config}": "FPM-Umgebungsbereinigung [{pool}] {config}",
+    "PHP FFI [{pool}] {config}": "PHP-FFI [{pool}] {config}",
+    "Configured Unix socket mode: {mode}": "Konfigurierte Unix-Socket-Rechte: {mode}",
+    "Observed Unix socket mode: {mode}; {path}": "Beobachtete Unix-Socket-Rechte: {mode}; {path}",
+    "Loopback TCP bind; local processes can still connect; {listener}": "TCP auf Loopback begrenzt; lokale Prozesse können weiterhin zugreifen; {listener}",
+    "Network TCP bind with an explicit client allowlist; verify firewall and network reachability separately; {listener}": "TCP-Netzwerkbindung mit konkreten Client-Freigaben; Firewall und Erreichbarkeit separat prüfen; {listener}",
+    "Network TCP bind accepts any client address; firewall and Internet reachability were not assessed; {listener}": "TCP-Netzwerkbindung akzeptiert jede Client-Adresse; Firewall und Internet-Erreichbarkeit wurden nicht geprüft; {listener}",
+    "Allowed main-script extensions: {extensions}; .php is the narrow recommended setting": "Erlaubte Hauptskript-Endungen: {extensions}; .php ist die eng begrenzte Empfehlung",
+    "clear_env={value}; explicit pool env[] values are not printed": "clear_env={value}; konkrete env[]-Werte des Pools werden nicht ausgegeben",
+    "ffi.enable={value}; native/preloaded code requires separate review; function restrictions are defense in depth": "ffi.enable={value}; nativen/vorgeladenen Code separat prüfen; Funktionssperren sind zusätzliche Härtung",
+    "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
+}
+_MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]
