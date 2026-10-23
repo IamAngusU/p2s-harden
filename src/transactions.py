@@ -119,13 +119,18 @@ def change_plan(updates, protect_dirs, blockers):
     return dict(ini=entries, directories=list(protect_dirs), blockers=list(blockers))
 
 
-def confirm_fix(args):
+INI_UPGRADE_NOTICE = "Changing an existing INI such as php.ini may cause a package-upgrade configuration prompt if local and package versions both change."
+
+
+def confirm_fix(args, ini_changes=False):
     if args.yes:
         return True
     if args.json:
         raise CheckError("Review --dry-run --json first; --fix --json requires --yes")
     try:
         with open("/dev/tty", "r+", encoding="utf-8") as terminal:
+            if ini_changes:
+                terminal.write(localize(INI_UPGRADE_NOTICE, args.lang) + "\n")
             terminal.write(localize("Apply this displayed plan? [y/N] ", args.lang))
             terminal.flush()
             return terminal.readline().strip().lower() in ("y", "yes", "j", "ja")

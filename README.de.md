@@ -149,6 +149,14 @@ Standard (`--fail-on complete`): **2 bei UNKNOWN/Fehler**, sonst **1 bei OPEN**,
 
 Prüfsummen erkennen Korruption oder unpassende Downloads. Prüfsumme und Datei aus demselben Release belegen allein keine Herkunft. Zusätzlich enthalten Releases **GitHub-signierte Build-Nachweise** für die vier Distributionsdateien, gebaut nach bestandenen Testjobs. Mit optionalem `gh attestation verify` Bytes, Workflow und Quell-Commit prüfen: [Befehle und Vertrauensgrenze](docs/PROVENANCE.md).
 
+Mit angemeldeter GitHub CLI (optional; Bash und PowerShell):
+
+```text
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/main --deny-self-hosted-runners
+```
+
+Für den Windows-Download `p2s-harden.ps1` einsetzen. `--source-digest ERWARTETER_COMMIT` bindet die Prüfung an den Release-Commit; [Bundle-/Offline-Prüfung](docs/PROVENANCE.md) erklärt das benötigte Vertrauensmaterial. Die CI-Fork gehört demselben Maintainer.
+
 Prüfsummendatei neben den gewählten Launcher herunterladen. Unter Windows:
 
 ```powershell

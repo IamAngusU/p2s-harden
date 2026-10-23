@@ -73,6 +73,34 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope"}
 
 
+def evidence_summary(rule_id, evidence, lang="en"):
+    facts = safe_evidence(rule_id, evidence)
+    say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {"non_loopback":"outside loopback", "acl":"ACL"}.get(value, value)
+    labels = dict(missing_functions="Missing", allow_url_include="URL includes", unrestricted="Unrestricted",
+                  ffi_policy="ffi.enable", binding="TCP binding", client_allowlist="Client allowlist",
+                  hostname_resolution="Name resolution", socket_mode="Socket mode", source="Source",
+                  named_acl="Named ACL", allowed_known_extensions="Known script extensions",
+                  other_extension_count="Other script extensions", clear_env="clear_env", pool_count="Pools",
+                  writable_files="Writable PHP files", writable_directories="Writable directories",
+                  runtime_directories="Runtime directories", http_status="HTTP status", ptrace_scope="ptrace_scope")
+    parts = []
+    for key, value in facts.items():
+        if key == "affected_pool_count":
+            continue
+        if isinstance(value, list):
+            value = ", ".join(value) or say("none")
+        elif type(value) is bool:
+            value = say("yes" if value else "no")
+        elif type(value) is str and key != "socket_mode":
+            value = say(value)
+        parts.append(localize(labels[key], lang) + ": " + str(value))
+    result = "; ".join(parts) or localize("Host details omitted; rerun locally without --redact", lang)
+    if "affected_pool_count" in facts:
+        count = facts["affected_pool_count"]
+        result += " (" + str(count) + " " + say("pool" if count == 1 else "pools") + ")"
+    return result
+
+
 class Report:
     def __init__(self):
         self.rows = []
@@ -115,10 +143,14 @@ class Report:
             nonce = uuid.uuid4().hex
             def project(index, row):
                 evidence = safe_evidence(row["rule_id"], row.get("evidence"))
+                if as_json:
+                    detail = json.dumps(evidence, sort_keys=True) if evidence else localize("Host details omitted; rerun locally without --redact", lang)
+                else:
+                    detail = evidence_summary(row["rule_id"], evidence, lang)
                 return dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
                             rule_id=row["rule_id"], resource=None, status=row["status"],
                             title=localize(RULE_NAMES.get(row["rule_id"][4:], row["rule_id"]), lang),
-                            detail=json.dumps(evidence, sort_keys=True) if evidence else localize("Host details omitted; rerun locally without --redact", lang),
+                            detail=detail,
                             severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
                             evidence=evidence, suppressed=row["suppressed"])
             rows = [project(index, row) for index, row in enumerate(self.rows)]

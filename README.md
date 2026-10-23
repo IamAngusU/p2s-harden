@@ -150,6 +150,14 @@ Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, other
 
 Checksums detect corruption or mismatched downloads. A checksum from the same release cannot independently authenticate its origin. Releases also include **GitHub-signed build provenance** for the four distribution files, built after all test jobs pass. Verify the exact bytes, expected workflow and source commit with optional `gh attestation verify`: [verification commands and trust boundary](docs/PROVENANCE.md).
 
+With an authenticated GitHub CLI (optional; Bash and PowerShell):
+
+```text
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/main --deny-self-hosted-runners
+```
+
+Use `p2s-harden.ps1` for the Windows download. Add `--source-digest EXPECTED_COMMIT` to pin the release commit; [bundle/offline verification](docs/PROVENANCE.md) explains the required trust material. The CI fork belongs to the same maintainer.
+
 Download the SHA-256 sums alongside the chosen launcher. On Windows:
 
 ```powershell

@@ -32,7 +32,7 @@ class CliContracts(unittest.TestCase):
         report.add("INFO", "manual scope", "not an automated check")
         return report
 
-    def invoke(self, *options, scan_error=None, approve=True):
+    def invoke(self, *options, scan_error=None, approve=True, as_json=True):
         def scope(args):
             args.roots, args.discovery = [str(self.root)], {}
         def scan(args):
@@ -42,8 +42,10 @@ class CliContracts(unittest.TestCase):
             return self.report(), updates, [], []
         out = io.StringIO()
         with patch.object(p, "prepare_scope", side_effect=scope), patch.object(p, "scan", side_effect=scan), patch.object(p, "fix_blockers", return_value=[]), contextlib.redirect_stdout(out):
-            code = p.main(["--root", str(self.root), "--backup-root", str(self.backups), "--no-progress", "--json", *options,
+            code = p.main(["--root", str(self.root), "--backup-root", str(self.backups), "--no-progress", *(["--json"] if as_json else []), *options,
                            *(["--yes"] if "--fix" in options and approve else [])])
+        if not as_json:
+            return code, out.getvalue()
         result = json.loads(out.getvalue())  # Rejects preceding/trailing transaction text.
         self.assertEqual(code, result["exit_code"])
         return code, result
@@ -60,6 +62,17 @@ class CliContracts(unittest.TestCase):
         self.assertIsNone(result["transaction"])
         self.assertFalse(self.backups.exists())
         self.assertEqual(self.ini.read_bytes(), self.original)
+
+    def test_human_ini_preview_and_approved_fix_show_upgrade_notice_once(self):
+        code,preview=self.invoke("--dry-run",as_json=False)
+        self.assertEqual(code,1)
+        self.assertEqual(preview.count(p.INI_UPGRADE_NOTICE),1)
+        code,fixed=self.invoke("--fix",as_json=False)
+        self.assertEqual(code,0)
+        self.assertEqual(fixed.count(p.INI_UPGRADE_NOTICE),1)
+        code,unchanged=self.invoke("--dry-run",as_json=False)
+        self.assertEqual(code,0)
+        self.assertNotIn(p.INI_UPGRADE_NOTICE,unchanged)
 
     def test_json_fix_requires_explicit_approval_and_keeps_preview(self):
         code, result = self.invoke("--fix", approve=False)

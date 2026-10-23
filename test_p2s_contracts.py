@@ -78,6 +78,18 @@ class FindingContracts(unittest.TestCase):
         with patch("builtins.open",side_effect=AssertionError("must not prompt")):
             self.assertTrue(p.confirm_fix(args))
 
+    def test_ini_upgrade_notice_precedes_tty_approval_and_is_not_used_for_directory_only_changes(self):
+        for language in ("en","de"):
+            args=argparse.Namespace(yes=False,json=False,lang=language)
+            with patch("builtins.open",mock_open(read_data="\n")) as opened:
+                self.assertFalse(p.confirm_fix(args,ini_changes=True))
+                writes=[call.args[0] for call in opened().write.call_args_list]
+                self.assertEqual(writes,[p.localize(p.INI_UPGRADE_NOTICE,language)+"\n",
+                                         p.localize("Apply this displayed plan? [y/N] ",language)])
+            with patch("builtins.open",mock_open(read_data="\n")) as opened:
+                self.assertFalse(p.confirm_fix(args,ini_changes=False))
+                self.assertEqual(len(opened().write.call_args_list),1)
+
     def test_english_source_guard_covers_all_error_and_finding_literals(self):
         german=re.compile(r"\b(?:fehlt|erforderlich|verfuegbar|Pruefung|geaendert|Benutzer|Verzeichnis|unbekannt|haengender|schreibbare|Aenderungen)\b")
         violations=[]

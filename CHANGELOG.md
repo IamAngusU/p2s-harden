@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Render redacted terminal details as readable EN/DE summaries while preserving structured JSON evidence and privacy filtering.
+- Show the existing-INI package-upgrade notice before interactive approval, in human previews and with `--fix --yes`.
+- Put the provenance verification command directly in both READMEs. Published 2.2.1 assets remain unchanged while field feedback accumulates.
+
 ## 2.2.1
 
 - Aggregate unchanged global/pool findings while preserving independently actionable overrides and stable global IDs.

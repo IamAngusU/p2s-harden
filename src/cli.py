@@ -116,9 +116,11 @@ def main(argv=None):
                         emit(line)
                 for path in args.protect_dir:
                     emit(f'PLANNED DIRECTORY {path}: owner root, no g+w/o+w, non-recursive')
+                if updates and (args.mode == "dry-run" or args.yes):
+                    emit(INI_UPGRADE_NOTICE)
                 emit('HTTP, ImageMagick, runtime and writable-storage findings require individual review; they are not changed automatically.')
             if args.mode == "fix" and not blockers and (updates or args.protect_dir):
-                if not confirm_fix(args):
+                if not confirm_fix(args, ini_changes=bool(updates)):
                     report.add("INFO", "Fix cancelled", "No changes made; rerun --dry-run to review the plan", rule_id="P2S-TX001", resource="cancelled")
                     show_report()
                     return report.exit_code()

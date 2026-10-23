@@ -715,7 +715,26 @@ _NEW_GERMAN = {
     "Resolve the execution error and rerun; consult transaction state before retrying a change.": "Ausführungsfehler beheben und erneut ausführen; vor erneuter Änderung den Transaktionsstatus prüfen.",
     "Review this diagnostic in its reported context.": "Diese Diagnose im angegebenen Kontext prüfen.",
 }
+_EVIDENCE_GERMAN = dict(pool="Pool", pools="Pools", none="keine", yes="ja", no="nein",
+                        configured="konfiguriert", observed="beobachtet", acl="ACL", loopback="Loopback",
+                        network="Netzwerk", unverified="ungeprüft", non_loopback="außerhalb Loopback",
+                        unavailable="nicht verfügbar", unknown="unbekannt", on="an", off="aus")
+
 _NEW_GERMAN.update({
+    "Missing": "Fehlend",
+    "Unrestricted": "Unbeschränkt",
+    "TCP binding": "TCP-Bindung",
+    "Client allowlist": "Client-Freigaben",
+    "Name resolution": "Namensauflösung",
+    "Socket mode": "Socket-Rechte",
+    "Source": "Quelle",
+    "Named ACL": "Benannte ACL",
+    "Known script extensions": "Bekannte Skript-Endungen",
+    "Other script extensions": "Andere Skript-Endungen",
+    "Pools": "Pools",
+    "Runtime directories": "Laufzeitverzeichnisse",
+    "HTTP status": "HTTP-Status",
+    "Changing an existing INI such as php.ini may cause a package-upgrade configuration prompt if local and package versions both change.": "Die Änderung einer bestehenden INI wie php.ini kann beim Paket-Upgrade eine Konfigurationsrückfrage auslösen, wenn lokale und Paketversion geändert wurden.",
     "Shell function restrictions": "Shell-Funktionssperren",
     "URL includes": "URL-Includes",
     "Filesystem restriction": "Dateisystembegrenzung",
