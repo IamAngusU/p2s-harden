@@ -1,0 +1,50 @@
+name: Publish public proof badge
+
+on:
+  workflow_run:
+    workflows: [CLI tests]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: public-proof-badge
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ github.repository == 'angusu-de/p2s-harden' && (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Render exact run and step evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PROOF_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python3 tools/render-public-proof-badge.py "$PROOF_RUN_ID" "$RUNNER_TEMP/p2s-proof/proof"
+      - name: Publish generated proof branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROOF_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          proof_dir="$RUNNER_TEMP/p2s-proof"
+          test -f "$proof_dir/proof/public-proof.json" || exit 0
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          test "$current" = "$PROOF_HEAD_SHA" || exit 0
+          source=$(gh api "repos/IamAngusU/p2s-harden/git/ref/heads/main" --jq .object.sha)
+          test "$source" = "$PROOF_HEAD_SHA" || exit 0
+          cd "$proof_dir"
+          git init -q
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add proof
+          git commit -qm "CI evidence for ${PROOF_HEAD_SHA:0:12} [skip ci]"
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push --force "https://github.com/$GITHUB_REPOSITORY.git" HEAD:refs/heads/ci-proof
+

@@ -1,6 +1,7 @@
 name: CLI tests
 on:
   push:
+    branches-ignore: [ci-proof]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -25,7 +26,8 @@ jobs:
             -v "$GITHUB_WORKSPACE:/source:ro" "$TEST_IMAGE" /bin/sh -c '
               apt-get update -qq &&
               apt-get install -y -qq --no-install-recommends bash curl procps util-linux &&
-              bash /source/tools/test-linux.sh
+              bash /source/tools/test-linux.sh &&
+              python3 -B /source/tools/test_public_proof.py
             '
   windows:
     runs-on: windows-latest

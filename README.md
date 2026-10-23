@@ -1,6 +1,28 @@
-# p2s-harden
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/p2s-harden-wordmark-dark.svg">
+    <img src="docs/assets/readme/p2s-harden-wordmark.svg" width="340" alt="p2s-harden — terminal-based PHP-FPM checks">
+  </picture>
+</p>
 
-**Check a PHP-FPM server, understand what is missing, and preview scoped fixes — from your terminal.**
+<p align="center">
+  <a href="README.de.md"><img src="docs/assets/readme/readme-language-de.svg" height="40" alt="Diese README auf Deutsch lesen"></a>
+</p>
+
+<h1 align="center">Check PHP-FPM. Preview the fix.</h1>
+<p align="center">Discover setups. See missing prerequisites. Stay in your terminal.</p>
+
+<p align="center">
+  <a href="#what-happens-next"><img src="docs/assets/readme/badge-default.svg" height="40" alt="Default: read-only first"></a>
+  <a href="#review-fixes-before-applying"><img src="docs/assets/readme/badge-recovery.svg" height="40" alt="Recovery: reversible fixes with backups and conflict checks"></a>
+  <a href="#scope-and-release-status"><img src="docs/assets/readme/badge-platforms.svg" height="40" alt="Platforms: Linux target, Windows, Linux and macOS SSH clients"></a>
+  <a href="LICENSE"><img src="docs/assets/readme/badge-license.svg" height="40" alt="License: MIT"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live public CI status: open the p2s-harden workflow"></a>
+</p>
+<p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
+<p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.de.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
 For Linux servers running PHP-FPM, especially conventional Debian/Ubuntu installations with Nginx. **2.2.0-rc.1 is a release candidate.** The default command audits the server. Changes require an explicit `--fix` or `--rollback`. Findings are currently explained in German. [Deutsch](README.de.md).
 

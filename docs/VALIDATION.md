@@ -13,9 +13,13 @@ Executed 2026-10-22. These are CLI correctness and compatibility checks, not a c
 
 Automatic fix and rollback failure handling were exercised on fixture files, including conflicts and metadata. No new production fix was applied during this release's read-only integration checks. The previously repaired web application and homepage returned HTTP 200 after the checks.
 
+## Public CI evidence
+
+Public CI uses [the maintainer's CI fork](https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml). Its generated [commit/run/job/step proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) records the actual result and the exact tested source commit. [How the proof is produced and synchronized](CI.md). Local test results above were executed on 2026-10-22; repository publication and CI integration were prepared on 2026-10-23.
+
 ## What remains before a stable release
 
-The GitHub Actions definition is included but has not run in a public repository. Broader real-world feedback, additional Linux/FPM layouts and application compatibility testing remain necessary. Current automatic INI support stays limited to conventional Debian/Ubuntu host FPM configuration and matching systemd services.
+Broader real-world feedback, additional Linux/FPM layouts and application compatibility testing remain necessary. Current automatic INI support stays limited to conventional Debian/Ubuntu host FPM configuration and matching systemd services.
 
 No claim is made that every running worker uses the disk configuration, every vHost/container is covered, or every PHP-to-shell technique is blocked. Public test artifacts intentionally omit server domains, private paths, credentials and raw host reports.
 

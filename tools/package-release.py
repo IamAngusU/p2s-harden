@@ -17,9 +17,11 @@ names = [
     'p2s-harden.sh', 'p2s-harden.ps1', 'p2s_harden.py', 'p2s-launcher.sh.in', 'p2s-launcher.ps1.in',
     'build-standalone.py', 'test_p2s_harden.py', 'test_p2s_resilience.py', 'test-windows-launcher.ps1',
     'README.md', 'README.de.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
-    '.gitattributes', '.gitignore', '.github/workflows/ci.yml', 'docs/VALIDATION.md', 'docs/DETAILS.de.md',
-    'tools/test-linux.sh', 'tools/package-release.py',
+    '.gitattributes', '.gitignore', '.github/workflows/ci.yml', '.github/workflows/public-proof-badge.yml',
+    'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/CI.md',
+    'tools/test-linux.sh', 'tools/package-release.py', 'tools/render-public-proof-badge.py', 'tools/test_public_proof.py',
 ]
+names += sorted(path.relative_to(base).as_posix() for path in (base / 'docs/assets/readme').glob('*.svg'))
 files = {name: (base / name).read_bytes() for name in sorted(names)}
 files['SHA256.json'] = (json.dumps({name: hashlib.sha256(data).hexdigest() for name, data in files.items()}, indent=2) + '\n').encode()
 archive = out / ('p2s-harden-v' + version + '.zip')

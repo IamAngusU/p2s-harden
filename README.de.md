@@ -1,6 +1,28 @@
-# p2s-harden
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/p2s-harden-wordmark-dark.svg">
+    <img src="docs/assets/readme/p2s-harden-wordmark.svg" width="340" alt="p2s-harden — PHP-FPM im Terminal prüfen">
+  </picture>
+</p>
 
-**PHP-FPM-Server prüfen, fehlende Voraussetzungen verstehen und begrenzte Fixes vorab ansehen — direkt im Terminal.**
+<p align="center">
+  <a href="README.md"><img src="docs/assets/readme/readme-language-en.svg" height="40" alt="Read this README in English"></a>
+</p>
+
+<h1 align="center">PHP-FPM prüfen. Fixes vorab ansehen.</h1>
+<p align="center">Setups erkennen. Fehlende Voraussetzungen verstehen. Im Terminal bleiben.</p>
+
+<p align="center">
+  <a href="#was-passiert-danach"><img src="docs/assets/readme/badge-default.svg" height="40" alt="Standard: zuerst nur prüfen"></a>
+  <a href="#fixes-erst-ansehen-dann-anwenden"><img src="docs/assets/readme/badge-recovery.svg" height="40" alt="Wiederherstellung: rücknehmbare Fixes mit Backups und Konfliktprüfung"></a>
+  <a href="#umfang-und-reifegrad"><img src="docs/assets/readme/badge-platforms.svg" height="40" alt="Plattformen: Linux-Ziel, SSH-Clients auf Windows, Linux und macOS"></a>
+  <a href="LICENSE"><img src="docs/assets/readme/badge-license.svg" height="40" alt="Lizenz: MIT"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live-Status der öffentlichen CI: p2s-harden-Workflow öffnen"></a>
+</p>
+<p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
+<p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
 Für Linux-Server mit PHP-FPM, insbesondere konventionelle Debian/Ubuntu-Installationen mit Nginx. **2.2.0-rc.1 ist ein Release Candidate.** Der Standardbefehl prüft. Änderungen erfolgen ausdrücklich mit `--fix` oder `--rollback`. [English](README.md).
 
