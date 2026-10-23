@@ -256,13 +256,15 @@ class FullAuditExitTests(unittest.TestCase):
         self.ini = self.root / "php.ini"
         self.ini.write_text("disable_functions=" + ",".join(p.REQUIRED) + "\nallow_url_include=Off\n")
 
-    def audit(self, http_status=403, missing_functions=False, permission_error=False, http_limit=128):
+    def audit(self, http_status=403, missing_functions=False, permission_error=False, http_limit=128, imagick=True):
         args = argparse.Namespace(root=str(self.root), roots=[str(self.root)], site=["http://example.test=" + str(self.root)],
             web_user=["fixture-user"], no_progress=True, max_http_probes=http_limit)
         instance = dict(pid=1, config="/fake/fpm.conf", service=None, inis=[str(self.ini)],
             values=dict(disable_functions="exec" if missing_functions else ",".join(p.REQUIRED), allow_url_include="Off", open_basedir="/srv/site"),
             pools={"www": {"user": "fixture-user"}})
         cap = dict(root=True, tools=dict(ps=True, curl=False, runuser=True, systemctl=False), systemd=False)
+        if imagick:
+            instance["values"]["imagick module"] = "enabled"
         permissions = json.dumps(dict(files=0, directories=0, file_sample=[], directory_sample=[], errors=[]))
         original_read = Path.read_text
         def read(path, *values, **kwargs):
@@ -288,6 +290,14 @@ class FullAuditExitTests(unittest.TestCase):
         report, _, _ = self.audit(http_status=200)
         self.assertEqual(report.exit_code(), 1, report.rows)
         self.assertTrue(any(row["status"] == "OPEN" for row in report.rows))
+
+    def test_absent_imagick_and_policy_do_not_add_a_manual_warning(self):
+        exists = Path.exists
+        def available(path):
+            return False if str(path).replace("\\", "/").endswith(("ImageMagick-6/policy.xml", "ImageMagick-7/policy.xml")) else exists(path)
+        with patch.object(Path, "exists", available):
+            report, _, _ = self.audit(imagick=False)
+        self.assertEqual(report.discovery["manual_checks"], [])
 
     def test_incomplete_audit_returns_two_even_with_an_open_finding(self):
         report, _, _ = self.audit(http_status=200, permission_error=True)

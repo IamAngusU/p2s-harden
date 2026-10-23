@@ -14,8 +14,12 @@ SOURCE_REPOSITORY = "IamAngusU/p2s-harden"
 EXPECTED = (
     "linux (python:3.8.20-slim-bookworm)",
     "linux (python:3.12-slim-bookworm)",
+    "PHP-FPM 8.2",
+    "PHP-FPM 8.3",
     "PHP-FPM 8.4",
     "PHP-FPM 8.5",
+    "System Ubuntu 24.04 (PHP 8.3)",
+    "System Debian 12 (PHP 8.2)",
     "windows",
 )
 TEMPLATE = Path(__file__).resolve().parents[1] / "docs/assets/readme/public-proof-template.svg"

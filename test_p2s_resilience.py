@@ -52,14 +52,14 @@ class ResilienceTests(unittest.TestCase):
         self.cap['tools']['runuser'] = False
         self.args.roots *= 15
         (report, _, _, _), permissions, http = self.scan()
-        self.assertEqual(len([r for r in report.rows if 'runuser fehlt' in r['detail']]), 1)
+        self.assertEqual(len([r for r in report.rows if r['rule_id']=='P2S-FS003' and 'runuser missing' in r['detail']]), 1)
         permissions.assert_not_called()
         self.assertTrue(http.called)
 
     def test_no_root_keeps_http_and_ini_checks_running(self):
         self.cap['root'] = False
         (report, _, _, _), permissions, http = self.scan()
-        self.assertTrue(any('Fremde UID' in r['detail'] for r in report.rows))
+        self.assertTrue(any(r['rule_id']=='P2S-FS003' and r['status']=='UNKNOWN' for r in report.rows))
         permissions.assert_not_called()
         self.assertTrue(http.called)
 
@@ -67,12 +67,12 @@ class ResilienceTests(unittest.TestCase):
         self.args.web_user = ['p2s-user-that-does-not-exist']
         self.instance['pools'] = {}
         (report, _, _, _), permissions, http = self.scan()
-        self.assertTrue(any('Benutzer existiert nicht' in r['detail'] for r in report.rows))
+        self.assertTrue(any(r['rule_id']=='P2S-FS003' and r['status']=='UNKNOWN' for r in report.rows))
         self.assertTrue(http.called)
 
     def test_fpm_discovery_failure_keeps_permissions_http_and_kernel_checks(self):
         (report, _, _, _), permissions, http = self.scan(discovery_error=p.CheckError('procfs denied'))
-        self.assertTrue(any(r['title'] == 'FPM-Abdeckung' for r in report.rows))
+        self.assertTrue(any(r['title'] == 'FPM coverage' for r in report.rows))
         self.assertTrue(any(r['title'] == 'ptrace_scope' for r in report.rows))
         self.assertTrue(permissions.called)
         self.assertTrue(http.called)
@@ -81,7 +81,7 @@ class ResilienceTests(unittest.TestCase):
         bad = dict(self.instance, config='/bad/fpm.conf', inis=['/nonexistent/p2s/php.ini'],
                    values=dict(self.instance['values'], disable_functions='exec'))
         (report, updates, _, _), _, http = self.scan([bad, self.instance])
-        self.assertTrue(any(r['title'] == 'FPM-Konfiguration /bad/fpm.conf' for r in report.rows))
+        self.assertTrue(any(r['title'] == 'FPM configuration /bad/fpm.conf' for r in report.rows))
         self.assertTrue(any(r['title'] == 'disable_functions /fake/fpm.conf' for r in report.rows))
         self.assertFalse(updates)
         self.assertTrue(http.called)
@@ -95,7 +95,7 @@ class ResilienceTests(unittest.TestCase):
     def test_missing_reload_blocks_fix_before_backup_creation(self):
         with patch.object(p, 'capabilities', return_value=self.cap):
             reasons = p.fix_blockers({str(self.ini): {'allow_url_include': 'Off'}}, [], [self.instance], {'www-data'})
-        self.assertTrue(any('Reload' in r for r in reasons))
+        self.assertTrue(any('reload' in r.lower() for r in reasons))
         with patch.object(p.Transaction, 'begin', side_effect=AssertionError('must not create backup')):
             with self.assertRaises(p.CheckError):
                 p.Transaction(self.root / 'backup').prepare({str(self.ini): {'allow_url_include': 'Off'}}, [], [self.instance])
@@ -134,7 +134,7 @@ class ResilienceTests(unittest.TestCase):
         self.cap['tools'] = {key: False for key in self.cap['tools']}
         with patch.object(p, 'capabilities', return_value=self.cap), patch.object(p, 'discover', side_effect=AssertionError), patch.object(p, 'read_nginx', side_effect=AssertionError):
             report = p.doctor()
-        self.assertTrue(any('/proc-Fallback' in r['detail'] and r['status'] == 'OK' for r in report.rows))
+        self.assertTrue(any(r['rule_id']=='P2S-ENV006' and r['status']=='OK' for r in report.rows))
         self.assertEqual(report.exit_code(), 2)
 
     def test_procfs_is_used_when_ps_missing_or_broken(self):
@@ -175,7 +175,7 @@ class ResilienceTests(unittest.TestCase):
                              env=dict(os.environ, PATH=str(empty)), capture_output=True, text=True)
         self.assertEqual(run.returncode, 2, run.stderr)
         result = json.loads(run.stdout)
-        self.assertEqual(result['schema_version'], 1)
+        self.assertEqual(result['schema_version'], 2)
         self.assertTrue(result['discovery']['bootstrap'])
         self.assertFalse(any(result['discovery']['capabilities']['tools'].values()))
         self.assertIn('Python', result['findings'][0]['detail'])
@@ -199,7 +199,7 @@ class ResilienceTests(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             report.show(True)
-        self.assertEqual(json.loads(output.getvalue())['schema_version'], 1)
+        self.assertEqual(json.loads(output.getvalue())['schema_version'], 2)
 
     def test_human_output_cannot_inject_terminal_escape_codes(self):
         report = p.Report()

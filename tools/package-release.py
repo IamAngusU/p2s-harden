@@ -16,14 +16,17 @@ version = re.search(r'^VERSION = "([0-9A-Za-z.+-]+)"$', (base / 'p2s_harden.py')
 names = [
     'p2s-harden.sh', 'p2s-harden.ps1', 'p2s_harden.py', 'p2s-launcher.sh.in', 'p2s-launcher.ps1.in',
     'build-standalone.py', 'test_p2s_harden.py', 'test_p2s_resilience.py', 'test_p2s_transactions.py',
-    'test_p2s_language.py', 'test_p2s_http.py', 'test_p2s_cli.py', 'test-windows-launcher.ps1',
+    'test_p2s_language.py', 'test_p2s_http.py', 'test_p2s_cli.py', 'test_p2s_contracts.py', 'test-windows-launcher.ps1',
     'README.md', 'README.de.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
     '.gitattributes', '.gitignore', '.github/workflows/ci.yml', '.github/workflows/public-proof-badge.yml',
-    'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/CI.md', 'docs/REVIEW-FOLLOWUP.md', 'docs/FPM-RUNTIME.json',
+    'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/DETAILS.md', 'docs/FINDINGS.md', 'docs/CI.md',
+    'docs/REVIEW-FOLLOWUP.md', 'docs/REVIEW-rc3.md', 'docs/FPM-RUNTIME.json',
     'tools/test-linux.sh', 'tools/package-release.py', 'tools/render-public-proof-badge.py', 'tools/test_public_proof.py',
     'tools/test_fpm_runtime.py', 'tools/test_fpm_runtime_protocol.py',
+    'tools/test_system_runtime.py', 'tools/test_system_runtime_guard.py',
 ]
 names += sorted(path.relative_to(base).as_posix() for path in (base / 'docs/assets/readme').glob('*.svg'))
+names += sorted(path.relative_to(base).as_posix() for path in (base / 'src').glob('*.py'))
 files = {name: (base / name).read_bytes() for name in sorted(names)}
 files['SHA256.json'] = (json.dumps({name: hashlib.sha256(data).hexdigest() for name, data in files.items()}, indent=2) + '\n').encode()
 archive = out / ('p2s-harden-v' + version + '.zip')

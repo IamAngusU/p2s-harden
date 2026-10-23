@@ -1,4 +1,4 @@
-# p2s-harden 2.2.0-rc.2. Self-contained Windows -> Linux SSH launcher.
+# p2s-harden 2.2.0-rc.3. Self-contained Windows -> Linux SSH launcher.
 # No PowerShell modules, Bash, Python or installation needed on the client.
 $ErrorActionPreference = 'Stop'
 $target = $null
@@ -13,8 +13,10 @@ function Message([string]$English, [string]$German) {
 
 function Write-Failure([string]$Title, [string]$Detail) {
     if ($script:jsonMode) {
-        @{ schema_version = 1; version = '2.2.0-rc.2'; language = $script:lang; exit_code = 2;
-           findings = @(@{ status = 'UNKNOWN'; title = $Title; detail = $Detail }); discovery = @{} } | ConvertTo-Json -Depth 5
+        @{ schema_version = 2; version = '2.2.0-rc.3'; language = $script:lang; exit_code = 2;
+           has_open = $false; has_unknown = $true;
+           findings = @(@{ id = 'P2S-EXEC001-9773e1e8b98e2493'; rule_id = 'P2S-EXEC001'; resource = 'ssh_transport'; severity = 'unknown';
+                           suppressed = $false; remediation = $Detail; status = 'UNKNOWN'; title = $Title; detail = $Detail }); discovery = @{} } | ConvertTo-Json -Depth 5
     } else { [Console]::Error.WriteLine("${Title}: $Detail") }
 }
 
@@ -47,7 +49,7 @@ try {
             '--help' {
                 if ($lang -eq 'en') {
                     @'
-p2s-harden 2.2.0-rc.2 - Windows -> Linux, directly over OpenSSH
+p2s-harden 2.2.0-rc.3 - Windows -> Linux, directly over OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Discover and audit
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Explain prerequisites
@@ -68,6 +70,7 @@ p2s-harden 2.2.0-rc.2 - Windows -> Linux, directly over OpenSSH
   --protect-dir /path          Protect one directory; non-recursive
   --rollback [--backup-id ID]  Restore a transaction
   --json --verbose --no-auto --no-progress      Same options as the Bash CLI
+  --yes --fail-on complete|open --ignore ID     Approval and automation policy
 
 The Linux target requires Python 3.8+. Missing helpers are explained individually.
 The default mode is read-only. No installer or configuration file is needed.
@@ -75,7 +78,7 @@ The default mode is read-only. No installer or configuration file is needed.
                     exit 0
                 }
                 @'
-p2s-harden 2.2.0-rc.2 - Windows -> Linux, direkt per OpenSSH
+p2s-harden 2.2.0-rc.3 - Windows -> Linux, direkt per OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Erkennen und prüfen
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Voraussetzungen erklären
@@ -96,13 +99,14 @@ p2s-harden 2.2.0-rc.2 - Windows -> Linux, direkt per OpenSSH
   --protect-dir /pfad          Ein Verzeichnis schützen; nicht rekursiv
   --rollback [--backup-id ID]  Eine Transaktion zurücknehmen
   --json --verbose --no-auto --no-progress      Wie bei der Bash-Datei
+  --yes --fail-on complete|open --ignore ID     Freigabe und Automatisierungsregeln
 
 Das Linux-Ziel braucht Python 3.8+. Fehlende Helfer werden einzeln erklärt.
 Standard ist eine Prüfung. Kein Installer und keine Konfigurationsdatei.
 '@
                 exit 0
             }
-            '--version' { 'p2s-harden 2.2.0-rc.2'; exit 0 }
+            '--version' { 'p2s-harden 2.2.0-rc.3'; exit 0 }
             default { $cliArguments.Add($argument) }
         }
     }

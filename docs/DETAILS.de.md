@@ -1,4 +1,4 @@
-# p2s-harden 2.2.0-rc.2
+# p2s-harden 2.2.0-rc.3
 
 Begrenzte PHP/FPM-Prüfung für Linux mit ausdrücklich ausgewiesenem Prüfumfang.
 `OK` ist ein belegter Einzelbefund; `OPEN` ist eine Abweichung oder ein zu
@@ -129,13 +129,14 @@ Exitcodes: `0` alle ausgewiesenen Einzelprüfungen bestanden, `1` offene Punkte,
 `2` unbekannte Punkte, unvollständige Prüfung oder technischer Fehler. Ein Fix
 kann erfolgreich angewendet sein und trotzdem Exit 1/2 liefern, wenn andere
 Befunde verbleiben. `--json` ist in jedem Modus verfügbar und enthält
-`schema_version: 1`, Fähigkeiten, Befunde, Inventar und den passenden Exitcode.
+`schema_version: 2`, Fähigkeiten, Befunde, Inventar und den passenden Exitcode.
 Phasenhinweise gehen im interaktiven Terminal auf stderr; `--no-progress`
 unterdrückt sie. Fehlende Fähigkeiten führen zu unvollständigen Ergebnissen
 (Exit 2), während unabhängige Teilprüfungen zu Ende laufen.
 `--discover` führt ausschließlich die Inventarisierung aus.
-Die alten Optionen `--yes`, `-y` und `--no-self-guard` werden mit Hinweis als
-wirkungslose Kompatibilitätsoptionen angenommen.
+`--yes`/`-y` geben den Fix-Plan ausdrücklich frei. Ohne diese Option fragt ein lokaler
+interaktiver Fix über /dev/tty; JSON-Fixes benötigen --yes. Nur --no-self-guard bleibt
+eine wirkungslose alte Kompatibilitätsoption.
 
 ## Was geprüft wird
 
@@ -250,7 +251,7 @@ ausdrückliche Einordnung, keine automatisch erkannte Ausnahme. Schreibbare
 PHP-Dateien darin bleiben offen; Zugriffsfehler und Grenzen bleiben unbekannt.
 Der gesamte Prüfbereich kann nicht zum Runtime-Verzeichnis erklärt werden.
 
-Dateisystemläufe sind standardmäßig auf 20000 Einträge und 10 Sekunden begrenzt
+Dateisystemläufe sind standardmäßig auf 250000 Einträge und 10 Sekunden begrenzt
 (`--max-paths`, `--walk-seconds`), einschließlich der Suche nach verschachtelten
 Git-Verzeichnissen. HTTP hat insgesamt 128 Anfragen (`--max-http-probes`), pro
 Antwort höchstens 1 MiB und 8 Sekunden. Zwei zufällige fehlende URLs bilden
@@ -272,3 +273,18 @@ bei Inhalt, Owner, Mode, xattrs, Identität oder mtime verhindern das Überschre
 Eine unterbrochene Wiederherstellung ist fortsetzbar.
 
 [Praktische FPM-Nachweise und Korrektur der Review-Vermutung](REVIEW-FOLLOWUP.md).
+
+## Neu in rc.3
+
+Die Vorschau enthält Werte und einen Diff ohne Nachbarzeilen. Seit der Vorschau
+veränderte Inhalte werden abgelehnt. `--fix --yes --json` ist die explizite
+Automatisierungsform. Die SSH-Übertragung verwendet keinen entfernten TTY:
+erst `--dry-run`, dann den geprüften Fix mit `--yes` ausführen.
+
+Schema 2 enthält stabile Regel-/Ressourcen-IDs, severity, remediation und
+suppressed sowie has_open/has_unknown. `--ignore` lässt akzeptierte OPEN-Befunde
+sichtbar und beeinflusst nur deren Exitwirkung; UNKNOWN besteht weiterhin nie.
+`--fail-on open` wertet OPEN vor UNKNOWN aus. Der Standard bleibt UNKNOWN zuerst.
+Die englische [vollständige Anleitung](DETAILS.md) und [Regelübersicht](FINDINGS.md)
+erläutern diese Verträge. Die englische Quellsprache und acht Komponenten in src/
+werden vom Builder weiterhin zu eigenständigen Ein-Datei-Launchern zusammengesetzt.

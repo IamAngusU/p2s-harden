@@ -24,7 +24,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_english_is_the_default_and_rows_stay_canonical(self):
         report = p.Report()
-        report.add("UNKNOWN", "Dateirechte", "Kein gepruefter FPM-Benutzer; --web-user erforderlich")
+        report.add("UNKNOWN", "File permissions", "No verified FPM user; specify --web-user")
         original = copy.deepcopy(report.rows)
         text = self.render(report)
         self.assertIn("Configuration audit", text)
@@ -35,8 +35,8 @@ class LanguageTests(unittest.TestCase):
     def test_german_uses_real_umlauts_without_changing_technical_values(self):
         report = p.Report()
         path = "/srv/Pruefung/Aenderungen ü/URL?x=fehlt"
-        report.add("UNKNOWN", "FPM-Konfiguration " + path,
-                   "Nicht vertrauenswuerdiger Root-Pfad: " + path)
+        report.add("UNKNOWN", "FPM configuration " + path,
+                   "Untrusted path or ancestor: " + path)
         text = self.render(report, "de")
         self.assertIn("Konfigurationsprüfung", text)
         self.assertIn("Nicht vertrauenswürdiger Root-Pfad: " + path, text)
@@ -46,10 +46,10 @@ class LanguageTests(unittest.TestCase):
         report = p.Report()
         path = "/srv/Pruefung/fehlt: exec"
         url = "https://unbekannt.example/Dateirechte?q=pruefen"
-        report.add("UNKNOWN", "Automatische Erkennung", "Nginx-Include fehlt: " + path)
-        report.discovery = dict(issues=["Nginx-Include fehlt: " + path], config=path,
+        report.add("UNKNOWN", "Automatic discovery", "Nginx include missing: " + path)
+        report.discovery = dict(issues=["Nginx include missing: " + path], config=path,
             scan_roots=[path], selected_sites=[url + "=" + path],
-            automatic_changes="Keine Rechteziele aus Erkennung abgeleitet",
+            automatic_changes="No permission-change targets inferred from discovery",
             fpm_instances=[dict(config=path, pools=[dict(name="unbekannt", user="unbekannt", listen="unbekannt")])])
         original = copy.deepcopy(report.discovery)
         report.plan = {"paths": [path], "site": url}
@@ -68,7 +68,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_nested_diagnostics_translate_without_touching_their_path(self):
         path = "/etc/Pruefung/haengender.ini"
-        source = "Automatische Nginx-Erkennung unvollstaendig: Nginx-Include fehlt: " + path
+        source = "Automatic Nginx discovery incomplete: Nginx include missing: " + path
         self.assertEqual(p.localize(source), "Automatic Nginx discovery incomplete: Nginx include missing: " + path)
         self.assertEqual(p.localize(source, "de"), "Automatische Nginx-Erkennung unvollständig: Nginx-Include fehlt: " + path)
 
@@ -92,7 +92,7 @@ class LanguageTests(unittest.TestCase):
     def test_all_owned_templates_preserve_their_technical_placeholders(self):
         for source, english, german in p._MESSAGE_TEMPLATES:
             names = [name for _, name, _, _ in string.Formatter().parse(source) if name is not None]
-            values = {name: "Wert fehlt" if name == "message" else "/Pruefung/" + name + " ü:'?foo=exec" for name in names}
+            values = {name: "Value missing" if name == "message" else "/Pruefung/" + name + " ü:'?foo=exec" for name in names}
             canonical = source.format(**values)
             for lang, expected in (("en", english), ("de", german)):
                 with self.subTest(source=source, lang=lang):
@@ -124,7 +124,7 @@ class LanguageTests(unittest.TestCase):
 
     def test_info_is_counted_without_affecting_the_exit_code(self):
         report = p.Report()
-        report.add("INFO", "ImageMagick-Policy", "keine bekannte Policy; Modul-/Container-Abdeckung offen")
+        report.add("INFO", "ImageMagick policy", "No known policy; extension/container coverage unknown")
         self.assertEqual(report.exit_code(), 0)
         self.assertIn("INFO: 1", self.render(report))
 
@@ -172,6 +172,10 @@ class LauncherLanguageTests(unittest.TestCase):
                 report = json.loads(run.stdout)
                 self.assertEqual(report["language"], lang)
                 self.assertEqual(report["findings"][0]["title"], title)
+                self.assertEqual(report["schema_version"], 2)
+                self.assertRegex(report["findings"][0]["id"], r"^P2S-EXEC001-[a-f0-9]{16}$")
+                self.assertTrue(report["has_unknown"])
+                self.assertFalse(report["has_open"])
                 self.assertIn(fragment, report["findings"][0]["detail"])
                 self.assertTrue(report["discovery"]["bootstrap"])
                 self.assertFalse(any(report["discovery"]["capabilities"]["tools"].values()))

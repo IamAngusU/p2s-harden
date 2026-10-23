@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Real distro discovery -> preview -> confirmed fix -> rollback.
+
+DESTRUCTIVE TEST FOR DISPOSABLE VMS ONLY. Requires Linux root, systemd,
+distribution php-fpm/nginx packages and the exact explicit CI marker below.
+Never run this against a production server. No discovery/service mocks are used.
+The normal p2s-harden command does not invoke this developer test.
+"""
+import argparse
+import hashlib
+import http.client
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+
+MARKER=Path('/etc/p2s-disposable-ci')
+MARKER_TEXT='p2s-harden disposable system test\n'
+
+
+def run(argv):
+    result=subprocess.run(argv,capture_output=True,text=True,timeout=120)
+    if result.returncode:
+        raise RuntimeError('{} failed (exit {})'.format(argv[0],result.returncode))
+    return result.stdout
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--expect-php',required=True,choices=('8.2','8.3'))
+    parser.add_argument('--json',action='store_true')
+    args=parser.parse_args(argv)
+    evidence=dict(schema_version=1,scope='disposable distro VM; actual /proc, nginx, FPM and systemd',
+                  cases=[],exit_code=2)
+    try:
+        if sys.platform!='linux' or os.geteuid()!=0 or os.environ.get('P2S_DISPOSABLE_SYSTEM_TEST')!='1':
+            raise RuntimeError('Requires an explicitly authorized disposable Linux root VM')
+        if not MARKER.is_file() or MARKER.is_symlink() or MARKER.read_text()!=MARKER_TEXT or MARKER.stat().st_uid!=0 or MARKER.stat().st_mode & 0o022:
+            raise RuntimeError('Missing exact root-owned disposable-VM marker; refusing all changes')
+        if not Path('/run/systemd/system').is_dir():
+            raise RuntimeError('A real booted systemd VM is required; service mocks are not accepted')
+        base=Path(__file__).resolve().parents[1]
+        engine_path=base/'p2s_harden.py'
+        spec=importlib.util.spec_from_file_location('system_test_engine',engine_path)
+        engine=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(engine)
+        evidence['audit_engine_sha256']=hashlib.sha256(engine_path.read_bytes()).hexdigest()
+        evidence['os_release']=Path('/etc/os-release').read_text()
+        evidence['packages']=run(['dpkg-query','-W','-f=${Package} ${Version}\n','php'+args.expect_php+'-fpm','nginx'])
+        version=args.expect_php
+        service='php'+version+'-fpm.service'
+        ini=Path('/etc/php')/version/'fpm/php.ini'
+        if not ini.is_file(): raise RuntimeError('Expected distro FPM layout is absent')
+        root=Path('/srv/p2s-system-fixture')
+        root.mkdir(mode=0o755)
+        (root/'probe.php').write_text('<?php header("Content-Type: application/json"); echo json_encode(["sapi"=>PHP_SAPI,"version"=>PHP_VERSION,"system"=>function_exists("system"),"include"=>ini_get("allow_url_include")]);')
+        (root/'.env').write_text('P2S_DISPOSABLE_FIXTURE_ONLY=1\n')
+        os.chown(root,33,33)
+        os.chmod(root,0o755)
+        ini.write_text(engine.set_ini(ini.read_text(),dict(disable_functions='exec',allow_url_include='On')))
+        nginx=Path('/etc/nginx/sites-enabled/p2s-system-test')
+        nginx.write_text('server { listen 127.0.0.1:18080; server_name p2s-ci.test; root '+str(root)+'; '
+                         'location ~ /\\.(env|git) { deny all; } '
+                         'location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php'+version+'-fpm.sock; } }\n')
+        run(['systemctl','restart',service])
+        run(['nginx','-t'])
+        run(['systemctl','restart','nginx'])
+        baseline=ini.read_bytes()
+        before=ini.stat()
+        evidence['baseline_sha256']=hashlib.sha256(baseline).hexdigest()
+        def observed():
+            last=None
+            for _ in range(60):
+                connection=http.client.HTTPConnection('127.0.0.1',18080,timeout=2)
+                try:
+                    connection.request('GET','/probe.php',headers={'Host':'p2s-ci.test'})
+                    response=connection.getresponse()
+                    data=json.loads(response.read(16384))
+                    if response.status==200 and data.get('sapi')=='fpm-fcgi': return data
+                except (OSError,ValueError,http.client.HTTPException) as exc: last=type(exc).__name__
+                finally: connection.close()
+                time.sleep(0.1)
+            raise RuntimeError('Actual nginx/FPM request unavailable: '+str(last))
+        initial=observed()
+        assert initial['system'] is True and initial['include'].lower() in ('1','on'),initial
+        evidence['php_version']=initial['version']
+        assert initial['version'].startswith(version+'.')
+        instances,issues=engine.discover()
+        matching=[i for i in instances if i.get('service')==service]
+        assert len(matching)==1,(len(matching),issues)
+        assert str(ini) in matching[0]['inis'] and matching[0]['pools']
+        evidence['cases'].append(dict(name='real-proc-distro-service-discovery',status='PASS'))
+        def cli(*options):
+            result=subprocess.run(['/bin/bash',str(base/'p2s-harden.sh'),'--root',str(root),
+                '--backup-root','/root/p2s-system-test-backups','--protect-dir',str(root),'--json',*options],
+                capture_output=True,text=True,timeout=120)
+            report=json.loads(result.stdout)
+            assert result.returncode==report['exit_code'] and result.returncode in (0,1,2)
+            return report
+        discovered=cli('--discover')
+        assert any('p2s-ci.test:18080' in s for s in discovered['discovery']['selected_sites'])
+        evidence['cases'].append(dict(name='real-nginx-automatic-mapping',status='PASS'))
+        checked=cli('--check')
+        assert any(row['rule_id']=='P2S-PHP001' and row['status']=='OPEN' for row in checked['findings'])
+        assert any(row['rule_id']=='P2S-FS002' and row['status']=='OPEN' for row in checked['findings'])
+        assert ini.read_bytes()==baseline
+        evidence['cases'].append(dict(name='actual-audit-settings-and-php-user-permissions',status='PASS'))
+        preview=cli('--dry-run')
+        assert preview['plan']['ini'] and not preview['plan']['blockers']
+        assert any('+disable_functions' in e['diff'] for e in preview['plan']['ini'])
+        assert ini.read_bytes()==baseline and root.stat().st_uid==33
+        evidence['cases'].append(dict(name='preview-diff-without-mutation',status='PASS'))
+        fixed=cli('--fix','--yes')
+        assert fixed['transaction']['status']=='applied',fixed
+        assert ini.stat().st_mtime_ns!=before.st_mtime_ns
+        assert root.stat().st_uid==0
+        assert all(row['status']=='OK' for row in fixed['findings'] if row['rule_id'] in ('P2S-PHP001','P2S-PHP002','P2S-FS001','P2S-FS002'))
+        after=observed()
+        assert after['system'] is False and after['include'].lower() in ('','0','off'),after
+        evidence['cases'].append(dict(name='actual-fix-systemd-reload-and-worker-values',status='PASS'))
+        restored=cli('--rollback','--backup-id',fixed['transaction']['id'])
+        assert restored['transaction']['status']=='rolled_back'
+        assert ini.read_bytes()==baseline and ini.stat().st_mtime_ns==before.st_mtime_ns
+        assert root.stat().st_uid==33
+        final=observed()
+        assert final['system'] is True and final['include'].lower() in ('1','on'),final
+        evidence['cases'].append(dict(name='actual-rollback-metadata-service-and-worker-values',status='PASS'))
+        repeated=cli('--rollback')
+        assert repeated['transaction']['noop'] is True and ini.read_bytes()==baseline
+        evidence['cases'].append(dict(name='repeated-rollback-noop',status='PASS'))
+        evidence['exit_code']=0
+    except (OSError,ValueError,RuntimeError,AssertionError,KeyError,subprocess.SubprocessError) as exc:
+        evidence['error']=str(exc) or type(exc).__name__
+    if args.json: print(json.dumps(evidence,indent=2))
+    else:
+        for case in evidence['cases']: print(case['status']+' '+case['name'])
+        if evidence.get('error'): print('UNKNOWN '+evidence['error'])
+    return evidence['exit_code']
+
+
+if __name__=='__main__': sys.exit(main())

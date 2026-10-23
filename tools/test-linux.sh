@@ -25,9 +25,11 @@ trap cleanup EXIT
 cp -- "$base"/p2s_harden.py "$base"/p2s-harden.sh "$base"/p2s-harden.ps1 \
   "$base"/p2s-launcher.sh.in "$base"/p2s-launcher.ps1.in "$base"/build-standalone.py \
   "$base"/test_p2s*.py "$scratch/"
-mkdir -p "$scratch/tools" "$scratch/docs/assets/readme"
+mkdir -p "$scratch/tools" "$scratch/docs/assets/readme" "$scratch/src"
+cp -- "$base"/src/*.py "$scratch/src/"
 cp -- "$base"/tools/test_fpm_runtime.py "$base"/tools/test_fpm_runtime_protocol.py \
-  "$base"/tools/render-public-proof-badge.py "$base"/tools/test_public_proof.py "$scratch/tools/"
+  "$base"/tools/render-public-proof-badge.py "$base"/tools/test_public_proof.py \
+  "$base"/tools/test_system_runtime.py "$base"/tools/test_system_runtime_guard.py "$scratch/tools/"
 cp -- "$base"/docs/assets/readme/public-proof-template.svg "$scratch/docs/assets/readme/"
 cd -- "$scratch"
 python3 -B build-standalone.py --check

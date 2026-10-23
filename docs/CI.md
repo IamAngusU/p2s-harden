@@ -1,18 +1,27 @@
 # Public CI and commit evidence
 
 The source repository is [IamAngusU/p2s-harden](https://github.com/IamAngusU/p2s-harden).
-Public GitHub-hosted checks run in its fork [angusu-de/p2s-harden](https://github.com/angusu-de/p2s-harden), a separate account belonging to the same maintainer. This follows the maintainer's ByeClaude/ContextBridge setup.
+GitHub-hosted runner access is currently unavailable in the source account. Public checks therefore run in its fork [angusu-de/p2s-harden](https://github.com/angusu-de/p2s-harden), a separate account belonging to the same maintainer. This follows the maintainer's ByeClaude/ContextBridge setup. It is not an independent audit.
 
 ## What is checked
 
 - Linux/Python 3.8: the complete fixture/regression suite (including local HTTP, JSON, language and rollback tests), exact embedded engine, Bash syntax, plus CI-proof and FastCGI-protocol tests.
 - Linux/Python 3.12: the same checks in a separate disposable Debian container.
-- Real PHP 8.4 and 8.5 FPM containers: actual FastCGI requests, function operations, pool configuration, URL-include controls and comparison with the audit engine. Image identities and observed PHP versions are recorded in runtime evidence artifacts.
+- Real PHP 8.2, 8.3, 8.4 and 8.5 FPM containers: actual FastCGI requests, function operations, pool configuration, URL-include controls and comparison with the audit engine. Image identities and observed PHP versions are recorded in runtime evidence artifacts.
+- A real booted Debian 12 VM with distro PHP 8.2/Nginx/systemd, and a real booted Ubuntu 24.04 VM with distro PHP 8.3/Nginx/systemd. The guarded system harness exercises actual discovery, automatic mapping, check, preview, confirmed fix, permission changes, service reload and HTTP worker observations, then rollback and repeated rollback. No fixture instance or mocked systemctl is used.
 - Windows: generated-file consistency and native PowerShell/SSH transport with a temporary fake SSH executable, including quoting and exit codes.
 
 Actual jobs and steps are recorded in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) and [JSON](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/public-proof.json). Each snapshot names its exact source commit, run and attempt. The badge counts measured job results; missing expected jobs remain visible and do not pass.
 
 The proof workflow publishes only when the tested commit, source `main` and CI-fork `main` match. A newer commit requires a new matching run. This is reproducibility evidence from the maintainer, not a third-party audit or a guarantee about a user's server.
+
+All nine expected jobs must pass for a full proof, including both system VMs.
+VM actions, checkout/setup and artifact actions are pinned to commit SHAs.
+Runtime JSON artifacts retain the tested engine hash, actual package/PHP
+versions and observations. Ordinary fixture tests do not invoke the destructive
+system harness. The VM harness requires an explicit environment flag and an
+exact protected marker created only inside these disposable CI VMs. Never
+create that marker on an existing server.
 
 ## Updating the fork
 

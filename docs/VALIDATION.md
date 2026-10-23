@@ -1,5 +1,22 @@
 # Validation
 
+## 2.2.0-rc.3
+
+Local Linux fixtures passed **153 tool regressions and 23 protocol/proof/guard tests**,
+including a real 36000-PHP-file tree, explicit finding/suppression/exit policies,
+preview digest/confidentiality checks, approval gates and canonical-English AST
+checks. Windows PowerShell 5.1 transport/help/Unicode tests also passed.
+
+The release workflow requires nine jobs: Python 3.8/3.12 fixture suites, Windows,
+four PHP 8.2–8.5 FastCGI matrices and separate Debian 12/Ubuntu 24.04 systemd VMs.
+The system VM harness uses installed distro PHP-FPM/Nginx and actual `/proc`,
+service identities, HTTP requests, confirmed changes and rollback. The exact
+executed commit/run, job outcomes and steps are in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md).
+Retained runtime artifacts include engine hashes and observed package versions.
+A workflow definition or an older green commit is not evidence for a new one.
+
+[rc.3 review response and deferred scope](REVIEW-rc3.md) · [English manual](DETAILS.md).
+
 ## 2.2.0-rc.2
 
 Executed locally on 2026-10-23: **143 tool regressions and 21 protocol/proof

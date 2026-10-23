@@ -93,11 +93,11 @@ class ToolTests(unittest.TestCase):
         instance['inis'] = [str(main), str(shared)]
         report, updates, _, _ = self.scan(instance)
         self.assertEqual(updates, {})
-        self.assertTrue(any(r['title'] == 'Automatischer INI-Fix ausgespart' for r in report.rows))
+        self.assertTrue(any(r['title'] == 'Automatic INI fix skipped' for r in report.rows))
 
     def test_permission_command_failure_is_unknown(self):
         report, _, _, _ = self.scan(permission_error=True)
-        self.assertEqual(next(r["status"] for r in report.rows if r["title"].startswith("Dateirechte")), "UNKNOWN")
+        self.assertEqual(next(r["status"] for r in report.rows if r["title"].startswith('File permissions')), "UNKNOWN")
         self.assertEqual(report.exit_code(), 2)
 
     def test_http_status_classes_and_nested_git(self):
@@ -213,7 +213,7 @@ class ToolTests(unittest.TestCase):
             with self.subTest(url=url):
                 report, _, _, _ = self.scan(site=[url + "=" + str(self.root)], probe=lambda _: 403)
                 self.assertFalse(any(r["title"].startswith("HTTP https") for r in report.rows))
-                self.assertTrue(any(r["title"] == "HTTP-Konfiguration" and r["status"] == "UNKNOWN" for r in report.rows))
+                self.assertTrue(any(r["title"] == 'HTTP configuration' and r["status"] == "UNKNOWN" for r in report.rows))
 
     def test_status_only_probe_preserves_its_public_interface(self):
         with patch.object(p, "http_observation", return_value=dict(status=403, bytes=0, sha256=p.digest(b""))) as mock:
@@ -362,7 +362,7 @@ class DiscoveryTests(unittest.TestCase):
         with patch.object(Path, 'is_dir', return_value=True), patch.object(Path, 'is_symlink', return_value=False), patch.object(Path, 'resolve', side_effect=lambda *a, **kw: a[0], autospec=True):
             inventory = p.nginx_inventory(tree)
         self.assertEqual([s['url'] for s in inventory['sites']], ['http://good.example'])
-        self.assertTrue(any('unvollstaendigen Includes' in s for s in inventory['issues']))
+        self.assertTrue(any('unresolved includes' in s for s in inventory['issues']))
 
     def test_domains_tls_ports_and_ipv4_ipv6_deduplication(self):
         inventory = self.inventory('http { server { listen 8443 ssl; listen [::]:8443 ssl; server_name example.org www.example.org; root /srv/site; } }')
@@ -392,12 +392,12 @@ class DiscoveryTests(unittest.TestCase):
     def test_duplicate_conflicting_domain_roots_are_not_guessed(self):
         inventory = self.inventory('http { server { server_name example.org; root /srv/one; } server { server_name example.org; root /srv/two; } }')
         self.assertEqual(inventory['sites'], [])
-        self.assertTrue(any('Mehrdeutig' in s for s in inventory['issues']))
+        self.assertTrue(any('Ambiguous' in s for s in inventory['issues']))
 
     def test_system_root_is_not_automatically_scanned(self):
         inventory = self.inventory('http { server { server_name example.org; root /; } }')
         self.assertFalse(inventory['roots'])
-        self.assertTrue(any('Systempfad' in s for s in inventory['issues']))
+        self.assertTrue(any('system path' in s for s in inventory['issues']))
 
     def test_malformed_configuration_is_not_partially_accepted(self):
         for text in ('http {', 'root "/srv/unterminated;', 'http {} }', 'root /srv/missing-semicolon'):
@@ -423,7 +423,7 @@ class DiscoveryTests(unittest.TestCase):
         with patch.object(p, 'read_nginx', return_value=[]), patch.object(p, 'nginx_inventory', return_value=inventory):
             p.prepare_scope(args)
         self.assertEqual(len(args.site), 1)
-        self.assertTrue(any('HTTP-Limit' in s for s in args.discovery['issues']))
+        self.assertTrue(any('HTTP limit' in s for s in args.discovery['issues']))
 
     def test_detection_never_infers_permission_changes(self):
         inventory = dict(server='nginx', roots=['/srv/site'], issues=[], sites=[])

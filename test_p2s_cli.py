@@ -32,7 +32,7 @@ class CliContracts(unittest.TestCase):
         report.add("INFO", "manual scope", "not an automated check")
         return report
 
-    def invoke(self, *options, scan_error=None):
+    def invoke(self, *options, scan_error=None, approve=True):
         def scope(args):
             args.roots, args.discovery = [str(self.root)], {}
         def scan(args):
@@ -42,7 +42,8 @@ class CliContracts(unittest.TestCase):
             return self.report(), updates, [], []
         out = io.StringIO()
         with patch.object(p, "prepare_scope", side_effect=scope), patch.object(p, "scan", side_effect=scan), patch.object(p, "fix_blockers", return_value=[]), contextlib.redirect_stdout(out):
-            code = p.main(["--root", str(self.root), "--backup-root", str(self.backups), "--no-progress", "--json", *options])
+            code = p.main(["--root", str(self.root), "--backup-root", str(self.backups), "--no-progress", "--json", *options,
+                           *(["--yes"] if "--fix" in options and approve else [])])
         result = json.loads(out.getvalue())  # Rejects preceding/trailing transaction text.
         self.assertEqual(code, result["exit_code"])
         return code, result
@@ -51,10 +52,33 @@ class CliContracts(unittest.TestCase):
         code, result = self.invoke("--dry-run")
         self.assertEqual(code, 1)
         self.assertEqual(result["language"], "en")
-        self.assertEqual(result["plan"]["ini"], [{"path": str(self.ini), "values": {"allow_url_include": "Off"}}])
+        entry = result["plan"]["ini"][0]
+        self.assertEqual(entry["path"], str(self.ini))
+        self.assertEqual(entry["values"], {"allow_url_include": "Off"})
+        self.assertIn("-allow_url_include=On", entry["diff"])
+        self.assertIn("+allow_url_include = Off", entry["diff"])
         self.assertIsNone(result["transaction"])
         self.assertFalse(self.backups.exists())
         self.assertEqual(self.ini.read_bytes(), self.original)
+
+    def test_json_fix_requires_explicit_approval_and_keeps_preview(self):
+        code, result = self.invoke("--fix", approve=False)
+        self.assertEqual(code, 2)
+        self.assertTrue(any("requires --yes" in r["detail"] for r in result["findings"]))
+        self.assertIsNotNone(result["plan"])
+        self.assertFalse(self.backups.exists())
+        self.assertEqual(self.ini.read_bytes(), self.original)
+
+    def test_preview_contains_only_changed_directives_and_detects_concurrent_edit(self):
+        self.ini.write_text("extension_secret=DO_NOT_PRINT_THIS\nallow_url_include=On\n")
+        plan = p.change_plan({str(self.ini): {"allow_url_include": "Off"}}, [], [])
+        self.assertNotIn("DO_NOT_PRINT_THIS", plan["ini"][0]["diff"])
+        self.ini.write_text("allow_url_include=Off\n")
+        tx = p.Transaction(self.backups)
+        with self.assertRaisesRegex(p.CheckError, "changed after"):
+            tx.prepare({str(self.ini): {"allow_url_include": "Off"}}, [], [],
+                       expected={str(self.ini): plan["ini"][0]["before_sha256"]})
+        self.assertEqual(self.ini.read_text(), "allow_url_include=Off\n")
 
     def test_fix_and_repeated_rollback_are_single_json_documents(self):
         code, fixed = self.invoke("--fix")

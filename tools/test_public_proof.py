@@ -25,37 +25,38 @@ class ProofTests(unittest.TestCase):
 
     def test_green_proof_requires_every_expected_job(self):
         svg, metadata, readme = proof.render(self.run_data(), self.jobs())
-        self.assertEqual(metadata['jobs_success'], 5)
-        self.assertEqual(metadata['jobs_total'], 5)
+        self.assertEqual(metadata['jobs_success'], 9)
+        self.assertEqual(metadata['jobs_total'], 9)
         self.assertEqual(metadata['head_sha'], 'a' * 40)
         self.assertEqual(metadata['source_repository'], 'IamAngusU/p2s-harden')
-        self.assertIn('5/5', svg)
+        self.assertIn('9/9', svg)
         self.assertIn('aaaa', readme)
 
     def test_missing_job_stays_visible(self):
         svg, metadata, _ = proof.render(self.run_data(), self.jobs()[:-1])
-        self.assertEqual(metadata['jobs_success'], 4)
-        self.assertEqual(metadata['jobs_total'], 5)
-        self.assertIn('4/5', svg)
+        self.assertEqual(metadata['jobs_success'], 8)
+        self.assertEqual(metadata['jobs_total'], 9)
+        self.assertIn('8/9', svg)
         self.assertEqual(metadata['jobs'][-1]['status'], 'missing')
 
     def test_failed_job_is_red_and_not_counted_passed(self):
         jobs = self.jobs()
         jobs[0]['conclusion'] = 'failure'
         svg, metadata, _ = proof.render(self.run_data(), jobs)
-        self.assertEqual(metadata['jobs_success'], 4)
+        self.assertEqual(metadata['jobs_success'], 8)
         self.assertIn('class="proof-failure"', svg)
 
     def test_each_real_fpm_job_is_required_for_a_full_proof(self):
-        for name in ('PHP-FPM 8.4', 'PHP-FPM 8.5'):
+        for name in ('PHP-FPM 8.2', 'PHP-FPM 8.3', 'PHP-FPM 8.4', 'PHP-FPM 8.5',
+                     'System Ubuntu 24.04 (PHP 8.3)', 'System Debian 12 (PHP 8.2)'):
             with self.subTest(job=name):
                 self.assertIn(name, proof.EXPECTED)
                 jobs = [job for job in self.jobs() if job['name'] != name]
                 svg, metadata, _ = proof.render(self.run_data(), jobs)
-                self.assertEqual(metadata['jobs_success'], 4)
-                self.assertEqual(metadata['jobs_total'], 5)
+                self.assertEqual(metadata['jobs_success'], 8)
+                self.assertEqual(metadata['jobs_total'], 9)
                 self.assertEqual(next(job for job in metadata['jobs'] if job['name'] == name)['status'], 'missing')
-                self.assertIn('4/5', svg)
+                self.assertIn('8/9', svg)
 
     def test_duplicate_job_is_rejected(self):
         with self.assertRaises(ValueError):

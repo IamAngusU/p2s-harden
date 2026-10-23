@@ -93,6 +93,8 @@ public class FakeSSH {
     if ($missing.ExitCode -ne 2 -or $missing.Stderr) { throw 'German prerequisite failure is not clean JSON.' }
     $failure = $missing.Stdout | ConvertFrom-Json
     if ($failure.language -cne 'de' -or $failure.findings[0].title -cne 'Voraussetzungen') { throw 'Prerequisite JSON did not retain the selected language.' }
+    if ($failure.schema_version -ne 2 -or -not $failure.has_unknown -or $failure.has_open -or
+        $failure.findings[0].id -notmatch '^P2S-EXEC001-[a-f0-9]{16}$' -or -not $failure.findings[0].remediation) { throw 'Prerequisite JSON lost stable IDs or schema 2 fields.' }
     if (-not $missing.Stdout.Contains([string][char]0x00fc)) { throw 'German prerequisite Unicode was lost.' }
     foreach ($case in @(@('--help', '--lang', 'fr'), @('--lang'))) {
         $invalid = Invoke-Launcher $case
@@ -101,12 +103,13 @@ public class FakeSSH {
     }
 
     foreach ($language in @('en', 'de')) {
-        $transport = Invoke-Launcher @('--ssh', 'tester@[::1]', '--lang', $language, '--root', $root, '--json')
+        $transport = Invoke-Launcher @('--ssh', 'tester@[::1]', '--lang', $language, '--root', $root, '--json', '--yes', '--fail-on', 'open', '--ignore', 'P2S-FS002')
         if ($transport.ExitCode -ne 17) { throw 'Localized transport changed the SSH exit code.' }
         $argv = [IO.File]::ReadAllText($env:P2S_ARGUMENTS).Split([char]0)
         if ($argv[-2] -cne 'tester@[::1]') { throw 'Localized transport changed the SSH target.' }
         if (-not $argv[-1].Contains("; bootstrap 1 $language || exit 2;")) { throw 'Remote bootstrap did not receive the selected language.' }
         if (-not $argv[-1].Contains("exec python3 -B - '--lang' '$language' '--root' $quotedRoot '--json'")) { throw 'Engine language or native argument quoting changed.' }
+        if (-not $argv[-1].Contains("'--yes' '--fail-on' 'open' '--ignore' 'P2S-FS002'")) { throw 'Automation/approval flags were dropped in SSH transport.' }
         if ([IO.File]::ReadAllText($env:P2S_PAYLOAD) -cne [IO.File]::ReadAllText((Join-Path $base 'p2s_harden.py'))) { throw 'Localized transport altered the embedded UTF-8 engine.' }
     }
     $env:P2S_EXIT_CODE = '255'
