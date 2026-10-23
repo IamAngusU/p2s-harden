@@ -91,6 +91,31 @@ payloads, remote startup targets, and files outside the selected roots need
 separate investigation. Legitimate test fixtures and encoded commercial code
 can produce indicators. Rewriting a sample can evade these rules.
 
+## Validation and benign-source calibration
+
+The standard-library-only, inert sample suite can be run from the full source
+package on Linux without installing PHP or starting a service:
+
+```bash
+python3 -B -m unittest -v test_p2s_webshells
+```
+
+It covers selected patterns and benign strings/comments, aliases, filesystem
+access/race/limit behavior, report privacy and actual Bash transport. These are
+regressions for the documented rules, not an independently measured malware
+detection rate. The normal suite also tests native PowerShell option forwarding.
+
+A separate calibration used **25 unchanged WordPress PHP files** (2666825 bytes)
+at commit `c9675182926de3c788cd7c594705111a920403d3`, including authentication,
+plugin/import dispatch, HTTP, database, formatting and KSES code. The exact
+selection, SHA-256s, scanner hash, budgets and results are recorded in
+[WEBSHELL-CORPUS.json](WEBSHELL-CORPUS.json). It produced **two expected review
+indicators** in legitimate `wp-admin/admin.php` (plugin include and importer
+callback), with no incomplete coverage under the recorded expanded budgets.
+The guards and application context explain those uses; the scanner deliberately
+does not treat a filename/framework name as an exemption. This small chosen
+sample does not establish a general false-positive rate or certify WordPress.
+
 ## What to do with a finding
 
 1. Preserve the file, its metadata and relevant logs using your incident-response

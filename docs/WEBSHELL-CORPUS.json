@@ -1,0 +1,66 @@
+{
+  "source": "WordPress/WordPress",
+  "source_commit": "c9675182926de3c788cd7c594705111a920403d3",
+  "source_manifest": {
+    "wp-admin/admin.php": "b7f88e1e0024fbccfd45a0179f6ed26df52e008f57766eb7ca716d5315532e41",
+    "wp-admin/includes/file.php": "60113c81a1589376be7a366a74c390d05723d8cd234690bacca267b934c51208",
+    "wp-admin/includes/update-core.php": "36345bcad28b7ceb4245bc3236ea9549e9e950dedd4700a62a1f3a1c5bdaa44b",
+    "wp-cron.php": "dd1dfcbc2a02ff16ce5ccf878d4f3d2ad9f5b762e2d1fc39ff27a073ae9a8a53",
+    "wp-includes/blocks.php": "1bd0ae4ed11443d66dccd0459fac9458c3a473fe3fe337e34f47b460aa0650c5",
+    "wp-includes/class-wp-http.php": "98e0dc74575634dc88faeefb67b7af51be1e856b187a19779fde7317e71177ca",
+    "wp-includes/class-wp-query.php": "104101f050ea33fd8d2146c39c03d41f6b96b6c6b881b1feb96ba242f0a1ddba",
+    "wp-includes/class-wp-user.php": "8b69af8351fad4595a93ed20610f8fc70de1fb8a3b80ff9d170a6305e04c6bf6",
+    "wp-includes/class-wp.php": "7ea29a56af7e658bb8195e772e4389c4cc79eced08934bfe839bb24923d49fff",
+    "wp-includes/class-wpdb.php": "73fa02760151d17ee66f632a4a8f56b029ac2bd8407bf88dd34923dc31a4bb0a",
+    "wp-includes/comment.php": "9852ca579581ce66491057b413da881b868098542258b0539a1b25d7d1acbcd1",
+    "wp-includes/formatting.php": "d44aa1329df2fc38bf2670ad6de570e6b9eb65db9ed5507f26c683e569b2919e",
+    "wp-includes/functions.php": "456ab4cc7a6e6f05b061f2b1905f44233f8906774c461f90c5b80b9841303ccc",
+    "wp-includes/kses.php": "9534818c276bc2bd39a392ecb300a5caafe0d5cd5dcc091e3503eea8ab9ba859",
+    "wp-includes/load.php": "fc60752e07ef9d33a8ac0dc5f94dabedd1a55e407827d26eae1317856d07961c",
+    "wp-includes/pluggable.php": "1916bd3bd7d0eec1507cb83fc313721c4fa6df3a205b96173bae188ef80f9ae0",
+    "wp-includes/plugin.php": "c0996a9afb93220e6bf0cd99fee58f9d32c80698a087ee06da5d76c6ef5c096c",
+    "wp-includes/post.php": "1669ee1e72a2de9c1d2694f7843cbd722bd6efa8f354f462a7c4eb6dd5d3c58a",
+    "wp-includes/rest-api.php": "2cabc3e52e73879069fed3f1a77bd1c65f46c28b50573ad1ad4ad57f06d2f7a5",
+    "wp-includes/rest-api/class-wp-rest-server.php": "0be7d2d686f98f87a47e517fcc6edfbfcd46e265ec48fd0c8c9d7aca2cc94dcf",
+    "wp-includes/shortcodes.php": "66181605f7f8c048a174f08576551005d7aa7657255ae7ee857465237c362b3f",
+    "wp-includes/user.php": "d84de91642427bef8e36ab471d14e569ddcac3038a088338145ad4a3fbe7e2b4",
+    "wp-load.php": "b9f66e90687d4c30f28ddcfe7b9870f66bdd106a00b27f4f21587db0321acb2f",
+    "wp-login.php": "b3016faad2bb51200c8a6f3969f248798d3fb3455071557570cba3020b813210",
+    "wp-settings.php": "3ff4e5057e2dcac2fa17b625a2b0700a042d7b05fc6b8f62c365e014ea8fe382"
+  },
+  "selected_php_files": 25,
+  "selected_bytes": 2666825,
+  "scanner_version": "2.3.0-dev",
+  "engine_sha256": "3954cdf587977ac8343144b79663d626af2cdb92b72879eb20f12a55d5fbdac9",
+  "limits": {
+    "max_paths": 250000,
+    "walk_seconds": 120,
+    "scan_file_bytes": 16777216,
+    "scan_total_bytes": 134217728
+  },
+  "exit_code": 1,
+  "counts": {
+    "OK": 0,
+    "OPEN": 2,
+    "UNKNOWN": 0,
+    "INFO": 1
+  },
+  "coverage": [
+    {
+      "examined_files": 25,
+      "indicator_count": 2,
+      "coverage_reasons": []
+    }
+  ],
+  "indicators": [
+    {
+      "path": "wp-admin/admin.php",
+      "indicators": {
+        "request-include": 300,
+        "request-callable": 373
+      },
+      "incomplete": null
+    }
+  ],
+  "interpretation": "Two expected review indicators in legitimate WordPress plugin/importer dispatch; not malware findings or proof of low false-positive rates."
+}

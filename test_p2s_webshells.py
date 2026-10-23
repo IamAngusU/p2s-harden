@@ -88,6 +88,13 @@ class WebshellIndicators(unittest.TestCase):
         self.assertEqual(p.webshell_indicators(b"<?php " + b"+ " * 100001, time.monotonic() + 30)[1], "tokens")
         self.assertEqual(p.webshell_indicators(b"<?php eval(" + b"(" * 130 + b"0" + b")" * 130 + b");")[1], "expression")
         self.assertEqual(p.webshell_indicators(b"<?php eval(" + b"0+" * 300 + b"0);")[1], "expression")
+        self.assertEqual(p.webshell_indicators(b"<?php ordinary_helper(" + b"0+" * 300 + b"0);")[1], None)
+        large = b"<?php $map=array(" + b"0," * 300 + b"0); "
+        self.assertEqual(p.webshell_indicators(large + b"echo $map;")[1], None)
+        self.assertEqual(p.webshell_indicators(large + b"array_map('htmlspecialchars', $map);")[1], None)
+        self.assertEqual(p.webshell_indicators(large + b"call_user_func($map);")[1], 'expression')
+        self.assertEqual(p.webshell_indicators(large + b"$copy=$map; eval($copy);")[1], 'expression')
+        self.assertEqual(p.webshell_indicators(large + b"$map='constant'; eval($map);")[1], None)
 
 
 @unittest.skipUnless(sys.platform == "linux", "Linux no-follow descriptor traversal")

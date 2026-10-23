@@ -13,6 +13,9 @@ WEBSHELL_REASONS = ("access", "symlink", "mount", "special", "changed", "depth",
 _WS_SOURCE = frozenset(("$_GET", "$_POST", "$_REQUEST", "$_COOKIE", "$_SERVER", "$_FILES"))
 _WS_SINKS = REQUIRED | frozenset(("eval", "assert", "create_function"))
 _WS_DECODERS = frozenset(("base64_decode", "gzinflate", "gzuncompress", "gzdecode", "str_rot13", "hex2bin"))
+_WS_NETWORK = frozenset(("fsockopen", "pfsockopen", "stream_socket_client", "socket_connect"))
+_WS_CALLBACKS = frozenset(("call_user_func", "call_user_func_array", "array_map"))
+_WS_CALLS = _WS_SINKS | _WS_NETWORK | _WS_CALLBACKS
 _WS_TOKEN = re.compile(r"\$[A-Za-z_][A-Za-z_0-9]*|\\?[A-Za-z_][A-Za-z_0-9\\]*|->|\?->|::|==|=>|!=|<=|>=|\?\?|&&|\|\||[^\s]", re.ASCII)
 _WS_OPEN = re.compile(r"<\?(?:php\b|=|(?!xml\b))", re.I | re.ASCII)
 _WS_HEREDOC = re.compile(r"<<<[ \t]*(?:'([A-Za-z_][A-Za-z_0-9]{0,127})'|\"([A-Za-z_][A-Za-z_0-9]{0,127})\"|([A-Za-z_][A-Za-z_0-9]{0,127}))[ \t]*\r?\n")
@@ -91,7 +94,7 @@ def webshell_indicators(data, deadline=None):
     source = data.decode("latin-1")
     deadline = deadline if deadline is not None else time.monotonic() + 10
     tokens, incomplete = webshell_tokens(source, deadline)
-    hits, aliases, decoded, constants, pairs, stack = {}, set(), set(), {}, {}, []
+    hits, aliases, decoded, complex_values, constants, pairs, stack = {}, set(), set(), set(), {}, {}, []
     for index, token in enumerate(tokens):
         if token[0] != "code":
             continue
@@ -121,6 +124,10 @@ def webshell_indicators(data, deadline=None):
                    constants.get(value, value.lower().lstrip("\\")) in _WS_DECODERS
                    and kind in ("code", "variable") and j + 1 < len(items) and items[j + 1][1] == "("
                    for j, (kind, value, _) in enumerate(items))
+    def uncertain(items):
+        return any(kind == "variable" and value in complex_values or
+                   kind in ("interpolated", "backtick") and any(m[0] in complex_values for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII))
+                   for kind, value, _ in items)
     def add(indicator, offset):
         # One row per rule/file, earliest line; no attacker-controlled excerpt.
         hits.setdefault(indicator, source.count("\n", 0, offset) + 1)
@@ -135,28 +142,30 @@ def webshell_indicators(data, deadline=None):
         if kind == "code" and value == "{":
             depth += 1
             if pending_function:
-                scopes.append((depth, aliases, decoded, constants))
-                aliases, decoded, constants, pending_function = set(), set(), {}, False
+                scopes.append((depth, aliases, decoded, complex_values, constants))
+                aliases, decoded, complex_values, constants, pending_function = set(), set(), set(), {}, False
         if kind == "code" and value == "}":
             if scopes and scopes[-1][0] == depth:
-                _, aliases, decoded, constants = scopes.pop()
+                _, aliases, decoded, complex_values, constants = scopes.pop()
             depth = max(0, depth - 1)
         if kind == "variable" and index + 1 < len(tokens) and tokens[index + 1][1] == "=":
             end = index + 2
             while end < min(len(tokens), index + 514) and tokens[end][:2] != ("code", ";"):
                 end += 1
-            if end == index + 514:
-                incomplete = incomplete or "expression"
             expression = tokens[index + 2:end]
             tainted = request(expression)
             packed = encoded(expression)
+            complex_value = end == index + 514 or uncertain(expression)
             aliases.discard(value)
             decoded.discard(value)
+            complex_values.discard(value)
             constants.pop(value, None)
             if tainted:
                 aliases.add(value)
             if packed:
                 decoded.add(value)
+            if complex_value:
+                complex_values.add(value)
             if expression and all(t[0] == "string" or t[0] == "interpolated" and "$" not in t[1] or t[0] == "code" and t[1] == "." for t in expression):
                 name = "".join(t[1] for t in expression if t[1] != ".")
                 if len(name) <= 128:
@@ -177,14 +186,20 @@ def webshell_indicators(data, deadline=None):
                 incomplete = incomplete or "expression"
             if request(tokens[index + 1:end]):
                 add("request-include", offset)
+            if uncertain(tokens[index + 1:end]):
+                incomplete = incomplete or "expression"
         if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
+            continue
+        if name not in _WS_CALLS and not (kind == "variable" and (value in aliases or value in complex_values)) and value != "]":
             continue
         end = pairs.get(index + 1)
         if end is None or end - index > 512:
             incomplete = incomplete or "expression"
             continue
         arguments = tokens[index + 2:end]
-        if name in ("fsockopen", "pfsockopen", "stream_socket_client", "socket_connect"):
+        if name in _WS_SINKS and uncertain(arguments) or kind == "variable" and value in complex_values:
+            incomplete = incomplete or "expression"
+        if name in _WS_NETWORK:
             network_offset = offset if network_offset is None else network_offset
         if name in REQUIRED:
             for arg_kind, arg_value, _ in arguments:
@@ -194,7 +209,7 @@ def webshell_indicators(data, deadline=None):
                         network_offset = offset if network_offset is None else network_offset
         if kind == "variable" and value in aliases:
             add("request-callable", offset)
-        if name in ("call_user_func", "call_user_func_array", "array_map"):
+        if name in _WS_CALLBACKS:
             # Inspect the first callback argument, without conflating request
             # data passed as a later argument with a request-selected function.
             argument_end, nesting = 0, 0
@@ -210,6 +225,8 @@ def webshell_indicators(data, deadline=None):
                 argument_end = len(arguments)
             if request(arguments[:argument_end]):
                 add("request-callable", offset)
+            if uncertain(arguments[:argument_end]):
+                incomplete = incomplete or "expression"
         if value == "]" and index in closing:
             begin = closing[index]
             if begin and request(tokens[begin - 1:index + 1]):
@@ -248,8 +265,13 @@ def scan_webshells(args):
                 raise
         try:
             fd = open_root()
-            device = os.fstat(fd).st_dev
-            frames.append((fd, os.scandir(fd), root))
+            try:
+                device = os.fstat(fd).st_dev
+                entries = os.scandir(fd)
+            except BaseException:
+                os.close(fd)
+                raise
+            frames.append((fd, entries, root))
             while frames:
                 if time.monotonic() > deadline:
                     reasons.add("time")
