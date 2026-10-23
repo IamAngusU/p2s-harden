@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# p2s-harden 2.2.0-rc.1 — self-contained; engine is embedded below.
+set -uo pipefail
+
+usage() {
+  cat <<'HELP'
+p2s-harden 2.2.0-rc.1 — eine Datei, automatische Erkennung
+
+  sudo bash p2s-harden.sh                     Lokal erkennen und pruefen
+  bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und pruefen
+  bash p2s-harden.sh --doctor                  Voraussetzungen und naechste Schritte
+  sudo bash p2s-harden.sh --discover           Erkannte Zuordnungen anzeigen
+  sudo bash p2s-harden.sh --dry-run            Konkrete Aenderungen anzeigen
+  sudo bash p2s-harden.sh --fix                Begrenzte INI-Fixes anwenden
+  sudo bash p2s-harden.sh --rollback           Letzte Transaktion zuruecknehmen
+
+Kein separates Python-Skript, keine Installation und keine Konfigurationsdatei.
+Voraussetzungen: Linux-Ziel mit Python 3.8+ und bestehender SSH-Zugang bei --ssh.
+Fehlende optionale Helfer werden erklaert; unabhaengige Pruefungen laufen weiter.
+
+Optional (automatisch erkannte Werte lassen sich ueberschreiben):
+  --root /pfad                 Dateisystem-Pruefbereich einschraenken
+  --site URL=DOKUMENTWURZEL     Expliziter vHost, wiederholbar
+  --nginx-config /pfad          Abweichende Nginx-Hauptkonfiguration
+  --web-user BENUTZER           Zusaetzlicher FPM-Benutzer
+  --no-auto                    Nur explizite Zuordnungen verwenden
+  --max-sites 32               Limit automatischer HTTP-Zuordnungen
+  --protect-dir /pfad           Nur explizites Verzeichnis schuetzen; kein Rekurs
+  --backup-root /root/pfad      Anderes Backup-Verzeichnis
+  --backup-id ID                Bestimmte Transaktion zuruecknehmen
+  --json                       --check/--discover maschinenlesbar ausgeben
+  --verbose                    Alle Einzelbefunde einschliesslich OK anzeigen
+  --no-progress                Phasenhinweise im interaktiven Terminal ausblenden
+
+Erkennung leitet keine automatischen Rechteaenderungen ab.
+--check/--discover/--dry-run schreiben keine Zielkonfiguration und laden nichts neu.
+Exit 0: ausgewiesene Einzelpruefungen bestanden; 1: offen; 2: unbekannt/Fehler.
+HELP
+}
+
+target=local
+target_set=0
+json_mode=0
+args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --local)
+      [ "$target_set" = 0 ] || { echo 'Ziel mehrfach angegeben' >&2; exit 2; }
+      target=local; target_set=1; shift ;;
+    --ssh)
+      [ "$target_set" = 0 ] && [ "$#" -ge 2 ] && [ -n "$2" ] || { echo '--ssh braucht ein Ziel' >&2; exit 2; }
+      target=$2; target_set=1; shift 2
+      name_pattern='^[A-Za-z0-9_][A-Za-z0-9_.@:-]*$'
+      ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
+      [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { echo 'Ungueltiges SSH-Ziel' >&2; exit 2; } ;;
+    --help|-h) usage; exit 0 ;;
+    --version) echo 'p2s-harden 2.2.0-rc.1'; exit 0 ;;
+    --json) json_mode=1; args+=("$1"); shift ;;
+    --yes|-y|--no-self-guard)
+      echo "Hinweis: $1 ist wirkungslos; keine Firewall-/Fail2ban-Aenderungen." >&2; shift ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+[ -t 2 ] && args+=(--progress)
+
+payload() {
+  local inside=0 line
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$line" = '# __P2S_PYTHON__' ]; then
+      inside=1
+    elif [ "$line" = '__P2S_ENGINE_EOF__' ]; then
+      break
+    elif [ "$inside" = 1 ]; then
+      printf '%s\n' "$line"
+    fi
+  done < "$0"
+}
+
+# POSIX shell syntax: this same definition is sent to the remote login shell.
+# Even without Python, enumerate missing helpers and give one actionable result.
+bootstrap() {
+  p2s_problem=''
+  p2s_kernel=''
+  if [ -r /proc/sys/kernel/ostype ]; then IFS= read -r p2s_kernel < /proc/sys/kernel/ostype; fi
+  [ "$p2s_kernel" = Linux ] && [ -r /proc/self/stat ] || p2s_problem='Linux-Ziel mit lesbarem /proc erforderlich; Windows/macOS koennen per --ssh pruefen.'
+  if ! command -v python3 >/dev/null 2>&1; then
+    p2s_problem="${p2s_problem:+$p2s_problem }Python 3.8+ fehlt; Paket python3 bereitstellen. Ohne Python sind die Konfigurationspruefungen nicht ausfuehrbar."
+  elif ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then
+    p2s_problem="${p2s_problem:+$p2s_problem }Python 3.8+ erforderlich; vorhandenes python3 ist zu alt oder nicht ausfuehrbar."
+  fi
+  [ -n "$p2s_problem" ] || return 0
+  if [ "$1" = 1 ]; then
+    printf '{"schema_version":1,"version":"2.2.0-rc.1","exit_code":2,"findings":[{"status":"UNKNOWN","title":"Voraussetzungen","detail":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_problem"
+    p2s_comma=''
+    for p2s_tool in python3 ps curl runuser systemctl; do
+      p2s_present=false
+      command -v "$p2s_tool" >/dev/null 2>&1 && p2s_present=true
+      printf '%s"%s":%s' "$p2s_comma" "$p2s_tool" "$p2s_present"
+      p2s_comma=,
+    done
+    printf '}}}}\n'
+  else
+    printf 'p2s-harden: Voraussetzungen unvollstaendig\n%s\n' "$p2s_problem" >&2
+    for p2s_tool in python3 ps curl runuser systemctl; do
+      command -v "$p2s_tool" >/dev/null 2>&1 || printf 'FEHLT   %s\n' "$p2s_tool" >&2
+    done
+    printf '%s\n' 'ps ist optional (/proc-Fallback). curl: HTTP-Checks. runuser: fremde FPM-Benutzer. systemctl: INI-Fixes.' 'Nach Bereitstellung von Python denselben Befehl erneut ausfuehren. Es wurde nichts installiert oder geaendert.' >&2
+  fi
+  return 2
+}
+if [ "$target" = local ]; then
+  bootstrap "$json_mode" || exit 2
+  payload | python3 -B - "${args[@]}"
+  exit "$?"
+fi
+default_ssh=ssh
+[ -x C:/Windows/System32/OpenSSH/ssh.exe ] && default_ssh=C:/Windows/System32/OpenSSH/ssh.exe
+ssh_bin=${SSH_BIN:-$default_ssh}
+if ! command -v "$ssh_bin" >/dev/null 2>&1; then
+  if [ "$json_mode" = 1 ]; then
+    printf '%s\n' '{"schema_version":1,"version":"2.2.0-rc.1","exit_code":2,"findings":[{"status":"UNKNOWN","title":"SSH","detail":"OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen."}],"discovery":{}}'
+  else
+    printf '%s\n' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
+  fi
+  exit 2
+fi
+remote="$(declare -f bootstrap); bootstrap $json_mode || exit 2; exec python3 -B -"
+for argument in "${args[@]}"; do
+  escaped=${argument//\'/\'\\\'\'}
+  remote+=" '$escaped'"
+done
+batch=yes
+[ -t 2 ] && batch=no
+payload | MSYS_NO_PATHCONV=1 "$ssh_bin" -T -o "BatchMode=$batch" -o ConnectTimeout=15 \
+  -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -- "$target" "$remote"
+result=$?
+if [ "$result" = 255 ]; then
+  if [ "$json_mode" = 1 ]; then
+    printf '%s\n' '{"schema_version":1,"version":"2.2.0-rc.1","exit_code":2,"findings":[{"status":"UNKNOWN","title":"SSH","detail":"Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang pruefen und erneut ausfuehren."}],"discovery":{}}'
+  else
+    printf '%s\n' 'SSH-Verbindung nicht verfuegbar. Vorhandenen SSH-Zugang pruefen; danach denselben Befehl erneut ausfuehren.' >&2
+  fi
+  exit 2
+fi
+exit "$result"
+
+: <<'__P2S_ENGINE_EOF__'
+# __P2S_PYTHON__

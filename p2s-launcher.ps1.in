@@ -1,0 +1,102 @@
+# p2s-harden 2.2.0-rc.1. Self-contained Windows -> Linux SSH launcher.
+# No PowerShell modules, Bash, Python or installation needed on the client.
+$ErrorActionPreference = 'Stop'
+$target = $null
+$cliArguments = New-Object 'System.Collections.Generic.List[string]'
+$jsonMode = $false
+
+function Write-Failure([string]$Title, [string]$Detail) {
+    if ($script:jsonMode) {
+        @{ schema_version = 1; version = '2.2.0-rc.1'; exit_code = 2;
+           findings = @(@{ status = 'UNKNOWN'; title = $Title; detail = $Detail }); discovery = @{} } | ConvertTo-Json -Depth 5
+    } else { [Console]::Error.WriteLine("${Title}: $Detail") }
+}
+
+function Quote-Posix([string]$Value) {
+    return "'" + $Value.Replace("'", "'\''") + "'"
+}
+
+function Quote-Native([string]$Value) {
+    # Windows argv quoting, including quotes and trailing backslashes.
+    return '"' + (($Value -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
+}
+
+try {
+    $jsonMode = $args -contains '--json'
+    for ($i = 0; $i -lt $args.Count; $i++) {
+        $argument = [string]$args[$i]
+        switch ($argument) {
+            '--ssh' {
+                if ($null -ne $target -or $i + 1 -ge $args.Count) { throw '--ssh braucht genau ein Linux-Ziel.' }
+                $target = [string]$args[++$i]
+                if ($target -notmatch '^[A-Za-z0-9_][A-Za-z0-9_.@:-]*$' -and $target -notmatch '^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$') { throw 'Ungueltiges SSH-Ziel.' }
+            }
+            '--help' {
+                @'
+p2s-harden 2.2.0-rc.1 - Windows -> Linux, direkt per OpenSSH
+
+  .\p2s-harden.ps1 --ssh root@SERVER              Erkennen und pruefen
+  .\p2s-harden.ps1 --ssh root@SERVER --doctor     Voraussetzungen erklaeren
+  .\p2s-harden.ps1 --ssh root@SERVER --discover   Erkanntes Inventar
+  .\p2s-harden.ps1 --ssh root@SERVER --dry-run    Fixes anzeigen
+  .\p2s-harden.ps1 --ssh root@SERVER --fix        Begrenzte Fixes anwenden
+
+Weitere Argumente entsprechen der Bash-Datei, z.B. --json, --verbose,
+--root PFAD, --site URL=PFAD, --web-user NAME, --protect-dir PFAD, --rollback.
+Das Linux-Ziel braucht Python 3.8+. Fehlende Helfer werden einzeln erklaert.
+Standard ist eine Pruefung. Kein Installer und keine Konfigurationsdatei.
+'@
+                exit 0
+            }
+            '--version' { 'p2s-harden 2.2.0-rc.1'; exit 0 }
+            default { $cliArguments.Add($argument) }
+        }
+    }
+    if ($null -eq $target) { throw 'Linux-Ziel angeben: .\p2s-harden.ps1 --ssh root@SERVER. Fuer lokale Linux-Pruefungen p2s-harden.sh verwenden.' }
+    $ssh = $env:SSH_BIN
+    if (-not $ssh) {
+        $native = Join-Path $env:SystemRoot 'System32\OpenSSH\ssh.exe'
+        if (Test-Path -LiteralPath $native) { $ssh = $native }
+        else {
+            $found = Get-Command ssh.exe -ErrorAction SilentlyContinue
+            if ($found) { $ssh = $found.Source }
+        }
+    }
+    if (-not $ssh) { throw 'OpenSSH-Client fehlt. In Windows unter Optionale Features den OpenSSH-Client bereitstellen oder SSH_BIN setzen.' }
+    $bootstrap = @'
+__BOOTSTRAP__
+'@
+    $jsonFlag = if ($jsonMode) { '1' } else { '0' }
+    $remote = $bootstrap + "; bootstrap $jsonFlag || exit 2; exec python3 -B -"
+    if (-not [Console]::IsErrorRedirected) { $cliArguments.Add('--progress') }
+    foreach ($value in $cliArguments) { $remote += ' ' + (Quote-Posix $value) }
+    $batch = if ([Console]::IsInputRedirected) { 'yes' } else { 'no' }
+    $nativeArgs = @('-T', '-o', "BatchMode=$batch", '-o', 'ConnectTimeout=15',
+                    '-o', 'ServerAliveInterval=10', '-o', 'ServerAliveCountMax=3', '--', $target, $remote)
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName = $ssh
+    $info.Arguments = ($nativeArgs | ForEach-Object { Quote-Native $_ }) -join ' '
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardInput = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $info
+    [void]$process.Start()
+    try {
+        $engineBytes = [Convert]::FromBase64String('__ENGINE_BASE64__')
+        $process.StandardInput.BaseStream.Write($engineBytes, 0, $engineBytes.Length)
+        $process.StandardInput.BaseStream.Flush()
+    } catch [System.IO.IOException] { } # Remote bootstrap may finish before reading stdin.
+    finally { $process.StandardInput.BaseStream.Close() }
+    $process.WaitForExit()
+    $result = $process.ExitCode
+    $process.Dispose()
+    if ($result -eq 255) {
+        Write-Failure 'SSH' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang pruefen und erneut ausfuehren.'
+        exit 2
+    }
+    exit $result
+} catch {
+    Write-Failure 'Voraussetzungen' $_.Exception.Message
+    exit 2
+}
