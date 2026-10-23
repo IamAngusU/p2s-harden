@@ -30,7 +30,9 @@
 
 **Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
-Zum Testen den generierten Launcher dieses Branches verwenden;
+Zum Testen den generierten Launcher dieses Branches verwenden:
+[Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
+Für die Vorschau gibt es Branch-CI-Nachweise, keine Stable-Release-Build-Attestierung.
 [Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
 
 Lade **eine Datei** für deinen Startrechner:

@@ -30,7 +30,9 @@
 
 **Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev**.
 Published **2.2.1 downloads below do not include that mode**. Use the generated
-launcher from this branch to try it; [scope and commands](#look-for-php-webshell-indicators).
+launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
+[PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
+Preview files have branch CI evidence, not stable-release build attestations.
 
 Download **one file** for the computer you run it from:
 
