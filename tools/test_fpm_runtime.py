@@ -318,8 +318,11 @@ def audit_comparison(engine, case, data, directory):
     permissions = json.dumps(dict(files=0, directories=0, file_sample=[], directory_sample=[], errors=[]))
     with patch.object(engine, "discover", return_value=([instance], [])), patch.object(engine, "as_user", return_value=permissions):
         report, _, _, _ = engine.scan(args)
-    pool = next(r for r in report.rows if r["title"] == "Pool /fixture/fpm.conf [fixture]")
-    include = next(r for r in report.rows if r["title"] == "allow_url_include [fixture] /fixture/fpm.conf")
+    def effective(rule):
+        rows = [row for row in report.rows if row["rule_id"] == rule and row["resource"].get("pool") in (None, "fixture")]
+        return next((row for row in rows if row["resource"].get("pool") == "fixture"), rows[0])
+    pool = effective("P2S-PHP001")
+    include = effective("P2S-PHP002")
     runtime_pool = "OPEN" if any(v["exists"] for v in data["functions"].values()) else "OK"
     runtime_include = "OPEN" if data["data_include_allowed"] else "OK"
     failures = []

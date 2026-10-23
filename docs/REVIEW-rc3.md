@@ -1,5 +1,10 @@
 # rc.3 review response
 
+> Historical record for 2.2.0-rc.3. This is not the current feature inventory.
+> 2.2.0 added redaction and the documented listener/socket/pool/FFI checks.
+> Strict application profiles and existing-worker attestation remain deferred.
+> See the [current review response](REVIEW-2.2.1.md) and [supported scope](PRODUCTION.md).
+
 The rc.2 follow-up correctly identified automation, preview and distribution
 integration gaps. This release prioritizes those contracts rather than expanding
 automatic changes into untested application/security profiles.
@@ -56,13 +61,15 @@ ordering, crash-recovery and rollback-conflict contracts, plus upgrade tests.
 Deletion alone is not a substitute for those checks. This release does not claim
 to have solved package-upgrade behavior or add unverified new-file mutation.
 
-**12, redaction:** reports still need manual privacy review before sharing.
-An automatic mode needs schema-wide tests for domains, paths, users, URLs and
-nested diagnostics so it cannot misleadingly promise anonymous bug reports.
+**12, redaction (at rc.3, since delivered in 2.2.0):** reports still needed manual privacy review before sharing.
+At that point an automatic mode needed schema-wide tests for domains, paths,
+users, URLs and nested diagnostics. The tested projection shipped in 2.2.0;
+2.2.1 retains validated technical facts. See the current review response above.
 
-**13–15, broader checks/profiles/runtime attestation:** listener exposure, pool
+**13–15, broader checks/profiles/runtime attestation (rc.3 decision):** listener exposure, pool
 isolation, additional function/extension profiles and existing-worker attestation
-remain separate future work. Disk settings alone do not prove external network
+were separate future work. The documented pool/FFI subset shipped in 2.2.0;
+strict profiles and production-worker attestation remain deferred. Disk settings alone do not prove external network
 reachability, and a master's start time alone does not establish the current
 worker configuration. A stricter function list can break applications and must
 not be presented as a universal fix. The existing fixed-sentinel FastCGI lab is

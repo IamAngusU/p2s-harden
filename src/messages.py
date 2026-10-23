@@ -716,6 +716,19 @@ _NEW_GERMAN = {
     "Review this diagnostic in its reported context.": "Diese Diagnose im angegebenen Kontext prüfen.",
 }
 _NEW_GERMAN.update({
+    "Shell function restrictions": "Shell-Funktionssperren",
+    "URL includes": "URL-Includes",
+    "Filesystem restriction": "Dateisystembegrenzung",
+    "PHP FFI": "PHP-FFI",
+    "FPM TCP listener": "FPM-TCP-Listener",
+    "FPM Unix socket": "FPM-Unix-Socket",
+    "FPM script extensions": "FPM-Skriptendungen",
+    "FPM environment clearing": "FPM-Umgebungsbereinigung",
+    "Writable PHP files": "Schreibbare PHP-Dateien",
+    "Writable directories": "Schreibbare Verzeichnisse",
+    "Declared runtime storage": "Deklarierter Laufzeitspeicher",
+    "Sensitive HTTP path": "Sensibler HTTP-Pfad",
+    "localhost resolution is unavailable; use a literal loopback IP or verify the host name-service configuration": "localhost-Auflösung nicht verfügbar; konkrete Loopback-IP verwenden oder Namensdienst des Hosts prüfen",
     "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review": "Hauptskript-Endungen sind unbeschränkt; nach Prüfung der Anwendung security.limit_extensions=.php setzen",
     "Shareable read-only report: omit host details, inventory and original finding IDs": "Teilbarer Prüfbericht: Hostdetails, Inventar und ursprüngliche Befund-IDs weglassen",
     "Host details omitted; rerun locally without --redact": "Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen",
@@ -736,6 +749,7 @@ _NEW_GERMAN.update({
     "Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain.": "Für gegenseitig nicht vertrauenswürdige Anwendungen getrennte Unix-Konten und Code-Eigentümer verwenden; gemeinsame Pools können bei gleichem Vertrauen beabsichtigt sein.",
 })
 _POOL_TEMPLATES = {
+    "localhost resolves outside loopback; inspect the host name-service configuration; {listener}": "localhost wird außerhalb von Loopback aufgelöst; Namensdienst des Hosts prüfen; {listener}",
     "FPM listener [{pool}] {config}": "FPM-Listener [{pool}] {config}",
     "FPM script extensions [{pool}] {config}": "FPM-Skriptendungen [{pool}] {config}",
     "FPM environment clearing [{pool}] {config}": "FPM-Umgebungsbereinigung [{pool}] {config}",

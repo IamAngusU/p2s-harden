@@ -24,15 +24,15 @@
 <p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **2.2.0 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
+**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
 
 ## Start here
 
 Download **one file** for the computer you run it from:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0/p2s-harden.ps1)
-- [Linux / macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.0/p2s-harden.sh)
-- [Source package and SHA-256 sums](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.0)
+- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
+- [Linux / macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.sh)
+- [Source package and SHA-256 sums](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.1)
 
 On the Linux server:
 
@@ -112,6 +112,8 @@ sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 
 `--fix` only adds the defined shell-function restrictions and disables URL includes in supported INIs. Test application compatibility. Directory changes need an explicit `--protect-dir /absolute/code/path` and known PHP user; discovery never chooses permission changes. Human output prints the exact undo command; JSON returns the backup ID and state. Repeating implicit `--rollback` never selects an older fix. Rollback checks contents and metadata before writing, restores original timestamps and supports interrupted recovery. Fixes receive fresh modification times. [Transaction details](docs/DETAILS.md).
 
+The existing-file fix can modify a package-managed `php.ini`. If both local and package-maintainer versions change, a later package upgrade may ask which configuration to keep. Review that diff and re-audit after upgrading; new-file drop-ins remain deferred. [Upgrade behavior](docs/DETAILS.md#package-upgrades).
+
 Audit, doctor, inventory and dry-run do not change target configuration, permissions or services. Reads and HTTP requests can update access times and ordinary logs.
 
 ## Share a report without host details
@@ -120,15 +122,20 @@ Audit, doctor, inventory and dry-run do not change target configuration, permiss
 sudo bash p2s-harden.sh --check --redact --json > p2s-report.json
 ```
 
-`--redact` builds a report from an explicit allowlist: rule IDs, statuses, severity,
-remediation and counts. It omits paths, domains, users, raw diagnostics, inventory,
-plans and transactions. Finding IDs are regenerated for each shared report;
-use the original local report for per-resource `--ignore` IDs. Results and exit
-codes stay the same. Supported modes: check, doctor and discover. Review fix
-previews locally without redaction. This applies to report stdout; SSH/system
-diagnostics on stderr may still identify the host.
+`--redact` keeps rule IDs, results, remediation and **typed technical evidence**:
+for example `missing_functions: ["popen"]`, `socket_mode: "0666"`, setting states,
+counts and HTTP status. Each rule validates its allowed fields and values.
+Paths, domains, users, raw diagnostics, inventory, plans and transactions are
+omitted. Shared finding IDs are fresh per report; use the original local IDs
+for per-resource `--ignore`. Supported modes: check, doctor and discover.
+Results and exit codes stay the same. Review change previews locally without
+redaction. Report stdout is covered; SSH/system stderr may identify the host.
+[Send reviewed audit feedback](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
 
 ## Common situations
+
+- **Repeated global settings:** unchanged pool results share the global finding. Normal JSON lists `affected_pools`; `evidence.affected_pool_count` is safe to share. Different effective policies and explicit unsafe include overrides remain separate causes.
+- **TCP localhost:** its current host resolution is checked with a two-second deadline. Outside-loopback answers are OPEN; failed resolution and other hostnames remain UNKNOWN. This does not attest an existing listener or container service.
 
 - **Expected uploads/cache:** repeat `--runtime-dir /srv/site/uploads`. Writable directories there become INFO; writable PHP files and incomplete coverage remain findings. Verify execution restrictions separately.
 - **A larger application:** the default budget is **250000 entries and 10 seconds per walk**. Use `--max-paths`, `--walk-seconds` or a narrower `--root` when needed. Dependencies are not silently excluded. HTTP defaults to 128 total requests and 32 automatic mappings (`--max-http-probes`, `--max-sites`). Limits remain UNKNOWN.
@@ -140,6 +147,8 @@ diagnostics on stderr may still identify the host.
 Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, otherwise **1 for OPEN**, otherwise **0**. For CI that must distinguish an OPEN even alongside incomplete checks, use `--fail-on open`: OPEN returns 1 first, otherwise UNKNOWN still returns 2. JSON always exposes both flags and every finding. Ignored OPEN rows do not change the exit code; they remain in the report.
 
 ## Verify your download
+
+Checksums detect corruption or mismatched downloads. A checksum from the same release cannot independently authenticate its origin. Releases also include **GitHub-signed build provenance** for the four distribution files, built after all test jobs pass. Verify the exact bytes, expected workflow and source commit with optional `gh attestation verify`: [verification commands and trust boundary](docs/PROVENANCE.md).
 
 Download the SHA-256 sums alongside the chosen launcher. On Windows:
 
@@ -160,7 +169,7 @@ Unblocking removes the downloaded-file marker; it does not override Restricted o
 
 ## Scope and release status
 
-**Stable within the documented scope.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
+**Stable within the documented scope.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Latest review response](docs/REVIEW-2.2.1.md) · [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
 
 GitHub-hosted runner access is currently unavailable in the source account. The public CI fork uses a separate account owned by the same maintainer; it is not an independent audit. The proof checks that the tested commit, source main and fork main match before publishing. [Exact jobs and steps](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [How synchronization works](docs/CI.md).
 

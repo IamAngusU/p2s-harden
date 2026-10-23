@@ -36,12 +36,49 @@ RULES = {
 }
 
 
+def safe_evidence(rule_id, evidence):
+    """Only rule-owned, finite values may survive report redaction."""
+    if not isinstance(evidence, dict):
+        return {}
+    boolean = lambda value: type(value) is bool
+    count = lambda value: type(value) is int and 0 <= value <= 1000000
+    choices = lambda *allowed: lambda value: type(value) is str and value in allowed
+    names = lambda *allowed: lambda value: (type(value) is list and len(value) <= len(allowed)
+                                            and all(type(v) is str and v in allowed for v in value))
+    fields = {
+        "PHP001": dict(missing_functions=names(*sorted(REQUIRED)), affected_pool_count=count),
+        "PHP002": dict(allow_url_include=boolean, affected_pool_count=count),
+        "PHP003": dict(unrestricted=boolean),
+        "PHP004": dict(ffi_policy=choices("off", "on", "preload", "unknown")),
+        "FPM001": dict(binding=choices("loopback", "network", "unverified"), client_allowlist=boolean,
+                       hostname_resolution=choices("loopback", "non_loopback", "unavailable")),
+        "FPM002": dict(socket_mode=lambda value: type(value) is str and re.fullmatch(r"0[0-7]{3}", value) is not None,
+                       source=choices("configured", "observed", "acl"), named_acl=boolean),
+        "FPM003": dict(unrestricted=boolean, allowed_known_extensions=names(".php", ".phar"), other_extension_count=count),
+        "FPM004": dict(clear_env=boolean),
+        "FPM005": dict(pool_count=count),
+        "FS001": dict(writable_files=count),
+        "FS002": dict(writable_directories=count),
+        "FS004": dict(runtime_directories=count),
+        "HTTP001": dict(http_status=lambda value: type(value) is int and 100 <= value <= 599),
+        "SYS001": dict(ptrace_scope=lambda value: type(value) is int and 0 <= value <= 3),
+    }.get(rule_id[4:], {})
+    return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
+
+
+RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes", "PHP003": "Filesystem restriction",
+              "PHP004": "PHP FFI", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
+              "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
+              "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
+              "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope"}
+
+
 class Report:
     def __init__(self):
         self.rows = []
         self.discovery = {}
 
-    def add(self, status, title, detail, *, rule_id="P2S-CUSTOM", resource=None):
+    def add(self, status, title, detail, *, rule_id="P2S-CUSTOM", resource=None, evidence=None):
         key = rule_id[4:]
         severity, remediation = RULES[key]
         resource = title if resource is None else resource
@@ -50,7 +87,8 @@ class Report:
         self.rows.append(dict(id=finding_id, rule_id=rule_id, resource=resource,
                               status=status, title=title, detail=detail,
                               severity=severity if status == "OPEN" else "unknown" if status == "UNKNOWN" else "info",
-                              remediation=remediation, suppressed=False))
+                              remediation=remediation, suppressed=False, evidence=safe_evidence(rule_id, evidence)))
+        return self.rows[-1]
 
     def configure(self, fail_on="complete", ignore=()):
         self.fail_on = fail_on
@@ -75,11 +113,15 @@ class Report:
             # Allowlist projection, not regex replacement: even exception text,
             # arbitrary discovery metadata and future resource shapes are omitted.
             nonce = uuid.uuid4().hex
-            rows = [dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
-                         rule_id=row["rule_id"], resource=None, status=row["status"],
-                         title=row["rule_id"], detail=localize("Host details omitted; rerun locally without --redact", lang),
-                         severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
-                         suppressed=row["suppressed"]) for index, row in enumerate(self.rows)]
+            def project(index, row):
+                evidence = safe_evidence(row["rule_id"], row.get("evidence"))
+                return dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
+                            rule_id=row["rule_id"], resource=None, status=row["status"],
+                            title=localize(RULE_NAMES.get(row["rule_id"][4:], row["rule_id"]), lang),
+                            detail=json.dumps(evidence, sort_keys=True) if evidence else localize("Host details omitted; rerun locally without --redact", lang),
+                            severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
+                            evidence=evidence, suppressed=row["suppressed"])
+            rows = [project(index, row) for index, row in enumerate(self.rows)]
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
@@ -124,6 +166,10 @@ class Report:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN"):
                 emit("        " + row["id"] + (" [ignored OPEN]" if row["suppressed"] else ""))
+                if row.get("affected_pools"):
+                    count = len(row["affected_pools"])
+                    emit(f"        Unverändert für {count} Pools; --json nennt die zugehörigen Pools." if lang == "de" else
+                         f"        Applies unchanged to {count} pools; --json lists the related pools.")
                 emit("        " + row["remediation"])
         if not verbose and len(shown) > 40:
             emit(f"Weitere {len(shown) - 40} Befunde: --verbose oder --json zeigt alle Details." if lang == "de" else

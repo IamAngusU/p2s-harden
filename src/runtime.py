@@ -31,7 +31,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 

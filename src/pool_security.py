@@ -10,7 +10,25 @@ def pool_effective(values, settings, key):
     return value
 
 
+def localhost_loopback(name, cache):
+    key = name.lower()
+    if key not in cache:
+        try:
+            code = "import json,socket,sys; print(json.dumps(sorted({v[4][0] for v in socket.getaddrinfo(sys.argv[1],None,type=socket.SOCK_STREAM)})))"
+            output, _ = command([sys.executable, "-I", "-B", "-c", code, name], timeout=2)
+            addresses = json.loads(output)
+            if not isinstance(addresses, list) or not 1 <= len(addresses) <= 64 or any(type(value) is not str for value in addresses):
+                raise ValueError()
+            cache[key] = all(ipaddress.ip_address(value).is_loopback for value in addresses)
+        except (ValueError, TypeError, CheckError):
+            cache[key] = None
+    if cache[key] is None:
+        raise CheckError("localhost resolution is unavailable; use a literal loopback IP or verify the host name-service configuration")
+    return cache[key]
+
+
 def pool_security(report, instance):
+    name_cache = {}
     for pool, settings in instance["pools"].items():
         resource = dict(config=instance["config"], pool=pool)
         title = "FPM listener [" + pool + "] " + instance["config"]
@@ -21,11 +39,13 @@ def pool_security(report, instance):
                 raw_mode = "0660"
             if not re.fullmatch(r"0?[0-7]{3}", raw_mode):
                 status, detail = "UNKNOWN", "Cannot parse the configured Unix socket mode"
+                mode_evidence = dict(source="configured")
             else:
                 world = int(raw_mode, 8) & 0o002
                 status = "OPEN" if world else "OK"
                 detail = "Configured Unix socket mode: " + raw_mode
-            report.add(status, title, detail, rule_id="P2S-FPM002", resource=dict(resource, source="configured"))
+                mode_evidence = dict(source="configured", socket_mode=format(int(raw_mode, 8), "04o"))
+            report.add(status, title, detail, rule_id="P2S-FPM002", resource=dict(resource, source="configured"), evidence=mode_evidence)
             try:
                 path = Path(listener)
                 if any(p.is_symlink() for p in (path, *path.parents)):
@@ -36,13 +56,14 @@ def pool_security(report, instance):
                 mode = stat.S_IMODE(actual.st_mode)
                 report.add("OPEN" if mode & 0o002 else "OK", title,
                            "Observed Unix socket mode: " + format(mode, "04o") + "; " + listener,
-                           rule_id="P2S-FPM002", resource=dict(resource, source="observed"))
+                           rule_id="P2S-FPM002", resource=dict(resource, source="observed"), evidence=dict(source="observed", socket_mode=format(mode, "04o")))
             except (OSError, CheckError) as exc:
                 report.add("UNKNOWN", title, str(exc), rule_id="P2S-FPM002", resource=dict(resource, source="observed"))
             if any(settings.get(key, "") not in ("", "undefined") for key in ("listen.acl_users", "listen.acl_groups")):
                 report.add("INFO", title, "Named Unix socket ACL grants require individual review; owner/group settings may be ignored",
-                           rule_id="P2S-FPM002", resource=dict(resource, source="acl"))
+                           rule_id="P2S-FPM002", resource=dict(resource, source="acl"), evidence=dict(source="acl", named_acl=True))
         else:
+            resolution = None
             try:
                 if listener.isdigit():
                     host, port = "0.0.0.0", listener
@@ -55,7 +76,12 @@ def pool_security(report, instance):
                     raise ValueError()
                 if not port.isdigit() or not 1 <= int(port) <= 65535:
                     raise ValueError()
-                address = ipaddress.ip_address(host)
+                if host.lower() in ("localhost", "localhost."):
+                    local = localhost_loopback(host, name_cache)
+                    resolution = "loopback" if local else "non_loopback"
+                else:
+                    address = ipaddress.ip_address(host)
+                    local = address.is_loopback or (getattr(address, "ipv4_mapped", None) is not None and address.ipv4_mapped.is_loopback)
                 clients = settings.get("listen.allowed_clients", "").strip()
                 restricted = clients not in ("", "undefined")
                 if restricted:
@@ -63,34 +89,36 @@ def pool_security(report, instance):
                     # Never resolve names or claim that a firewall was inspected.
                     for client in clients.split(","):
                         ipaddress.ip_address(client.strip())
-                local = address.is_loopback or (getattr(address, "ipv4_mapped", None) is not None and address.ipv4_mapped.is_loopback)
-                status = "OK" if local or restricted else "OPEN"
-                detail = ("Loopback TCP bind; local processes can still connect" if local else
+                status = "OPEN" if resolution == "non_loopback" else "OK" if local or restricted else "OPEN"
+                detail = ("localhost resolves outside loopback; inspect the host name-service configuration" if resolution == "non_loopback" else
+                          "Loopback TCP bind; local processes can still connect" if local else
                           "Network TCP bind with an explicit client allowlist; verify firewall and network reachability separately" if restricted else
                           "Network TCP bind accepts any client address; firewall and Internet reachability were not assessed")
-                report.add(status, title, detail + "; " + listener, rule_id="P2S-FPM001", resource=resource)
-            except ValueError:
+                report.add(status, title, detail + "; " + listener, rule_id="P2S-FPM001", resource=resource,
+                           evidence=dict(binding="loopback" if local else "network", client_allowlist=restricted, hostname_resolution=resolution))
+            except (ValueError, CheckError) as exc:
                 report.add("UNKNOWN", title, "Cannot classify the TCP listener or client allowlist; use literal IP addresses and verify the effective endpoint",
-                           rule_id="P2S-FPM001", resource=resource)
+                           rule_id="P2S-FPM001", resource=resource, evidence=dict(binding="unverified", hostname_resolution="unavailable" if isinstance(exc, CheckError) else None))
         extensions = settings.get("security.limit_extensions", ".php .phar")
         tokens = extensions.split() if extensions != "undefined" else []
         status = "OPEN" if not tokens or any(t not in (".php", ".phar") for t in tokens) else "OK" if set(tokens) == {".php"} else "INFO"
         report.add(status, "FPM script extensions [" + pool + "] " + instance["config"],
                    "Allowed main-script extensions: " + extensions + "; .php is the narrow recommended setting" if tokens else
                    "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review",
-                   rule_id="P2S-FPM003", resource=resource)
+                   rule_id="P2S-FPM003", resource=resource, evidence=dict(unrestricted=not tokens,
+                       allowed_known_extensions=sorted(set(tokens) & {".php", ".phar"}), other_extension_count=len(set(tokens) - {".php", ".phar"})))
         clear = settings.get("clear_env", "yes").lower()
         status = "OK" if clear in ("yes", "on", "1", "true") else "OPEN" if clear in ("no", "off", "0", "false", "") else "UNKNOWN"
         report.add(status, "FPM environment clearing [" + pool + "] " + instance["config"],
                    "clear_env=" + clear + "; explicit pool env[] values are not printed",
-                   rule_id="P2S-FPM004", resource=resource)
+                   rule_id="P2S-FPM004", resource=resource, evidence=dict(clear_env=True if status == "OK" else False if status == "OPEN" else None))
         ffi = pool_effective(instance["values"], settings, "ffi.enable") if "ffi.enable" in instance["values"] else None
         if ffi is not None:
             value = ffi.lower()
             status = "OK" if value in ("off", "0", "false", "no", "") else "INFO" if value == "preload" else "OPEN" if value in ("on", "1", "true", "yes") else "UNKNOWN"
             report.add(status, "PHP FFI [" + pool + "] " + instance["config"],
                        "ffi.enable=" + ffi + "; native/preloaded code requires separate review; function restrictions are defense in depth",
-                       rule_id="P2S-PHP004", resource=resource)
+                       rule_id="P2S-PHP004", resource=resource, evidence=dict(ffi_policy="off" if status == "OK" else "on" if status == "OPEN" else "preload" if status == "INFO" else "unknown"))
 
 
 def shared_pool_users(report, instances):
@@ -105,4 +133,4 @@ def shared_pool_users(report, instances):
     for uid, pools in sorted(identities.items()):
         if len(pools) > 1:
             report.add("INFO", "Shared FPM account", str(len(pools)) + " pools share UID " + str(uid) + "; they do not form a Unix-user isolation boundary",
-                       rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools))
+                       rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools), evidence=dict(pool_count=len(pools)))

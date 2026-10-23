@@ -68,12 +68,14 @@ class ToolTests(unittest.TestCase):
 
     def test_short_pool_cannot_remove_global_disable_functions(self):
         report, updates, _, _ = self.scan(self.instance(pool={"php_admin_value[disable_functions]": "exec"}))
-        self.assertEqual(next(r["status"] for r in report.rows if r["title"].startswith("Pool ")), "OK")
+        row = next(r for r in report.rows if r["rule_id"] == "P2S-PHP001" and "www" in r.get("affected_pools", []))
+        self.assertEqual(row["status"], "OK")
         self.assertEqual(updates, {})
 
     def test_incomplete_inherited_global_is_open(self):
         report, updates, _, _ = self.scan(self.instance(disabled="exec"))
-        self.assertEqual(next(r["status"] for r in report.rows if r["title"].startswith("Pool ")), "OPEN")
+        row = next(r for r in report.rows if r["rule_id"] == "P2S-PHP001" and "www" in r.get("affected_pools", []))
+        self.assertEqual(row["status"], "OPEN")
         self.assertEqual(p.functions(updates[str(self.ini)]["disable_functions"]), p.REQUIRED)
         self.assertNotIn("putenv", updates[str(self.ini)]["disable_functions"])
 

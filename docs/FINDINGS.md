@@ -187,7 +187,7 @@ matching soft-404 page cannot prove that a file is protected. The filename-based
 For incomplete discovery, fix the particular mapping/access issue and rerun. Raise limits only for a reviewed scope.
 For fix errors, inspect `transaction.status` and the backup ID before retrying. Do not overwrite a reported rollback conflict.
 
-[CLI and transaction manual](DETAILS.md) Â· [Readme](../README.md)
+[CLI and transaction manual](DETAILS.md) Ã‚Â· [Readme](../README.md)
 
 ## P2S-FPM001
 
@@ -235,3 +235,16 @@ Neither function restrictions nor these checks establish a sandbox.
 
 Primary semantics: [PHP FPM configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
 and [PHP FFI configuration](https://www.php.net/manual/en/ffi.configuration.php).
+
+## Aggregated scope and safe facts (2.2.1)
+
+Unchanged function/include pool results share the global finding. The normal
+report lists affected pool names and retains the original global resource ID.
+Different effective sets and explicit unsafe include overrides remain distinct.
+Redundant pool rows/IDs disappear; finding counts therefore count aggregated
+causes rather than all inherited copies.
+
+The additive schema-2 `evidence` object contains validated technical facts.
+Redacted output retains approved function names, mode/source, setting states,
+counts and HTTP status, while excluding private paths/names and arbitrary
+diagnostics. Per-resource ignores still require the original local report.

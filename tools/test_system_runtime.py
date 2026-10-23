@@ -31,7 +31,7 @@ def run(argv):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--expect-php',required=True,choices=('8.2','8.3'))
+    parser.add_argument('--expect-php',required=True,choices=('8.1','8.2','8.3','8.4'))
     parser.add_argument('--json',action='store_true')
     args=parser.parse_args(argv)
     evidence=dict(schema_version=1,scope='disposable distro VM; actual /proc, nginx, FPM and systemd',
@@ -124,6 +124,12 @@ def main(argv=None):
         assert any('+disable_functions' in e['diff'] for e in preview['plan']['ini'])
         assert ini.read_bytes()==baseline and root.stat().st_uid==33
         evidence['cases'].append(dict(name='preview-diff-without-mutation',status='PASS'))
+        unapproved=cli('--fix')
+        assert unapproved['exit_code']==2 and unapproved['transaction'] is None
+        assert any('--fix --json requires --yes' in row['detail'] for row in unapproved['findings'])
+        assert ini.read_bytes()==baseline and root.stat().st_uid==33
+        assert observed()['system'] is True
+        evidence['cases'].append(dict(name='unapproved-json-fix-refused-without-mutation',status='PASS'))
         fixed=cli('--fix','--yes')
         assert fixed['transaction']['status']=='applied',fixed
         assert ini.stat().st_mtime_ns!=before.st_mtime_ns

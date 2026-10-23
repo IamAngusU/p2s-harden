@@ -8,14 +8,16 @@ GitHub-hosted runner access is currently unavailable in the source account. Publ
 - Linux/Python 3.8: the complete fixture/regression suite (including local HTTP, JSON, language and rollback tests), exact embedded engine, Bash syntax, plus CI-proof and FastCGI-protocol tests.
 - Linux/Python 3.12: the same checks in a separate disposable Debian container.
 - Real PHP 8.2, 8.3, 8.4 and 8.5 FPM containers: actual FastCGI requests, function operations, pool configuration, URL-include controls, script-extension enforcement, parent environment inheritance, TCP policy dumps and comparison with the audit engine. Image identities and observed PHP versions are recorded in runtime evidence artifacts.
-- A real booted Debian 12 VM with distro PHP 8.2/Nginx/systemd, and a real booted Ubuntu 24.04 VM with distro PHP 8.3/Nginx/systemd. The guarded system harness exercises actual discovery, automatic mapping, check, private report projection, preview, confirmed fix, permission changes, service reload and HTTP worker observations, then rollback and repeated rollback. No fixture instance or mocked systemctl is used.
+- Four real booted VMs with distro Nginx/systemd: Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The guarded system harness exercises actual discovery, automatic mapping, check, private report projection, preview, unapproved-JSON-fix refusal, confirmed fix, permission changes, service reload and HTTP worker observations, then rollback and repeated rollback. No fixture instance or mocked systemctl is used.
 - Windows: generated-file consistency and native PowerShell/SSH transport with a temporary fake SSH executable, including quoting and exit codes.
+
+- A dependent provenance job signs the four exact distribution files only after all eleven test jobs pass and source/fork heads match. [Signer identity and verification](PROVENANCE.md).
 
 Actual jobs and steps are recorded in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) and [JSON](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/public-proof.json). Each snapshot names its exact source commit, run and attempt. The badge counts measured job results; missing expected jobs remain visible and do not pass.
 
 The proof workflow publishes only when the tested commit, source `main` and CI-fork `main` match. A newer commit requires a new matching run. This is reproducibility evidence from the maintainer, not a third-party audit or a guarantee about a user's server.
 
-All nine expected jobs must pass for a full proof, including both system VMs.
+All twelve expected jobs must pass for a full proof, including all four system VMs and provenance.
 VM actions, checkout/setup and artifact actions are pinned to commit SHAs.
 Runtime JSON artifacts retain the tested engine hash, actual package/PHP
 versions and observations. Ordinary fixture tests do not invoke the destructive

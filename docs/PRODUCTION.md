@@ -1,16 +1,16 @@
 # Stable scope and release gates
 
-p2s-harden 2.2.0 is a stable terminal product for the supported host workflow.
+p2s-harden 2.2.1 is a stable terminal product for the supported host workflow.
 It is not a universal vulnerability scanner. A successful audit means its
 selected checks passed for the reported resources. It cannot establish that
 an application is free of vulnerabilities or that PHP-to-shell is impossible.
 
 ## Supported workflow
 
-The complete discover → audit → preview → confirmed fix → service reload →
+The complete discover â†’ audit â†’ preview â†’ confirmed fix â†’ service reload â†’
 rollback workflow is tested in actual booted Debian 12 / PHP 8.2 and Ubuntu
 24.04 / PHP 8.3 VMs with distro Nginx, protected `/etc/php/VERSION/fpm` INIs
-and systemd. Separate PHP 8.2–8.5 containers exercise effective FPM settings
+and systemd. Separate PHP 8.2â€“8.5 containers exercise effective FPM settings
 through FastCGI. These settings tests do not extend the host-layout support
 claim to every distribution, container orchestration system or PHP build.
 
@@ -42,7 +42,7 @@ code, or recursively chmod a discovered tree.
 
 ## Evidence required for release
 
-All nine public CI jobs must pass at the source commit being released:
+All twelve public CI jobs must pass at the source commit being released:
 
 - Python 3.8 and 3.12: complete fixture tests, protocol/guard/proof tests, exact
   standalone build and Bash syntax. The suite includes a real 36000-file tree,
@@ -51,16 +51,20 @@ All nine public CI jobs must pass at the source commit being released:
   calls, URL-include controls, `.txt` execution allowed/denied by extension policy,
   parent environment clearing and comparison with parsed real TCP pool dumps.
   The network fixture publishes no port and has no external network.
-- Debian 12 and Ubuntu 24.04: eight integration stages each, with actual `/proc`
+- Debian 12/13 and Ubuntu 22.04/24.04: nine integration stages each, with actual `/proc`
   and Nginx discovery, PHP-user permissions, new pool checks, private reports,
-  preview, fix/reload/worker observation and rollback/idempotence. These tests
+  preview, refusal of unapproved JSON fixes, fix/reload/worker observation and rollback/idempotence. These tests
   run only in explicitly marked disposable VMs.
 - Native Windows PowerShell 5.1: help/language, quoting, exact engine transport,
   option forwarding, JSON failure privacy and SSH exit handling.
 
+- Dependent provenance job: reproduce the exact distribution bytes only after
+  all eleven test jobs pass, require matching source/fork heads, then sign the
+  four files with GitHub build attestations. [Verification](PROVENANCE.md).
+
 The [commit-specific public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
 must match source main, CI-fork main and the release tag. Downloaded release
-assets must match SHA-256 sums and the reproducible source manifest. The public
+assets must match SHA-256 sums, the reproducible source manifest and expected signed build provenance. The public
 CI belongs to the same maintainer; it is reproducible evidence, not independent
 security certification.
 
@@ -71,7 +75,9 @@ probed or attested. The JSON `discovery.assessment` states that boundary. The VM
 integration's worker probes validate the tool's test fixtures, not a user's host.
 A master's start time alone is not proof of worker configuration after reload.
 
-TCP findings assess the bind/allowlist configuration. They do not inspect the
+TCP findings assess the bind/allowlist configuration. Exact localhost names
+also require loopback-only current host resolution with a two-second deadline;
+the name alone is never enough for a pass. They do not inspect the
 firewall, remote Internet access, container port publication or all named ACL
 grant intentions. Loopback does not exclude hostile local processes. Shared
 UIDs are context: separate pools can intentionally serve one application.

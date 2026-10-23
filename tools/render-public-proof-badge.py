@@ -20,7 +20,10 @@ EXPECTED = (
     "PHP-FPM 8.5",
     "System Ubuntu 24.04 (PHP 8.3)",
     "System Debian 12 (PHP 8.2)",
+    "System Ubuntu 22.04 (PHP 8.1)",
+    "System Debian 13 (PHP 8.4)",
     "windows",
+    "Release provenance",
 )
 TEMPLATE = Path(__file__).resolve().parents[1] / "docs/assets/readme/public-proof-template.svg"
 

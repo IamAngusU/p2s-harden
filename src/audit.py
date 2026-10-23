@@ -30,42 +30,57 @@ def scan(args, inventory_only=False):
             values = instance["values"]
             disabled = functions(values.get("disable_functions", ""))
             missing = REQUIRED - disabled
-            report.add("OPEN" if missing else "OK", f"disable_functions {label}",
-                       f"Missing: {','.join(sorted(missing))}" if missing else 'The 7 selected shell functions are disabled', rule_id='P2S-PHP001', resource=dict(config=label))
+            function_row = report.add("OPEN" if missing else "OK", f"disable_functions {label}",
+                       f"Missing: {','.join(sorted(missing))}" if missing else 'The 7 selected shell functions are disabled', rule_id='P2S-PHP001', resource=dict(config=label), evidence=dict(missing_functions=sorted(missing)))
+            function_row["affected_pools"] = []
             desired = {}
             if missing:
                 desired["disable_functions"] = ",".join(sorted(disabled | REQUIRED))
             url_include = values.get("allow_url_include")
             if url_include is None:
-                report.add("UNKNOWN", f"allow_url_include {label}", 'Value missing', rule_id='P2S-PHP002', resource=dict(config=label))
+                include_row = report.add("UNKNOWN", f"allow_url_include {label}", 'Value missing', rule_id='P2S-PHP002', resource=dict(config=label))
             else:
                 enabled = url_include.lower() not in ("off", "0", "no", "false", "")
-                report.add("OPEN" if enabled else "OK", f"allow_url_include {label}", url_include, rule_id='P2S-PHP002', resource=dict(config=label))
+                include_row = report.add("OPEN" if enabled else "OK", f"allow_url_include {label}", url_include, rule_id='P2S-PHP002', resource=dict(config=label), evidence=dict(allow_url_include=enabled))
                 if enabled:
                     desired["allow_url_include"] = "Off"
+            include_row["affected_pools"] = []
             for pool, settings in instance["pools"].items():
                 user = settings.get("user")
                 if user and user != "undefined":
                     users.add(user)
                 combined = disabled | functions(settings.get("php_admin_value[disable_functions]", "")) | functions(settings.get("php_value[disable_functions]", ""))
                 absent = REQUIRED - combined
-                report.add("OPEN" if absent else "OK", f"Pool {label} [{pool}]",
-                           f"Missing: {','.join(sorted(absent))}" if absent else 'Global and pool restrictions evaluated together', rule_id='P2S-PHP001', resource=dict(config=label, pool=pool))
+                if absent != missing:
+                    report.add("OPEN" if absent else "OK", f"Pool {label} [{pool}]",
+                               f"Missing: {','.join(sorted(absent))}" if absent else 'Global and pool restrictions evaluated together', rule_id='P2S-PHP001', resource=dict(config=label, pool=pool), evidence=dict(missing_functions=sorted(absent)))
+                else:
+                    function_row["affected_pools"].append(pool)
                 include_value = url_include
+                include_override = False
                 for prefix in ("php_value", "php_flag", "php_admin_value", "php_admin_flag"):
                     override = settings.get(prefix + "[allow_url_include]")
                     if override is not None and override != "undefined":
                         include_value = override
-                if include_value is None:
+                        include_override = True
+                pool_enabled = None if include_value is None else include_value.lower() not in ("off", "0", "no", "false", "")
+                global_enabled = None if url_include is None else url_include.lower() not in ("off", "0", "no", "false", "")
+                # An explicit unsafe override survives a global fix, even when
+                # its current value matches the global value: a separate cause.
+                if pool_enabled == global_enabled and not (pool_enabled and include_override):
+                    include_row["affected_pools"].append(pool)
+                elif include_value is None:
                     report.add("UNKNOWN", f"allow_url_include [{pool}] {label}", 'Value missing', rule_id='P2S-PHP002', resource=dict(config=label, pool=pool))
                 else:
-                    pool_enabled = include_value.lower() not in ("off", "0", "no", "false", "")
                     report.add("OPEN" if pool_enabled else "OK", f"allow_url_include [{pool}] {label}",
-                               include_value + ('; correct the pool override manually' if pool_enabled else ""), rule_id='P2S-PHP002', resource=dict(config=label, pool=pool))
+                               include_value + ('; correct the pool override manually' if pool_enabled else ""), rule_id='P2S-PHP002', resource=dict(config=label, pool=pool), evidence=dict(allow_url_include=pool_enabled))
                 ob = settings.get("php_admin_value[open_basedir]", settings.get("php_value[open_basedir]", values.get("open_basedir", "")))
                 unrestricted = not ob or ob.lower() in ("none", "no value", "undefined") or "/" in [p.strip() for p in ob.split(":")]
                 report.add("OPEN" if unrestricted else "OK", f"open_basedir [{pool}] {label}",
-                           'Unrestricted' if unrestricted else f'{ob} (an additional restriction, not a sandbox)', rule_id='P2S-PHP003', resource=dict(config=label, pool=pool))
+                           'Unrestricted' if unrestricted else f'{ob} (an additional restriction, not a sandbox)', rule_id='P2S-PHP003', resource=dict(config=label, pool=pool), evidence=dict(unrestricted=unrestricted))
+            for row in (function_row, include_row):
+                row["affected_pools"].sort()
+                row["evidence"]["affected_pool_count"] = len(row["affected_pools"])
             for key, value in desired.items():
                 owners = [p for p in instance["inis"] if active_ini_lines(Path(p).read_text(), key)]
                 target = owners[-1] if owners else instance["inis"][0]
@@ -112,7 +127,7 @@ def scan(args, inventory_only=False):
             for key, title in (("files", "Writable PHP files"), ("directories", "Writable directories")):
                 count = data[key]
                 sample = data["file_sample" if key == "files" else "directory_sample"]
-                report.add("OPEN" if count else "OK", f"{title} ({user})", f"{scan_root}: {count}; " + "; ".join(sample), rule_id="P2S-FS001" if key == "files" else "P2S-FS002", resource=dict(root=scan_root, user=user))
+                report.add("OPEN" if count else "OK", f"{title} ({user})", f"{scan_root}: {count}; " + "; ".join(sample), rule_id="P2S-FS001" if key == "files" else "P2S-FS002", resource=dict(root=scan_root, user=user), evidence={"writable_files" if key == "files" else "writable_directories":count})
             if data.get("runtime_directories"):
                 report.add("INFO", "Declared runtime storage (" + user + ")",
                            str(data["runtime_directories"]) + " writable directories; PHP files remain checked; execution restrictions require separate verification; " + "; ".join(data.get("runtime_sample", [])), rule_id='P2S-FS004', resource=dict(root=scan_root, user=user))
@@ -168,7 +183,7 @@ def scan(args, inventory_only=False):
                             baseline_cache[url] = baselines
                         baselines = baseline_cache[url]
                     status, detail = classify_http(observation, baselines)
-                    report.add(status, "HTTP " + target, detail, rule_id='P2S-HTTP001', resource=target)
+                    report.add(status, "HTTP " + target, detail, rule_id='P2S-HTTP001', resource=target, evidence=dict(http_status=observation["status"]))
                 except HttpBudgetExceeded as exc:
                     report.add("UNKNOWN", "HTTP coverage", str(exc), rule_id='P2S-HTTP002', resource="budget")
                     exhausted = True
@@ -182,7 +197,7 @@ def scan(args, inventory_only=False):
     report.discovery["http_budget"] = dict(requests=http_count, limit=http_limit, exhausted=exhausted)
     try:
         ptrace = int(Path("/proc/sys/kernel/yama/ptrace_scope").read_text())
-        report.add("OK" if ptrace >= 1 else "OPEN", "ptrace_scope", str(ptrace), rule_id='P2S-SYS001', resource="ptrace_scope")
+        report.add("OK" if ptrace >= 1 else "OPEN", "ptrace_scope", str(ptrace), rule_id='P2S-SYS001', resource="ptrace_scope", evidence=dict(ptrace_scope=ptrace))
     except (OSError, ValueError):
         report.add("UNKNOWN", "ptrace_scope", 'Unreadable', rule_id='P2S-SYS001', resource="ptrace_scope")
     # Manual policy assessment is outside the selected automated checks. It

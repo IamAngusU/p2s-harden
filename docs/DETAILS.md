@@ -141,3 +141,43 @@ SSH/system stderr is outside that projection. Masked change approval is refused.
 
 FPM include provenance walks are iterative and stop at 64 levels, 1024 files,
 2 MiB per file or 16 MiB total. Reaching a bound is incomplete coverage.
+
+## Aggregation and safe technical evidence (2.2.1)
+
+Unchanged effective pool function/include results share the global resource
+finding, with normal JSON `affected_pools` and typed `evidence.affected_pool_count`.
+Different missing-function sets remain separate even when both are OPEN. An
+explicit unsafe include override remains separate because a global change
+cannot remove it. Global resource IDs stay the same; redundant pool rows are
+removed, so finding counts and previously redundant pool IDs can change.
+
+`evidence` is an additive schema-2 field, not raw configuration. Per-rule checks
+admit known function names, canonical socket modes/source, safe setting enums,
+booleans, counts and HTTP status. Redaction validates these fields again and
+omits all unapproved values. Technical evidence keys remain stable English API
+names in both languages. Host identifiers and arbitrary diagnostic text remain
+omitted. [Current review decisions](REVIEW-2.2.1.md).
+
+Exact localhost names use current host resolution in an isolated child with a
+two-second timeout, cached per FPM instance. All returned IPs must be loopback;
+other answers are OPEN and failure is UNKNOWN. It does not prove an existing
+listener binding or support arbitrary DNS/container service names.
+
+## Package upgrades
+
+The supported fix edits existing INIs and can modify a package-managed
+`php.ini`. If both the local file and the maintainer's version change, a later
+package upgrade can ask which configuration to retain. Review the proposed
+merge/diff and re-audit after an upgrade; do not blindly replace the file or
+silently disable package-manager prompts. See [Debian configuration-file
+handling](https://www.debian.org/doc/debian-policy/ap-pkg-conffiles.html).
+
+New-file drop-ins remain deferred until ordering, creation, interrupted recovery
+and rollback deletion/conflict cases have their own tested lifecycle. Deleting
+a drop-in is not automatically a safe rollback if another tool changed it later.
+
+## Distribution provenance
+
+Checksums alone detect corruption, not independent origin. See the optional
+[GitHub attestation verification](PROVENANCE.md) for exact bytes, signer workflow,
+source-ref/commit checks and the same-maintainer CI account's trust boundary.

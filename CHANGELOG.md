@@ -1,12 +1,20 @@
 # Changelog
 
+## 2.2.1
+
+- Aggregate unchanged global/pool findings while preserving independently actionable overrides and stable global IDs.
+- Retain per-rule typed technical facts in redacted reports, with strict type/value validation and privacy regressions.
+- Verify localhost through bounded current host resolution; never pass solely from a hostname string.
+- Add Debian 13 and Ubuntu 22.04 VMs; all four distro VMs verify refusal of --fix --json without --yes.
+- Add GitHub-signed provenance for CI-generated release files, an Audit feedback issue form, current/historical documentation links and explicit package-upgrade conffile behavior.
+
 ## 2.2.0
 
 - Stabilize the documented Debian 12 / Ubuntu 24.04 host workflow behind nine required public CI jobs.
 - Add read-only TCP client-policy, configured/live Unix socket mode, script-extension and environment checks, plus shared-UID context and loaded FFI policy. Pool/network changes remain manual.
 - Add allowlisted `--redact` reports with fresh per-report IDs while preserving results, suppressions and exit codes.
 - Bound FPM include provenance without Python recursion.
-- Expand real PHP 8.2–8.5 FastCGI tests to 26 cases each, including extension enforcement, parent environment inheritance and TCP pool dumps. Both distro VMs also verify new pool rules and report privacy.
+- Expand real PHP 8.2â€“8.5 FastCGI tests to 26 cases each, including extension enforcement, parent environment inheritance and TCP pool dumps. Both distro VMs also verify new pool rules and report privacy.
 
 ## 2.2.0-rc.3
 
@@ -16,7 +24,7 @@
 - Show actual INI values in zero-context unified diffs; require interactive confirmation or `--yes`, detect edits after preview and print a precise undo command.
 - Discover additional sensitive HTTP filenames; keep redirects and ambiguous soft-404s unverified. Show ImageMagick context only when relevant.
 - Make English canonical, add diagnostic/ID AST checks and split reviewable source into eight components assembled into standalone distributions.
-- Add real Debian 12/PHP 8.2 and Ubuntu 24.04/PHP 8.3 systemd-VM integration and PHP 8.2–8.5 FastCGI jobs to the required CI proof.
+- Add real Debian 12/PHP 8.2 and Ubuntu 24.04/PHP 8.3 systemd-VM integration and PHP 8.2â€“8.5 FastCGI jobs to the required CI proof.
 - Expand bilingual onboarding, option help, download verification, source transparency, English details and per-rule remediation.
 - Keep new-file drop-ins, automatic redaction, broader isolation/profile checks and production-worker probes outside this release's tested scope.
 

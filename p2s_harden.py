@@ -34,7 +34,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -1609,6 +1609,19 @@ _NEW_GERMAN = {
     "Review this diagnostic in its reported context.": "Diese Diagnose im angegebenen Kontext prüfen.",
 }
 _NEW_GERMAN.update({
+    "Shell function restrictions": "Shell-Funktionssperren",
+    "URL includes": "URL-Includes",
+    "Filesystem restriction": "Dateisystembegrenzung",
+    "PHP FFI": "PHP-FFI",
+    "FPM TCP listener": "FPM-TCP-Listener",
+    "FPM Unix socket": "FPM-Unix-Socket",
+    "FPM script extensions": "FPM-Skriptendungen",
+    "FPM environment clearing": "FPM-Umgebungsbereinigung",
+    "Writable PHP files": "Schreibbare PHP-Dateien",
+    "Writable directories": "Schreibbare Verzeichnisse",
+    "Declared runtime storage": "Deklarierter Laufzeitspeicher",
+    "Sensitive HTTP path": "Sensibler HTTP-Pfad",
+    "localhost resolution is unavailable; use a literal loopback IP or verify the host name-service configuration": "localhost-Auflösung nicht verfügbar; konkrete Loopback-IP verwenden oder Namensdienst des Hosts prüfen",
     "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review": "Hauptskript-Endungen sind unbeschränkt; nach Prüfung der Anwendung security.limit_extensions=.php setzen",
     "Shareable read-only report: omit host details, inventory and original finding IDs": "Teilbarer Prüfbericht: Hostdetails, Inventar und ursprüngliche Befund-IDs weglassen",
     "Host details omitted; rerun locally without --redact": "Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen",
@@ -1629,6 +1642,7 @@ _NEW_GERMAN.update({
     "Use distinct Unix accounts and code ownership for mutually untrusted applications; shared pools may be intentional for one trust domain.": "Für gegenseitig nicht vertrauenswürdige Anwendungen getrennte Unix-Konten und Code-Eigentümer verwenden; gemeinsame Pools können bei gleichem Vertrauen beabsichtigt sein.",
 })
 _POOL_TEMPLATES = {
+    "localhost resolves outside loopback; inspect the host name-service configuration; {listener}": "localhost wird außerhalb von Loopback aufgelöst; Namensdienst des Hosts prüfen; {listener}",
     "FPM listener [{pool}] {config}": "FPM-Listener [{pool}] {config}",
     "FPM script extensions [{pool}] {config}": "FPM-Skriptendungen [{pool}] {config}",
     "FPM environment clearing [{pool}] {config}": "FPM-Umgebungsbereinigung [{pool}] {config}",
@@ -1724,12 +1738,49 @@ RULES = {
 }
 
 
+def safe_evidence(rule_id, evidence):
+    """Only rule-owned, finite values may survive report redaction."""
+    if not isinstance(evidence, dict):
+        return {}
+    boolean = lambda value: type(value) is bool
+    count = lambda value: type(value) is int and 0 <= value <= 1000000
+    choices = lambda *allowed: lambda value: type(value) is str and value in allowed
+    names = lambda *allowed: lambda value: (type(value) is list and len(value) <= len(allowed)
+                                            and all(type(v) is str and v in allowed for v in value))
+    fields = {
+        "PHP001": dict(missing_functions=names(*sorted(REQUIRED)), affected_pool_count=count),
+        "PHP002": dict(allow_url_include=boolean, affected_pool_count=count),
+        "PHP003": dict(unrestricted=boolean),
+        "PHP004": dict(ffi_policy=choices("off", "on", "preload", "unknown")),
+        "FPM001": dict(binding=choices("loopback", "network", "unverified"), client_allowlist=boolean,
+                       hostname_resolution=choices("loopback", "non_loopback", "unavailable")),
+        "FPM002": dict(socket_mode=lambda value: type(value) is str and re.fullmatch(r"0[0-7]{3}", value) is not None,
+                       source=choices("configured", "observed", "acl"), named_acl=boolean),
+        "FPM003": dict(unrestricted=boolean, allowed_known_extensions=names(".php", ".phar"), other_extension_count=count),
+        "FPM004": dict(clear_env=boolean),
+        "FPM005": dict(pool_count=count),
+        "FS001": dict(writable_files=count),
+        "FS002": dict(writable_directories=count),
+        "FS004": dict(runtime_directories=count),
+        "HTTP001": dict(http_status=lambda value: type(value) is int and 100 <= value <= 599),
+        "SYS001": dict(ptrace_scope=lambda value: type(value) is int and 0 <= value <= 3),
+    }.get(rule_id[4:], {})
+    return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
+
+
+RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes", "PHP003": "Filesystem restriction",
+              "PHP004": "PHP FFI", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
+              "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
+              "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
+              "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope"}
+
+
 class Report:
     def __init__(self):
         self.rows = []
         self.discovery = {}
 
-    def add(self, status, title, detail, *, rule_id="P2S-CUSTOM", resource=None):
+    def add(self, status, title, detail, *, rule_id="P2S-CUSTOM", resource=None, evidence=None):
         key = rule_id[4:]
         severity, remediation = RULES[key]
         resource = title if resource is None else resource
@@ -1738,7 +1789,8 @@ class Report:
         self.rows.append(dict(id=finding_id, rule_id=rule_id, resource=resource,
                               status=status, title=title, detail=detail,
                               severity=severity if status == "OPEN" else "unknown" if status == "UNKNOWN" else "info",
-                              remediation=remediation, suppressed=False))
+                              remediation=remediation, suppressed=False, evidence=safe_evidence(rule_id, evidence)))
+        return self.rows[-1]
 
     def configure(self, fail_on="complete", ignore=()):
         self.fail_on = fail_on
@@ -1763,11 +1815,15 @@ class Report:
             # Allowlist projection, not regex replacement: even exception text,
             # arbitrary discovery metadata and future resource shapes are omitted.
             nonce = uuid.uuid4().hex
-            rows = [dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
-                         rule_id=row["rule_id"], resource=None, status=row["status"],
-                         title=row["rule_id"], detail=localize("Host details omitted; rerun locally without --redact", lang),
-                         severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
-                         suppressed=row["suppressed"]) for index, row in enumerate(self.rows)]
+            def project(index, row):
+                evidence = safe_evidence(row["rule_id"], row.get("evidence"))
+                return dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
+                            rule_id=row["rule_id"], resource=None, status=row["status"],
+                            title=localize(RULE_NAMES.get(row["rule_id"][4:], row["rule_id"]), lang),
+                            detail=json.dumps(evidence, sort_keys=True) if evidence else localize("Host details omitted; rerun locally without --redact", lang),
+                            severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
+                            evidence=evidence, suppressed=row["suppressed"])
+            rows = [project(index, row) for index, row in enumerate(self.rows)]
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
@@ -1812,6 +1868,10 @@ class Report:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN"):
                 emit("        " + row["id"] + (" [ignored OPEN]" if row["suppressed"] else ""))
+                if row.get("affected_pools"):
+                    count = len(row["affected_pools"])
+                    emit(f"        Unverändert für {count} Pools; --json nennt die zugehörigen Pools." if lang == "de" else
+                         f"        Applies unchanged to {count} pools; --json lists the related pools.")
                 emit("        " + row["remediation"])
         if not verbose and len(shown) > 40:
             emit(f"Weitere {len(shown) - 40} Befunde: --verbose oder --json zeigt alle Details." if lang == "de" else
@@ -1838,7 +1898,25 @@ def pool_effective(values, settings, key):
     return value
 
 
+def localhost_loopback(name, cache):
+    key = name.lower()
+    if key not in cache:
+        try:
+            code = "import json,socket,sys; print(json.dumps(sorted({v[4][0] for v in socket.getaddrinfo(sys.argv[1],None,type=socket.SOCK_STREAM)})))"
+            output, _ = command([sys.executable, "-I", "-B", "-c", code, name], timeout=2)
+            addresses = json.loads(output)
+            if not isinstance(addresses, list) or not 1 <= len(addresses) <= 64 or any(type(value) is not str for value in addresses):
+                raise ValueError()
+            cache[key] = all(ipaddress.ip_address(value).is_loopback for value in addresses)
+        except (ValueError, TypeError, CheckError):
+            cache[key] = None
+    if cache[key] is None:
+        raise CheckError("localhost resolution is unavailable; use a literal loopback IP or verify the host name-service configuration")
+    return cache[key]
+
+
 def pool_security(report, instance):
+    name_cache = {}
     for pool, settings in instance["pools"].items():
         resource = dict(config=instance["config"], pool=pool)
         title = "FPM listener [" + pool + "] " + instance["config"]
@@ -1849,11 +1927,13 @@ def pool_security(report, instance):
                 raw_mode = "0660"
             if not re.fullmatch(r"0?[0-7]{3}", raw_mode):
                 status, detail = "UNKNOWN", "Cannot parse the configured Unix socket mode"
+                mode_evidence = dict(source="configured")
             else:
                 world = int(raw_mode, 8) & 0o002
                 status = "OPEN" if world else "OK"
                 detail = "Configured Unix socket mode: " + raw_mode
-            report.add(status, title, detail, rule_id="P2S-FPM002", resource=dict(resource, source="configured"))
+                mode_evidence = dict(source="configured", socket_mode=format(int(raw_mode, 8), "04o"))
+            report.add(status, title, detail, rule_id="P2S-FPM002", resource=dict(resource, source="configured"), evidence=mode_evidence)
             try:
                 path = Path(listener)
                 if any(p.is_symlink() for p in (path, *path.parents)):
@@ -1864,13 +1944,14 @@ def pool_security(report, instance):
                 mode = stat.S_IMODE(actual.st_mode)
                 report.add("OPEN" if mode & 0o002 else "OK", title,
                            "Observed Unix socket mode: " + format(mode, "04o") + "; " + listener,
-                           rule_id="P2S-FPM002", resource=dict(resource, source="observed"))
+                           rule_id="P2S-FPM002", resource=dict(resource, source="observed"), evidence=dict(source="observed", socket_mode=format(mode, "04o")))
             except (OSError, CheckError) as exc:
                 report.add("UNKNOWN", title, str(exc), rule_id="P2S-FPM002", resource=dict(resource, source="observed"))
             if any(settings.get(key, "") not in ("", "undefined") for key in ("listen.acl_users", "listen.acl_groups")):
                 report.add("INFO", title, "Named Unix socket ACL grants require individual review; owner/group settings may be ignored",
-                           rule_id="P2S-FPM002", resource=dict(resource, source="acl"))
+                           rule_id="P2S-FPM002", resource=dict(resource, source="acl"), evidence=dict(source="acl", named_acl=True))
         else:
+            resolution = None
             try:
                 if listener.isdigit():
                     host, port = "0.0.0.0", listener
@@ -1883,7 +1964,12 @@ def pool_security(report, instance):
                     raise ValueError()
                 if not port.isdigit() or not 1 <= int(port) <= 65535:
                     raise ValueError()
-                address = ipaddress.ip_address(host)
+                if host.lower() in ("localhost", "localhost."):
+                    local = localhost_loopback(host, name_cache)
+                    resolution = "loopback" if local else "non_loopback"
+                else:
+                    address = ipaddress.ip_address(host)
+                    local = address.is_loopback or (getattr(address, "ipv4_mapped", None) is not None and address.ipv4_mapped.is_loopback)
                 clients = settings.get("listen.allowed_clients", "").strip()
                 restricted = clients not in ("", "undefined")
                 if restricted:
@@ -1891,34 +1977,36 @@ def pool_security(report, instance):
                     # Never resolve names or claim that a firewall was inspected.
                     for client in clients.split(","):
                         ipaddress.ip_address(client.strip())
-                local = address.is_loopback or (getattr(address, "ipv4_mapped", None) is not None and address.ipv4_mapped.is_loopback)
-                status = "OK" if local or restricted else "OPEN"
-                detail = ("Loopback TCP bind; local processes can still connect" if local else
+                status = "OPEN" if resolution == "non_loopback" else "OK" if local or restricted else "OPEN"
+                detail = ("localhost resolves outside loopback; inspect the host name-service configuration" if resolution == "non_loopback" else
+                          "Loopback TCP bind; local processes can still connect" if local else
                           "Network TCP bind with an explicit client allowlist; verify firewall and network reachability separately" if restricted else
                           "Network TCP bind accepts any client address; firewall and Internet reachability were not assessed")
-                report.add(status, title, detail + "; " + listener, rule_id="P2S-FPM001", resource=resource)
-            except ValueError:
+                report.add(status, title, detail + "; " + listener, rule_id="P2S-FPM001", resource=resource,
+                           evidence=dict(binding="loopback" if local else "network", client_allowlist=restricted, hostname_resolution=resolution))
+            except (ValueError, CheckError) as exc:
                 report.add("UNKNOWN", title, "Cannot classify the TCP listener or client allowlist; use literal IP addresses and verify the effective endpoint",
-                           rule_id="P2S-FPM001", resource=resource)
+                           rule_id="P2S-FPM001", resource=resource, evidence=dict(binding="unverified", hostname_resolution="unavailable" if isinstance(exc, CheckError) else None))
         extensions = settings.get("security.limit_extensions", ".php .phar")
         tokens = extensions.split() if extensions != "undefined" else []
         status = "OPEN" if not tokens or any(t not in (".php", ".phar") for t in tokens) else "OK" if set(tokens) == {".php"} else "INFO"
         report.add(status, "FPM script extensions [" + pool + "] " + instance["config"],
                    "Allowed main-script extensions: " + extensions + "; .php is the narrow recommended setting" if tokens else
                    "Main-script extensions are unrestricted; set security.limit_extensions=.php after application review",
-                   rule_id="P2S-FPM003", resource=resource)
+                   rule_id="P2S-FPM003", resource=resource, evidence=dict(unrestricted=not tokens,
+                       allowed_known_extensions=sorted(set(tokens) & {".php", ".phar"}), other_extension_count=len(set(tokens) - {".php", ".phar"})))
         clear = settings.get("clear_env", "yes").lower()
         status = "OK" if clear in ("yes", "on", "1", "true") else "OPEN" if clear in ("no", "off", "0", "false", "") else "UNKNOWN"
         report.add(status, "FPM environment clearing [" + pool + "] " + instance["config"],
                    "clear_env=" + clear + "; explicit pool env[] values are not printed",
-                   rule_id="P2S-FPM004", resource=resource)
+                   rule_id="P2S-FPM004", resource=resource, evidence=dict(clear_env=True if status == "OK" else False if status == "OPEN" else None))
         ffi = pool_effective(instance["values"], settings, "ffi.enable") if "ffi.enable" in instance["values"] else None
         if ffi is not None:
             value = ffi.lower()
             status = "OK" if value in ("off", "0", "false", "no", "") else "INFO" if value == "preload" else "OPEN" if value in ("on", "1", "true", "yes") else "UNKNOWN"
             report.add(status, "PHP FFI [" + pool + "] " + instance["config"],
                        "ffi.enable=" + ffi + "; native/preloaded code requires separate review; function restrictions are defense in depth",
-                       rule_id="P2S-PHP004", resource=resource)
+                       rule_id="P2S-PHP004", resource=resource, evidence=dict(ffi_policy="off" if status == "OK" else "on" if status == "OPEN" else "preload" if status == "INFO" else "unknown"))
 
 
 def shared_pool_users(report, instances):
@@ -1933,7 +2021,7 @@ def shared_pool_users(report, instances):
     for uid, pools in sorted(identities.items()):
         if len(pools) > 1:
             report.add("INFO", "Shared FPM account", str(len(pools)) + " pools share UID " + str(uid) + "; they do not form a Unix-user isolation boundary",
-                       rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools))
+                       rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools), evidence=dict(pool_count=len(pools)))
 
 
 # Source: src/audit.py
@@ -1969,42 +2057,57 @@ def scan(args, inventory_only=False):
             values = instance["values"]
             disabled = functions(values.get("disable_functions", ""))
             missing = REQUIRED - disabled
-            report.add("OPEN" if missing else "OK", f"disable_functions {label}",
-                       f"Missing: {','.join(sorted(missing))}" if missing else 'The 7 selected shell functions are disabled', rule_id='P2S-PHP001', resource=dict(config=label))
+            function_row = report.add("OPEN" if missing else "OK", f"disable_functions {label}",
+                       f"Missing: {','.join(sorted(missing))}" if missing else 'The 7 selected shell functions are disabled', rule_id='P2S-PHP001', resource=dict(config=label), evidence=dict(missing_functions=sorted(missing)))
+            function_row["affected_pools"] = []
             desired = {}
             if missing:
                 desired["disable_functions"] = ",".join(sorted(disabled | REQUIRED))
             url_include = values.get("allow_url_include")
             if url_include is None:
-                report.add("UNKNOWN", f"allow_url_include {label}", 'Value missing', rule_id='P2S-PHP002', resource=dict(config=label))
+                include_row = report.add("UNKNOWN", f"allow_url_include {label}", 'Value missing', rule_id='P2S-PHP002', resource=dict(config=label))
             else:
                 enabled = url_include.lower() not in ("off", "0", "no", "false", "")
-                report.add("OPEN" if enabled else "OK", f"allow_url_include {label}", url_include, rule_id='P2S-PHP002', resource=dict(config=label))
+                include_row = report.add("OPEN" if enabled else "OK", f"allow_url_include {label}", url_include, rule_id='P2S-PHP002', resource=dict(config=label), evidence=dict(allow_url_include=enabled))
                 if enabled:
                     desired["allow_url_include"] = "Off"
+            include_row["affected_pools"] = []
             for pool, settings in instance["pools"].items():
                 user = settings.get("user")
                 if user and user != "undefined":
                     users.add(user)
                 combined = disabled | functions(settings.get("php_admin_value[disable_functions]", "")) | functions(settings.get("php_value[disable_functions]", ""))
                 absent = REQUIRED - combined
-                report.add("OPEN" if absent else "OK", f"Pool {label} [{pool}]",
-                           f"Missing: {','.join(sorted(absent))}" if absent else 'Global and pool restrictions evaluated together', rule_id='P2S-PHP001', resource=dict(config=label, pool=pool))
+                if absent != missing:
+                    report.add("OPEN" if absent else "OK", f"Pool {label} [{pool}]",
+                               f"Missing: {','.join(sorted(absent))}" if absent else 'Global and pool restrictions evaluated together', rule_id='P2S-PHP001', resource=dict(config=label, pool=pool), evidence=dict(missing_functions=sorted(absent)))
+                else:
+                    function_row["affected_pools"].append(pool)
                 include_value = url_include
+                include_override = False
                 for prefix in ("php_value", "php_flag", "php_admin_value", "php_admin_flag"):
                     override = settings.get(prefix + "[allow_url_include]")
                     if override is not None and override != "undefined":
                         include_value = override
-                if include_value is None:
+                        include_override = True
+                pool_enabled = None if include_value is None else include_value.lower() not in ("off", "0", "no", "false", "")
+                global_enabled = None if url_include is None else url_include.lower() not in ("off", "0", "no", "false", "")
+                # An explicit unsafe override survives a global fix, even when
+                # its current value matches the global value: a separate cause.
+                if pool_enabled == global_enabled and not (pool_enabled and include_override):
+                    include_row["affected_pools"].append(pool)
+                elif include_value is None:
                     report.add("UNKNOWN", f"allow_url_include [{pool}] {label}", 'Value missing', rule_id='P2S-PHP002', resource=dict(config=label, pool=pool))
                 else:
-                    pool_enabled = include_value.lower() not in ("off", "0", "no", "false", "")
                     report.add("OPEN" if pool_enabled else "OK", f"allow_url_include [{pool}] {label}",
-                               include_value + ('; correct the pool override manually' if pool_enabled else ""), rule_id='P2S-PHP002', resource=dict(config=label, pool=pool))
+                               include_value + ('; correct the pool override manually' if pool_enabled else ""), rule_id='P2S-PHP002', resource=dict(config=label, pool=pool), evidence=dict(allow_url_include=pool_enabled))
                 ob = settings.get("php_admin_value[open_basedir]", settings.get("php_value[open_basedir]", values.get("open_basedir", "")))
                 unrestricted = not ob or ob.lower() in ("none", "no value", "undefined") or "/" in [p.strip() for p in ob.split(":")]
                 report.add("OPEN" if unrestricted else "OK", f"open_basedir [{pool}] {label}",
-                           'Unrestricted' if unrestricted else f'{ob} (an additional restriction, not a sandbox)', rule_id='P2S-PHP003', resource=dict(config=label, pool=pool))
+                           'Unrestricted' if unrestricted else f'{ob} (an additional restriction, not a sandbox)', rule_id='P2S-PHP003', resource=dict(config=label, pool=pool), evidence=dict(unrestricted=unrestricted))
+            for row in (function_row, include_row):
+                row["affected_pools"].sort()
+                row["evidence"]["affected_pool_count"] = len(row["affected_pools"])
             for key, value in desired.items():
                 owners = [p for p in instance["inis"] if active_ini_lines(Path(p).read_text(), key)]
                 target = owners[-1] if owners else instance["inis"][0]
@@ -2051,7 +2154,7 @@ def scan(args, inventory_only=False):
             for key, title in (("files", "Writable PHP files"), ("directories", "Writable directories")):
                 count = data[key]
                 sample = data["file_sample" if key == "files" else "directory_sample"]
-                report.add("OPEN" if count else "OK", f"{title} ({user})", f"{scan_root}: {count}; " + "; ".join(sample), rule_id="P2S-FS001" if key == "files" else "P2S-FS002", resource=dict(root=scan_root, user=user))
+                report.add("OPEN" if count else "OK", f"{title} ({user})", f"{scan_root}: {count}; " + "; ".join(sample), rule_id="P2S-FS001" if key == "files" else "P2S-FS002", resource=dict(root=scan_root, user=user), evidence={"writable_files" if key == "files" else "writable_directories":count})
             if data.get("runtime_directories"):
                 report.add("INFO", "Declared runtime storage (" + user + ")",
                            str(data["runtime_directories"]) + " writable directories; PHP files remain checked; execution restrictions require separate verification; " + "; ".join(data.get("runtime_sample", [])), rule_id='P2S-FS004', resource=dict(root=scan_root, user=user))
@@ -2107,7 +2210,7 @@ def scan(args, inventory_only=False):
                             baseline_cache[url] = baselines
                         baselines = baseline_cache[url]
                     status, detail = classify_http(observation, baselines)
-                    report.add(status, "HTTP " + target, detail, rule_id='P2S-HTTP001', resource=target)
+                    report.add(status, "HTTP " + target, detail, rule_id='P2S-HTTP001', resource=target, evidence=dict(http_status=observation["status"]))
                 except HttpBudgetExceeded as exc:
                     report.add("UNKNOWN", "HTTP coverage", str(exc), rule_id='P2S-HTTP002', resource="budget")
                     exhausted = True
@@ -2121,7 +2224,7 @@ def scan(args, inventory_only=False):
     report.discovery["http_budget"] = dict(requests=http_count, limit=http_limit, exhausted=exhausted)
     try:
         ptrace = int(Path("/proc/sys/kernel/yama/ptrace_scope").read_text())
-        report.add("OK" if ptrace >= 1 else "OPEN", "ptrace_scope", str(ptrace), rule_id='P2S-SYS001', resource="ptrace_scope")
+        report.add("OK" if ptrace >= 1 else "OPEN", "ptrace_scope", str(ptrace), rule_id='P2S-SYS001', resource="ptrace_scope", evidence=dict(ptrace_scope=ptrace))
     except (OSError, ValueError):
         report.add("UNKNOWN", "ptrace_scope", 'Unreadable', rule_id='P2S-SYS001', resource="ptrace_scope")
     # Manual policy assessment is outside the selected automated checks. It

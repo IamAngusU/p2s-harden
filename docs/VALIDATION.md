@@ -1,5 +1,19 @@
 # Validation
 
+## 2.2.1 release gate
+
+Required: 179 tool tests plus 23 protocol/proof/guard tests per Linux Python
+job; 26 actual FastCGI cases for each PHP 8.2–8.5; nine integration stages on
+each Debian 12/13 and Ubuntu 22.04/24.04 VM, including unapproved JSON-fix
+refusal; native PowerShell transport; then signed build provenance for the
+exact four distribution files. All twelve jobs must pass at the released commit.
+Downloaded release files must also pass expected GitHub attestation policies,
+and altered bytes or incorrect signer/source policies must be rejected.
+
+See the [current exact-commit proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
+and [review response](REVIEW-2.2.1.md). Older runs below validate their named
+versions only; they are not evidence for a newer release.
+
 ## Stable 2.2.0 release gate
 
 The stable release adds FPM listener/socket/extension/environment checks,
@@ -9,7 +23,7 @@ lost after whitespace stripping, potentially hiding unrestricted script suffixes
 The parser now retains empty values; unit and FastCGI regressions cover it.
 
 The required gate is 167 tool tests plus 23 protocol/proof/guard tests on each
-Linux Python job, 26 real FPM cases for each of PHP 8.2–8.5, eight integration
+Linux Python job, 26 real FPM cases for each of PHP 8.2â€“8.5, eight integration
 stages on each supported distro VM, and the native PowerShell transport suite.
 See the [current exact-commit proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
 for measured results and retained runtime artifact identities. A workflow file
@@ -23,14 +37,14 @@ preview digest/confidentiality checks, approval gates and canonical-English AST
 checks. Windows PowerShell 5.1 transport/help/Unicode tests also passed.
 
 The release workflow requires nine jobs: Python 3.8/3.12 fixture suites, Windows,
-four PHP 8.2–8.5 FastCGI matrices and separate Debian 12/Ubuntu 24.04 systemd VMs.
+four PHP 8.2â€“8.5 FastCGI matrices and separate Debian 12/Ubuntu 24.04 systemd VMs.
 The system VM harness uses installed distro PHP-FPM/Nginx and actual `/proc`,
 service identities, HTTP requests, confirmed changes and rollback. The exact
 executed commit/run, job outcomes and steps are in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md).
 Retained runtime artifacts include engine hashes and observed package versions.
 A workflow definition or an older green commit is not evidence for a new one.
 
-[rc.3 review response and deferred scope](REVIEW-rc3.md) · [English manual](DETAILS.md).
+[rc.3 review response and deferred scope](REVIEW-rc3.md) Â· [English manual](DETAILS.md).
 
 ## 2.2.0-rc.2
 

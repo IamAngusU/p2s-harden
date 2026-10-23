@@ -77,9 +77,15 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   system_ubuntu:
-    name: System Ubuntu 24.04 (PHP 8.3)
+    name: System Ubuntu ${{ matrix.release }} (PHP ${{ matrix.php }})
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {release: "22.04", php: "8.1"}
+          - {release: "24.04", php: "8.3"}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -87,7 +93,7 @@ jobs:
       - name: Real Ubuntu systemd discovery, fix and rollback
         uses: vmactions/ubuntu-vm@3b554fb5d71472e2d3829d9a11160de0d91f463b # v1.0.2
         with:
-          release: "24.04"
+          release: ${{ matrix.release }}
           arch: x86_64
           mem: 2048
           cpu: 2
@@ -101,19 +107,25 @@ jobs:
           run: |
             set -eu
             mkdir -p artifacts
-            P2S_DISPOSABLE_SYSTEM_TEST=1 python3 -B tools/test_system_runtime.py --expect-php 8.3 --json > artifacts/system-runtime.json
+            P2S_DISPOSABLE_SYSTEM_TEST=1 python3 -B tools/test_system_runtime.py --expect-php ${{ matrix.php }} --json > artifacts/system-runtime.json
       - name: Retain Ubuntu system evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: system-runtime-ubuntu-24.04
+          name: system-runtime-ubuntu-${{ matrix.release }}
           path: artifacts/system-runtime.json
           if-no-files-found: error
           retention-days: 30
   system_debian:
-    name: System Debian 12 (PHP 8.2)
+    name: System Debian ${{ matrix.release }} (PHP ${{ matrix.php }})
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {release: "12", php: "8.2"}
+          - {release: "13", php: "8.4"}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -121,7 +133,7 @@ jobs:
       - name: Real Debian systemd discovery, fix and rollback
         uses: vmactions/debian-vm@626b64f9a6be64bbeaf3850f8bac2532d4e77db4 # v1.0.1
         with:
-          release: "12"
+          release: ${{ matrix.release }}
           arch: x86_64
           mem: 2048
           cpu: 2
@@ -135,12 +147,12 @@ jobs:
           run: |
             set -eu
             mkdir -p artifacts
-            P2S_DISPOSABLE_SYSTEM_TEST=1 python3 -B tools/test_system_runtime.py --expect-php 8.2 --json > artifacts/system-runtime.json
+            P2S_DISPOSABLE_SYSTEM_TEST=1 python3 -B tools/test_system_runtime.py --expect-php ${{ matrix.php }} --json > artifacts/system-runtime.json
       - name: Retain Debian system evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: system-runtime-debian-12
+          name: system-runtime-debian-${{ matrix.release }}
           path: artifacts/system-runtime.json
           if-no-files-found: error
           retention-days: 30
@@ -159,3 +171,47 @@ jobs:
       - name: PowerShell native transport tests
         shell: powershell
         run: .\test-windows-launcher.ps1
+  provenance:
+    name: Release provenance
+    needs: [linux, fpm, system_ubuntu, system_debian, windows]
+    if: ${{ github.repository == 'angusu-de/p2s-harden' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Rebuild exact tested source and require matching public heads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/IamAngusU/p2s-harden/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
+          test "$(gh api repos/angusu-de/p2s-harden/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
+          python3 -B build-standalone.py --check
+          python3 -B tools/package-release.py
+          git diff --exit-code -- SHA256.json
+      - name: Sign build provenance for all four distribution files
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Retain exact distribution files and signed bundle
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          mkdir -p provenance
+          cp -- "$BUNDLE_PATH" provenance/p2s-harden-provenance.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-dist
+          path: |
+            dist/*
+            provenance/*
+          if-no-files-found: error
+          retention-days: 30

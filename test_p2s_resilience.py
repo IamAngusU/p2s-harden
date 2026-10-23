@@ -45,7 +45,7 @@ class ResilienceTests(unittest.TestCase):
         self.assertFalse(any('curl fehlt' in r['detail'] for r in report.rows))
         self.assertTrue(permissions.called)
         self.assertTrue(http.called)
-        self.assertTrue(any(r['status'] == 'OK' and 'Pool ' in r['title'] for r in report.rows))
+        self.assertTrue(any(r['status'] == 'OK' and r['rule_id'] == 'P2S-PHP001' and 'www' in r.get('affected_pools', []) for r in report.rows))
         self.assertTrue(all(r['status'] == 'OK' for r in report.rows if r['title'].startswith('HTTP http')))
 
     def test_missing_runuser_is_reported_once_per_user_not_per_root(self):
