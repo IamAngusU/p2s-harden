@@ -83,7 +83,14 @@ class FindingContracts(unittest.TestCase):
         violations=[]
         for path in (Path(__file__).parent/"src").glob("*.py"):
             if path.name=="messages.py": continue
-            for call in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            tree=ast.parse(path.read_text(encoding="utf-8"))
+            # Also catch messages assigned to variables/tuples before add(),
+            # not just inline strings. Report.show deliberately has DE branches.
+            if path.name!="report.py":
+                for node in ast.walk(tree):
+                    if isinstance(node,ast.Constant) and isinstance(node.value,str) and german.search(node.value):
+                        violations.append((path.name,node.lineno,node.value))
+            for call in ast.walk(tree):
                 if not isinstance(call,ast.Call): continue
                 error=isinstance(call.func,ast.Name) and call.func.id=="CheckError"
                 finding=isinstance(call.func,ast.Attribute) and call.func.attr=="add" and isinstance(call.func.value,ast.Name) and call.func.value.id=="report"

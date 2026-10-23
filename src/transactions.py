@@ -107,7 +107,13 @@ def change_plan(updates, protect_dirs, blockers):
         after = set_ini(original, values)
         # Zero context: show actual directive values without disclosing nearby
         # unrelated INI settings that could contain application secrets.
-        difference = "".join(difflib.unified_diff(original.splitlines(True), after.splitlines(True),
+        def preview_lines(text):
+            # Adding a directive after a final line without a newline can make
+            # unified_diff include that unrelated line even with n=0. Redact
+            # every non-target line before diffing, retaining line positions.
+            return [line.rstrip("\r\n") + "\n" if any(active_ini_lines(line, key) for key in values) else "\n"
+                    for line in text.splitlines(True)]
+        difference = "".join(difflib.unified_diff(preview_lines(original), preview_lines(after),
                               fromfile=str(path), tofile=str(path) + " (planned)", n=0))
         entries.append(dict(path=str(path), values=values, before_sha256=digest(before), diff=difference))
     return dict(ini=entries, directories=list(protect_dirs), blockers=list(blockers))

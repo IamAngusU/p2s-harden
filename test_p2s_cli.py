@@ -21,7 +21,7 @@ class CliContracts(unittest.TestCase):
         self.ini = self.root / "php.ini"
         self.original = b"allow_url_include=On\n"
         self.ini.write_bytes(self.original)
-        self.backups = self.root / "backups"
+        self.backups = self.root / "backups with ' quote"
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -73,6 +73,13 @@ class CliContracts(unittest.TestCase):
         self.ini.write_text("extension_secret=DO_NOT_PRINT_THIS\nallow_url_include=On\n")
         plan = p.change_plan({str(self.ini): {"allow_url_include": "Off"}}, [], [])
         self.assertNotIn("DO_NOT_PRINT_THIS", plan["ini"][0]["diff"])
+        self.ini.write_text("extension_secret=DO_NOT_PRINT_THIS")
+        appended = p.change_plan({str(self.ini): {"allow_url_include": "Off"}}, [], [])
+        self.assertNotIn("DO_NOT_PRINT_THIS", appended["ini"][0]["diff"])
+        self.assertIn("+allow_url_include = Off", appended["ini"][0]["diff"])
+        self.ini.write_text("allow_url_include=On")
+        no_newline = p.change_plan({str(self.ini): {"allow_url_include": "Off"}}, [], [])
+        self.assertIn("-allow_url_include=On\n+allow_url_include = Off\n", no_newline["ini"][0]["diff"])
         self.ini.write_text("allow_url_include=Off\n")
         tx = p.Transaction(self.backups)
         with self.assertRaisesRegex(p.CheckError, "changed after"):
@@ -84,6 +91,10 @@ class CliContracts(unittest.TestCase):
         code, fixed = self.invoke("--fix")
         self.assertEqual(code, 0)
         self.assertEqual(fixed["transaction"]["status"], "applied")
+        import shlex
+        undo = shlex.split(fixed["transaction"]["undo_command"])
+        self.assertEqual(undo[undo.index("--backup-root") + 1], str(self.backups))
+        self.assertEqual(undo[undo.index("--backup-id") + 1], fixed["transaction"]["id"])
         self.assertEqual(self.ini.read_bytes(), b"allow_url_include = Off\n")
         code, restored = self.invoke("--rollback")
         self.assertEqual(code, 0)

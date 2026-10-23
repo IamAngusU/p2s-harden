@@ -2105,7 +2105,7 @@ def scan(args, inventory_only=False):
                                       max_paths=getattr(args, "max_paths", 250000),
                                       max_seconds=getattr(args, "walk_seconds", 10)))
             data = json.loads(as_user(user, [sys.executable, "-B", "-c", PERMISSION_SCAN, scan_root, options]))
-            for key, title in (("files", "schreibbare PHP-Dateien"), ("directories", "schreibbare Verzeichnisse")):
+            for key, title in (("files", "Writable PHP files"), ("directories", "Writable directories")):
                 count = data[key]
                 sample = data["file_sample" if key == "files" else "directory_sample"]
                 report.add("OPEN" if count else "OK", f"{title} ({user})", f"{scan_root}: {count}; " + "; ".join(sample), rule_id="P2S-FS001" if key == "files" else "P2S-FS002", resource=dict(root=scan_root, user=user))
@@ -2302,7 +2302,13 @@ def change_plan(updates, protect_dirs, blockers):
         after = set_ini(original, values)
         # Zero context: show actual directive values without disclosing nearby
         # unrelated INI settings that could contain application secrets.
-        difference = "".join(difflib.unified_diff(original.splitlines(True), after.splitlines(True),
+        def preview_lines(text):
+            # Adding a directive after a final line without a newline can make
+            # unified_diff include that unrelated line even with n=0. Redact
+            # every non-target line before diffing, retaining line positions.
+            return [line.rstrip("\r\n") + "\n" if any(active_ini_lines(line, key) for key in values) else "\n"
+                    for line in text.splitlines(True)]
+        difference = "".join(difflib.unified_diff(preview_lines(original), preview_lines(after),
                               fromfile=str(path), tofile=str(path) + " (planned)", n=0))
         entries.append(dict(path=str(path), values=values, before_sha256=digest(before), diff=difference))
     return dict(ini=entries, directories=list(protect_dirs), blockers=list(blockers))
@@ -2657,10 +2663,14 @@ def main(argv=None):
         report.configure(args.fail_on, args.ignore)
         report.show(args.json, verbose=args.verbose, lang=args.lang)
     def summarize(transaction):
+        import shlex
+        undo = ("sudo bash p2s-harden.sh --rollback --backup-id " + shlex.quote(transaction.path.name) +
+                " --backup-root " + shlex.quote(str(transaction.root))) if transaction.path else None
         return dict(id=transaction.path.name if transaction.path else None,
                     backup_path=str(transaction.path) if transaction.path else None,
                     status=transaction.data["status"], noop=transaction.noop,
-                    files=len(transaction.data["files"]), directories=len(transaction.data["directories"]))
+                    files=len(transaction.data["files"]), directories=len(transaction.data["directories"]),
+                    undo_command=undo)
     def transaction_output(action):
         output = io.StringIO()
         try:
@@ -2735,7 +2745,7 @@ def main(argv=None):
                 report, _, _, _ = scan(args)
                 report.plan, report.transaction = plan, summarize(tx)
                 if not args.json:
-                    emit("Undo this transaction: sudo bash p2s-harden.sh --rollback --backup-id " + tx.path.name)
+                    emit("Undo this transaction: " + report.transaction["undo_command"])
         show_report()
         return report.exit_code()
     except (OSError, ValueError, KeyError, CheckError) as exc:

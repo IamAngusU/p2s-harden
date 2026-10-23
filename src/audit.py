@@ -105,7 +105,7 @@ def scan(args, inventory_only=False):
                                       max_paths=getattr(args, "max_paths", 250000),
                                       max_seconds=getattr(args, "walk_seconds", 10)))
             data = json.loads(as_user(user, [sys.executable, "-B", "-c", PERMISSION_SCAN, scan_root, options]))
-            for key, title in (("files", "schreibbare PHP-Dateien"), ("directories", "schreibbare Verzeichnisse")):
+            for key, title in (("files", "Writable PHP files"), ("directories", "Writable directories")):
                 count = data[key]
                 sample = data["file_sample" if key == "files" else "directory_sample"]
                 report.add("OPEN" if count else "OK", f"{title} ({user})", f"{scan_root}: {count}; " + "; ".join(sample), rule_id="P2S-FS001" if key == "files" else "P2S-FS002", resource=dict(root=scan_root, user=user))

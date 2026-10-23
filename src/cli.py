@@ -46,10 +46,14 @@ def main(argv=None):
         report.configure(args.fail_on, args.ignore)
         report.show(args.json, verbose=args.verbose, lang=args.lang)
     def summarize(transaction):
+        import shlex
+        undo = ("sudo bash p2s-harden.sh --rollback --backup-id " + shlex.quote(transaction.path.name) +
+                " --backup-root " + shlex.quote(str(transaction.root))) if transaction.path else None
         return dict(id=transaction.path.name if transaction.path else None,
                     backup_path=str(transaction.path) if transaction.path else None,
                     status=transaction.data["status"], noop=transaction.noop,
-                    files=len(transaction.data["files"]), directories=len(transaction.data["directories"]))
+                    files=len(transaction.data["files"]), directories=len(transaction.data["directories"]),
+                    undo_command=undo)
     def transaction_output(action):
         output = io.StringIO()
         try:
@@ -124,7 +128,7 @@ def main(argv=None):
                 report, _, _, _ = scan(args)
                 report.plan, report.transaction = plan, summarize(tx)
                 if not args.json:
-                    emit("Undo this transaction: sudo bash p2s-harden.sh --rollback --backup-id " + tx.path.name)
+                    emit("Undo this transaction: " + report.transaction["undo_command"])
         show_report()
         return report.exit_code()
     except (OSError, ValueError, KeyError, CheckError) as exc:
