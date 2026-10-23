@@ -28,6 +28,10 @@
 
 ## Start here
 
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev**.
+Published **2.2.1 downloads below do not include that mode**. Use the generated
+launcher from this branch to try it; [scope and commands](#look-for-php-webshell-indicators).
+
 Download **one file** for the computer you run it from:
 
 - [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
@@ -116,6 +120,51 @@ The existing-file fix can modify a package-managed `php.ini`. If both local and 
 
 Audit, doctor, inventory and dry-run do not change target configuration, permissions or services. Reads and HTTP requests can update access times and ordinary logs.
 
+## Look for PHP webshell indicators
+
+Available in the **2.3.0 development preview**, separate from the configuration audit:
+
+```bash
+sudo bash p2s-harden.sh --scan-webshells
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --redact --json > indicators.json
+```
+
+From Windows, forward the same options:
+
+```powershell
+.\p2s-harden.ps1 --ssh root@SERVER --scan-webshells --root /srv/site --lang de
+```
+
+Without `--root`, existing Nginx discovery selects the reported roots. An explicit
+root works without Nginx, FPM, a web-user account or HTTP access. Files are read
+locally; no sample is executed, unpacked, uploaded, deleted or quarantined.
+
+- Flags request input near execution/include sinks, request-selected calls,
+  encoded code near execution, network/shell combinations and nonempty startup directives in `.user.ini`,
+  `.htaccess` and `php.ini`.
+- Includes hidden files, upload/cache/dependency directories and PHP content
+  under unusual extensions. Comments and literal examples inside PHP strings
+  are filtered. Legitimate code and test samples can still produce indicators.
+- Local findings contain a path, first relevant line, SHA-256 and next steps.
+  Reports contain no source excerpts or directive target values. `--redact`
+  removes paths, file hashes and original IDs while retaining validated reasons,
+  line numbers and coverage counts.
+- Default limits per root: 250000 entries, 10 seconds, 2 MiB per file and
+  128 MiB read in total, with at most 200 finding rows. Symlinks, mount boundaries,
+  special/unreadable/changed files, excessive depth and exhausted budgets produce
+  `UNKNOWN`; other accessible files continue where possible. Increase
+  `--max-paths`, `--walk-seconds`, `--scan-file-bytes` or `--scan-total-bytes`,
+  or split the scope. Nothing is silently accepted as clean.
+
+**An indicator requires review; absence of indicators does not establish a clean
+server.** This is a small static triage aid, without a malware signature database,
+full PHP data-flow analysis or coverage of OS persistence, memory, cron/SSH
+backdoors, encrypted payloads or files outside the selected roots. A startup
+reference's target is not followed automatically. If compromise is confirmed,
+preserve evidence, isolate the host, close the entry point, rebuild from trusted
+sources and rotate exposed credentials. [Detection rules, limits and response](docs/WEBSHELLS.md).
+
 ## Share a report without host details
 
 ```bash
@@ -127,7 +176,7 @@ for example `missing_functions: ["popen"]`, `socket_mode: "0666"`, setting state
 counts and HTTP status. Each rule validates its allowed fields and values.
 Paths, domains, users, raw diagnostics, inventory, plans and transactions are
 omitted. Shared finding IDs are fresh per report; use the original local IDs
-for per-resource `--ignore`. Supported modes: check, doctor and discover.
+for per-resource `--ignore`. Supported modes: check, doctor, discover and the development webshell scan.
 Results and exit codes stay the same. Review change previews locally without
 redaction. Report stdout is covered; SSH/system stderr may identify the host.
 [Send reviewed audit feedback](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).

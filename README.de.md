@@ -28,6 +28,11 @@
 
 ## Direkt starten
 
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev**.
+Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
+Zum Testen den generierten Launcher dieses Branches verwenden;
+[Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
+
 Lade **eine Datei** für deinen Startrechner:
 
 - [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
@@ -124,7 +129,7 @@ technische Fakten**: etwa `missing_functions: ["popen"]`, `socket_mode: "0666"`,
 Schalterzustände, Zähler und HTTP-Status. Jede Regel begrenzt Felder, Typen und
 Werte. Pfade, Domains, Nutzer, Rohdiagnosen, Inventar, Pläne und Transaktionen
 entfallen. Geteilte Befund-IDs werden neu erzeugt; für einzelne `--ignore`-Ausnahmen
-lokale Original-IDs verwenden. Unterstützt: check, doctor und discover. Ergebnisse
+lokale Original-IDs verwenden. Unterstützt: check, doctor, discover und die Webshell-Entwicklungsvorschau. Ergebnisse
 und Exit-Code bleiben gleich. Änderungsvorschauen lokal ohne Maskierung prüfen.
 Die Maskierung gilt für Bericht-stdout; SSH-/System-stderr kann den Host nennen.
 [Geprüftes Audit-Feedback senden](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
@@ -173,6 +178,53 @@ Unblock-File -LiteralPath .\p2s-harden.ps1
 ```
 
 Das entfernt die Downloadmarkierung, übersteuert aber weder Restricted noch Organisationsrichtlinien. Das frühere Bypass-Beispiel gilt für diesen Aufruf; erzwungene Organisationsrichtlinien gelten weiter. Prüfsummen erkennen veränderte Downloads. [Lesbare Quellen](src), [generierte Engine](p2s_harden.py), [Builder](build-standalone.py) und CI-Belege zeigen, was die größeren Ein-Datei-Launcher enthalten.
+
+## Nach PHP-Webshell-Indikatoren suchen
+
+In der **Entwicklungsvorschau 2.3.0**, als eigener lesender Prüfmodus:
+
+```bash
+sudo bash p2s-harden.sh --scan-webshells --lang de
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --lang de
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --redact --json > indikatoren.json
+```
+
+Von Windows mit denselben Optionen:
+
+```powershell
+.\p2s-harden.ps1 --ssh root@SERVER --scan-webshells --root /srv/site --lang de
+```
+
+Ohne `--root` wählt die vorhandene Nginx-Erkennung die ausgewiesenen Webroots.
+Ein expliziter Pfad benötigt weder Nginx noch laufendes FPM, PHP-Benutzer oder
+HTTP-Zugriff. Die Suche liest lokal; sie führt keinen Fund aus und entpackt,
+überträgt, löscht oder isoliert keine Datei.
+
+- Erkennt Request-Daten nahe Ausführungs-/Include-Funktionen, durch Requests
+  gewählte Aufrufe, Decoder nahe Code-Ausführung, Netzwerk-/Shell-Kombinationen und gesetzte Startdatei-Verweise
+  in `.user.ini`, `.htaccess` und `php.ini`.
+- Untersucht auch versteckte Dateien, Uploads, Cache und Abhängigkeiten sowie
+  PHP-Inhalt unter anderen Endungen. Kommentare und wörtliche Beispiele in
+  PHP-Strings werden gefiltert. Legitimer Code und Testbeispiele können dennoch
+  Indikatoren erzeugen.
+- Lokale Befunde enthalten Pfad, erste passende Zeile, SHA-256 und nächste
+  Schritte. Quelltext und Zielwerte von Startdirektiven stehen nicht im Report.
+  `--redact` entfernt zusätzlich Pfade, Datei-Hashes und ursprüngliche IDs;
+  geprüfte Gründe, Zeilennummern und Zähler bleiben erhalten.
+- Pro Wurzel gelten zunächst 250000 Einträge, 10 Sekunden, 2 MiB je Datei,
+  128 MiB insgesamt und höchstens 200 Befundzeilen. Symlinks, Dateisystemgrenzen,
+  Spezialdateien, Lesefehler, während des Lesens geänderte Dateien und erreichte
+  Limits bleiben `UNKNOWN`. Andere zugängliche Dateien werden nach Möglichkeit
+  weiter geprüft. Bei Bedarf mit `--max-paths`, `--walk-seconds`,
+  `--scan-file-bytes` und `--scan-total-bytes` erweitern oder kleinere Wurzeln wählen.
+
+**Ein Indikator braucht Prüfung; keine Treffer belegen keinen sauberen Server.**
+Die Suche hat keine Malware-Signaturdatenbank und keine vollständige PHP-Datenflussanalyse.
+OS-, Cron-/SSH- und Speicher-Backdoors, verschlüsselte Payloads und Dateien außerhalb
+der ausgewählten Wurzeln bleiben außerhalb ihres Umfangs. Ziele von Startdirektiven
+werden nicht automatisch verfolgt. Bei bestätigtem Einbruch Beweise sichern, Host
+isolieren, Einstiegslücke schließen, aus vertrauenswürdigen Quellen neu aufsetzen
+und betroffene Zugangsdaten erneuern. [Regeln, Grenzen und Reaktion](docs/WEBSHELLS.md).
 
 ## Umfang und Reifegrad
 

@@ -31,6 +31,7 @@ p2s-harden 2.2.1 — one file, automatic discovery
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
   bash p2s-harden.sh --doctor                  Explain prerequisites and next steps
   sudo bash p2s-harden.sh --discover           Show discovered mappings
+  sudo bash p2s-harden.sh --scan-webshells     Read-only PHP file indicator scan
   sudo bash p2s-harden.sh --dry-run            Preview specific changes
   sudo bash p2s-harden.sh --fix                Apply bounded INI fixes
   sudo bash p2s-harden.sh --rollback           Restore the latest transaction
@@ -56,6 +57,8 @@ Options (override automatically discovered values):
   --backup-id ID               Restore a specific transaction
   --json                      Machine-readable output
   --redact                    Shareable read-only report without host details
+  --scan-file-bytes N          Webshell scan: per-file byte limit (2097152)
+  --scan-total-bytes N         Webshell scan: bytes per root (134217728)
   --yes, -y                   Approve the fix without an interactive prompt
   --fail-on complete|open     Exit precedence; UNKNOWN never passes
   --ignore ID                 Keep a finding visible but suppress its OPEN exit
@@ -75,6 +78,7 @@ p2s-harden 2.2.1 — eine Datei, automatische Erkennung
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
   bash p2s-harden.sh --doctor                  Voraussetzungen und nächste Schritte
   sudo bash p2s-harden.sh --discover           Erkannte Zuordnungen anzeigen
+  sudo bash p2s-harden.sh --scan-webshells     PHP-Datei-Indikatoren lesend prüfen
   sudo bash p2s-harden.sh --dry-run            Konkrete Änderungen anzeigen
   sudo bash p2s-harden.sh --fix                Begrenzte INI-Fixes anwenden
   sudo bash p2s-harden.sh --rollback           Letzte Transaktion zurücknehmen
@@ -100,6 +104,8 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --backup-id ID                Bestimmte Transaktion zurücknehmen
   --json                       Maschinenlesbare Ausgabe
   --redact                     Teilbarer Prüfbericht ohne private Hostdetails
+  --scan-file-bytes N           Webshell-Suche: Dateilimit in Bytes (2097152)
+  --scan-total-bytes N          Webshell-Suche: Bytes je Wurzel (134217728)
   --yes, -y                    Fix ohne interaktive Rückfrage freigeben
   --fail-on complete|open      Exit-Vorrang; UNKNOWN besteht niemals
   --ignore ID                  Befund sichtbar lassen, seine OPEN-Exitwirkung ausnehmen
@@ -279,7 +285,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.2.1"
+VERSION = "2.3.0-dev"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -1097,7 +1103,7 @@ def prepare_scope(args):
         # Prefer HTTPS, then shorter/root mappings before nested aliases.
         from urllib.parse import urlsplit
         entries = sorted(entries, key=lambda e: (bool(urlsplit(e["url"]).path), not e["url"].startswith("https://"), e["url"]))
-        if len(entries) > args.max_sites:
+        if len(entries) > args.max_sites and getattr(args, "mode", None) != "scan-webshells":
             inventory["issues"].append(f'HTTP limit: {len(entries) - args.max_sites} mappings omitted; increase --max-sites or narrow the scope with --site')
         for entry in entries[:args.max_sites]:
             sites.append(entry["url"] + "=" + entry["root"])
@@ -1921,6 +1927,41 @@ _POOL_TEMPLATES = {
     "ffi.enable={value}; native/preloaded code requires separate review; function restrictions are defense in depth": "ffi.enable={value}; nativen/vorgeladenen Code separat prüfen; Funktionssperren sind zusätzliche Härtung",
     "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
 }
+_WS_GERMAN = {
+    "PHP webshell indicator scan": "PHP-Webshell-Indikatorprüfung",
+    "--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction": "--redact unterstützt --check, --doctor, --discover und --scan-webshells; Änderungsvorschauen lokal ohne Maskierung prüfen",
+    "Read-only PHP webshell indicator scan; no FPM service required": "PHP-Webshell-Indikatoren lesend prüfen; kein FPM-Dienst erforderlich",
+    "Webshell scan byte limit per file (default 2097152)": "Webshell-Datenlimit je Datei (Standard 2097152)",
+    "Webshell scan byte limit per root (default 134217728)": "Webshell-Datenlimit je Wurzel (Standard 134217728)",
+    "Scanning local files for PHP webshell indicators": "Lokale Dateien auf PHP-Webshell-Indikatoren prüfen",
+    "PHP webshell indicator": "PHP-Webshell-Indikator",
+    "PHP startup reference": "PHP-Startdatei-Verweis",
+    "Webshell scan coverage": "Webshell-Prüfabdeckung",
+    "Indicators": "Indikatoren", "Line": "Zeile", "Examined files": "Untersuchte Dateien",
+    "Indicator count": "Indikatorzahl", "Coverage reasons": "Abdeckungshinweise",
+    "selected scan completed": "Ausgewählter Suchlauf abgeschlossen",
+    "Request data near a code/command execution sink": "Request-Daten nahe einer Code-/Befehlsausführung",
+    "Decoder output near a PHP code execution sink": "Decoder-Ausgabe nahe einer PHP-Code-Ausführung",
+    "Request data near a PHP include/require": "Request-Daten nahe einem PHP-Include/Require",
+    "Request-selected dynamic function call": "Durch Request gewählter dynamischer Funktionsaufruf",
+    "Network connection and shell launch in one PHP file": "Netzwerkverbindung und Shell-Start in derselben PHP-Datei",
+    "PHP startup-file directive requires verification": "PHP-Startdatei-Direktive muss geprüft werden",
+    "Preserve the file and relevant logs; compare with a trusted deployment and review the reported line. An indicator is not a malware verdict. If compromise is confirmed, isolate and rebuild from trusted sources, close the entry point and rotate exposed credentials.": "Datei und relevante Logs sichern; mit vertrauenswürdigem Deployment vergleichen und gemeldete Zeile prüfen. Ein Indikator ist kein Malware-Nachweis. Bei bestätigter Kompromittierung isolieren, aus vertrauenswürdigen Quellen neu aufsetzen, Einstiegslücke schließen und betroffene Zugangsdaten erneuern.",
+    "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically.": "Startdirektive mit vertrauenswürdiger Anwendungskonfiguration vergleichen und ihr Ziel separat prüfen. Ein legitimer Preload ist möglich; Dateien werden nicht automatisch geändert.",
+    "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean.": "Abdeckungshinweise, Rechte und Suchlimits prüfen; ausgelassene Pfade separat untersuchen. Ein abgeschlossener Indikator-Suchlauf belegt keinen sauberen Server.",
+    "--scan-file-bytes must be between 1024 and 16777216": "--scan-file-bytes muss zwischen 1024 und 16777216 liegen",
+    "--scan-total-bytes must be between 1024 and 1073741824": "--scan-total-bytes muss zwischen 1024 und 1073741824 liegen",
+}
+_POOL_TEMPLATES.update({
+    "PHP file indicator {path}": "PHP-Datei-Indikator {path}",
+    "Line {line}: {message}; SHA256 {sha256}": "Zeile {line}: {message}; SHA256 {sha256}",
+    "{files} files examined; {indicators} indicators; {message}; absence of indicators does not establish a clean server": "{files} Dateien untersucht; {indicators} Indikatoren; {message}; fehlende Indikatoren belegen keinen sauberen Server",
+    "incomplete: {reasons}": "unvollständig: {reasons}",
+})
+_NEW_GERMAN.update(_WS_GERMAN)
+_EVIDENCE_GERMAN.update(access="Zugriff", symlink="Symlink", mount="Dateisystemgrenze", special="Spezialdatei",
+    changed="Datei geändert", depth="Verzeichnistiefe", entries="Eintragslimit", time="Zeitlimit",
+    **{"file-size":"Dateigröße", "total-bytes":"Gesamtdatenlimit", "tokens":"Tokenlimit", "expression":"Ausdruckslimit", "findings":"Befundlimit"})
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
@@ -1998,6 +2039,9 @@ RULES = {
     "FIX001": ("info", "Resolve the specific fix preflight blocker, inspect the full proposed diff, and rerun."),
     "TX001": ("info", "Keep the backup ID; a repeated implicit rollback never selects an older transaction."),
     "EXEC001": ("info", "Resolve the execution error and rerun; consult transaction state before retrying a change."),
+    "WS001": ("high", "Preserve the file and relevant logs; compare with a trusted deployment and review the reported line. An indicator is not a malware verdict. If compromise is confirmed, isolate and rebuild from trusted sources, close the entry point and rotate exposed credentials."),
+    "WS002": ("medium", "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically."),
+    "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -2028,6 +2072,9 @@ def safe_evidence(rule_id, evidence):
         "FS004": dict(runtime_directories=count),
         "HTTP001": dict(http_status=lambda value: type(value) is int and 100 <= value <= 599),
         "SYS001": dict(ptrace_scope=lambda value: type(value) is int and 0 <= value <= 3),
+        "WS001": dict(indicators=names(*WEBSHELL_INDICATORS), line=count),
+        "WS002": dict(indicators=names("startup-reference"), line=count),
+        "WS003": dict(examined_files=count, indicator_count=count, coverage_reasons=names(*WEBSHELL_REASONS)),
     }.get(rule_id[4:], {})
     return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
 
@@ -2036,7 +2083,8 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "PHP004": "PHP FFI", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
-              "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope"}
+              "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
+              "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage"}
 
 
 def evidence_summary(rule_id, evidence, lang="en"):
@@ -2048,13 +2096,15 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   named_acl="Named ACL", allowed_known_extensions="Known script extensions",
                   other_extension_count="Other script extensions", clear_env="clear_env", pool_count="Pools",
                   writable_files="Writable PHP files", writable_directories="Writable directories",
-                  runtime_directories="Runtime directories", http_status="HTTP status", ptrace_scope="ptrace_scope")
+                  runtime_directories="Runtime directories", http_status="HTTP status", ptrace_scope="ptrace_scope",
+                  indicators="Indicators", line="Line", examined_files="Examined files",
+                  indicator_count="Indicator count", coverage_reasons="Coverage reasons")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
             continue
         if isinstance(value, list):
-            value = ", ".join(value) or say("none")
+            value = ", ".join(localize(WEBSHELL_INDICATORS[item], lang) if key == "indicators" else say(item) for item in value) or say("none")
         elif type(value) is bool:
             value = say("yes" if value else "no")
         elif type(value) is str and key != "socket_mode":
@@ -2135,7 +2185,7 @@ class Report:
         def emit(line):
             # Configured names/paths must not inject terminal escape sequences.
             print("".join(c if c.isprintable() else "?" for c in line))
-        label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "Configuration audit"
+        label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "PHP webshell indicator scan" if self.discovery.get("webshell_scan") else "Configuration audit"
         emit(f"p2s-harden {VERSION} – {localize(label, lang)}")
         cap = discovery.get("capabilities", {})
         missing_tools = [name for name, present in cap.get("tools", {}).items() if not present and name != "curl"]
@@ -2145,8 +2195,9 @@ class Report:
         if self.discovery and not self.discovery.get("doctor") and not redact:
             pools = sum(len(i["pools"]) for i in self.discovery.get("fpm_instances", []))
             instance_count, site_count = len(self.discovery.get('fpm_instances', [])), len(self.discovery.get('selected_sites', []))
-            emit(f"Erkannt: {instance_count} Host-FPM-Instanzen, {pools} Pools, {site_count} HTTP-Zuordnungen" if lang == "de" else
-                 f"Discovered: {instance_count} host FPM instances, {pools} pools, {site_count} HTTP mappings")
+            if not self.discovery.get("webshell_scan"):
+                emit(f"Erkannt: {instance_count} Host-FPM-Instanzen, {pools} Pools, {site_count} HTTP-Zuordnungen" if lang == "de" else
+                     f"Discovered: {instance_count} host FPM instances, {pools} pools, {site_count} HTTP mappings")
             roots = self.discovery.get("scan_roots", [])
             emit(("Prüfpfade: " if lang == "de" else "Audit paths: ") + ", ".join(roots[:8]))
             if len(roots) > 8:
@@ -2160,6 +2211,10 @@ class Report:
                 for site in self.discovery.get("selected_sites", []):
                     emit("SITE    " + site)
         shown = rows if verbose or self.discovery.get("doctor") else [r for r in rows if r["status"] != "OK"]
+        if self.discovery.get("webshell_scan"):
+            # Coverage remains visible even when a noisy tree hits the human
+            # output limit. Full finding details stay in --verbose/--json.
+            shown.sort(key=lambda row: row["rule_id"] != "P2S-WS003")
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN"):
@@ -2318,6 +2373,370 @@ def shared_pool_users(report, instances):
         if len(pools) > 1:
             report.add("INFO", "Shared FPM account", str(len(pools)) + " pools share UID " + str(uid) + "; they do not form a Unix-user isolation boundary",
                        rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools), evidence=dict(pool_count=len(pools)))
+
+
+# Source: src/webshells.py
+"""Local indicator triage. Never execute, decode payloads, upload or alter files."""
+
+WEBSHELL_INDICATORS = {
+    "request-execution": "Request data near a code/command execution sink",
+    "encoded-execution": "Decoder output near a PHP code execution sink",
+    "request-include": "Request data near a PHP include/require",
+    "request-callable": "Request-selected dynamic function call",
+    "network-shell": "Network connection and shell launch in one PHP file",
+    "startup-reference": "PHP startup-file directive requires verification",
+}
+WEBSHELL_REASONS = ("access", "symlink", "mount", "special", "changed", "depth",
+                   "entries", "time", "file-size", "total-bytes", "tokens", "expression", "findings")
+_WS_SOURCE = frozenset(("$_GET", "$_POST", "$_REQUEST", "$_COOKIE", "$_SERVER", "$_FILES"))
+_WS_SINKS = REQUIRED | frozenset(("eval", "assert", "create_function"))
+_WS_DECODERS = frozenset(("base64_decode", "gzinflate", "gzuncompress", "gzdecode", "str_rot13", "hex2bin"))
+_WS_TOKEN = re.compile(r"\$[A-Za-z_][A-Za-z_0-9]*|\\?[A-Za-z_][A-Za-z_0-9\\]*|->|\?->|::|==|=>|!=|<=|>=|\?\?|&&|\|\||[^\s]", re.ASCII)
+_WS_OPEN = re.compile(r"<\?(?:php\b|=|(?!xml\b))", re.I | re.ASCII)
+_WS_HEREDOC = re.compile(r"<<<[ \t]*(?:'([A-Za-z_][A-Za-z_0-9]{0,127})'|\"([A-Za-z_][A-Za-z_0-9]{0,127})\"|([A-Za-z_][A-Za-z_0-9]{0,127}))[ \t]*\r?\n")
+
+
+def webshell_tokens(source, deadline):
+    """Small lexical filter, not a PHP parser. Strings/comments are not code."""
+    tokens, pos, active = [], 0, False
+    while pos < len(source):
+        if len(tokens) >= 100000:
+            return tokens, "tokens"
+        if time.monotonic() > deadline:
+            return tokens, "time"
+        if not active:
+            opening = _WS_OPEN.search(source, pos)
+            if not opening:
+                break
+            pos, active = opening.end(), True
+            continue
+        if source.startswith("?>", pos):
+            pos, active = pos + 2, False
+            continue
+        if source[pos].isspace():
+            pos += 1
+            continue
+        if source.startswith("/*", pos):
+            end = source.find("*/", pos + 2)
+            pos = len(source) if end < 0 else end + 2
+            continue
+        if source.startswith("//", pos) or source[pos] == "#" and not source.startswith("#[", pos):
+            end = source.find("\n", pos)
+            close = source.find("?>", pos)
+            pos = min(end if end >= 0 else len(source), close if close >= 0 else len(source))
+            continue
+        start = pos
+        quote = source[pos]
+        if quote in ("'", '"', "`"):
+            pos += 1
+            while pos < len(source):
+                if source[pos] == "\\":
+                    pos += 2
+                elif source[pos] == quote:
+                    pos += 1
+                    break
+                else:
+                    pos += 1
+            value = source[start + 1:pos - 1]
+            # Only function-name constants are decoded; payloads stay opaque.
+            if quote == '"' and len(value) <= 128:
+                value = re.sub(r"\\x([0-9a-fA-F]{1,2})|\\([0-7]{1,3})",
+                    lambda m: chr(int(m[1], 16) if m[1] else int(m[2], 8) % 256), value)
+            tokens.append(("backtick" if quote == "`" else "interpolated" if quote == '"' else "string", value, start))
+            continue
+        if source.startswith("<<<", pos):
+            header = _WS_HEREDOC.match(source, pos)
+            if header:
+                label = next(item for item in header.groups() if item)
+                begin = header.end()
+                end = re.compile(r"(?m)^[ \t]*" + re.escape(label) + r"\b").search(source, begin)
+                stop = end.start() if end else len(source)
+                tokens.append(("string" if header[1] else "interpolated", source[begin:stop], start))
+                pos = end.end() if end else len(source)
+                continue
+        match = _WS_TOKEN.match(source, pos)
+        if match:
+            value = match[0]
+            tokens.append(("variable" if value.startswith("$") else "code", value, pos))
+            pos = match.end()
+        else:
+            pos += 1
+    return tokens, None
+
+
+def webshell_indicators(data, deadline=None):
+    """Bounded syntactic proximity and simple aliases; no exploitability claim."""
+    source = data.decode("latin-1")
+    deadline = deadline if deadline is not None else time.monotonic() + 10
+    tokens, incomplete = webshell_tokens(source, deadline)
+    hits, aliases, decoded, constants, pairs, stack = {}, set(), set(), {}, {}, []
+    for index, token in enumerate(tokens):
+        if token[0] != "code":
+            continue
+        if token[1] in ("(", "["):
+            stack.append(index)
+            if len(stack) > 128:
+                incomplete = incomplete or "expression"
+                break
+        elif token[1] in (")", "]") and stack:
+            opening = stack.pop()
+            if (tokens[opening][1], token[1]) in (("(", ")"), ("[", "]")):
+                pairs[opening] = index
+    closing = {end: begin for begin, end in pairs.items()}
+    def request(items):
+        for kind, value, _ in items:
+            if kind == "variable" and (value in _WS_SOURCE or value in aliases):
+                return True
+            if kind in ("interpolated", "backtick"):
+                if any(m[0] in _WS_SOURCE or m[0] in aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
+                    return True
+        return any(kind == "code" and value.lower().lstrip("\\") in ("filter_input", "file_get_contents")
+                   and j + 1 < len(items) and items[j + 1][1] == "("
+                   and (value.lower().lstrip("\\") == "filter_input" or any(t[0] in ("string", "interpolated") and t[1] == "php://input" for t in items[j + 2:j + 5]))
+                   for j, (kind, value, _) in enumerate(items))
+    def encoded(items):
+        return any(kind == "variable" and value in decoded or
+                   constants.get(value, value.lower().lstrip("\\")) in _WS_DECODERS
+                   and kind in ("code", "variable") and j + 1 < len(items) and items[j + 1][1] == "("
+                   for j, (kind, value, _) in enumerate(items))
+    def add(indicator, offset):
+        # One row per rule/file, earliest line; no attacker-controlled excerpt.
+        hits.setdefault(indicator, source.count("\n", 0, offset) + 1)
+    depth, pending_function, scopes = 0, False, []
+    network_offset, shell_offset = None, None
+    for index, (kind, value, offset) in enumerate(tokens):
+        if index % 256 == 0 and time.monotonic() > deadline:
+            incomplete = "time"
+            break
+        if kind == "code" and value.lower() == "function":
+            pending_function = True
+        if kind == "code" and value == "{":
+            depth += 1
+            if pending_function:
+                scopes.append((depth, aliases, decoded, constants))
+                aliases, decoded, constants, pending_function = set(), set(), {}, False
+        if kind == "code" and value == "}":
+            if scopes and scopes[-1][0] == depth:
+                _, aliases, decoded, constants = scopes.pop()
+            depth = max(0, depth - 1)
+        if kind == "variable" and index + 1 < len(tokens) and tokens[index + 1][1] == "=":
+            end = index + 2
+            while end < min(len(tokens), index + 514) and tokens[end][:2] != ("code", ";"):
+                end += 1
+            if end == index + 514:
+                incomplete = incomplete or "expression"
+            expression = tokens[index + 2:end]
+            tainted = request(expression)
+            packed = encoded(expression)
+            aliases.discard(value)
+            decoded.discard(value)
+            constants.pop(value, None)
+            if tainted:
+                aliases.add(value)
+            if packed:
+                decoded.add(value)
+            if expression and all(t[0] == "string" or t[0] == "interpolated" and "$" not in t[1] or t[0] == "code" and t[1] == "." for t in expression):
+                name = "".join(t[1] for t in expression if t[1] != ".")
+                if len(name) <= 128:
+                    constants[value] = name.lower().lstrip("\\")
+        if kind == "backtick" and request([(kind, value, offset)]):
+            add("request-execution", offset)
+        if kind not in ("code", "variable"):
+            continue
+        name = constants.get(value, value.lower().lstrip("\\"))
+        # A method named system/eval is not a call to that global function.
+        if index and tokens[index - 1][1] in ("->", "?->", "::", "function", "new"):
+            continue
+        if name in ("include", "include_once", "require", "require_once") and kind == "code":
+            end = index + 1
+            while end < min(len(tokens), index + 513) and tokens[end][:2] != ("code", ";"):
+                end += 1
+            if end == index + 513:
+                incomplete = incomplete or "expression"
+            if request(tokens[index + 1:end]):
+                add("request-include", offset)
+        if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
+            continue
+        end = pairs.get(index + 1)
+        if end is None or end - index > 512:
+            incomplete = incomplete or "expression"
+            continue
+        arguments = tokens[index + 2:end]
+        if name in ("fsockopen", "pfsockopen", "stream_socket_client", "socket_connect"):
+            network_offset = offset if network_offset is None else network_offset
+        if name in REQUIRED:
+            for arg_kind, arg_value, _ in arguments:
+                if arg_kind in ("string", "interpolated") and len(arg_value) <= 1024 and re.search(r"(?:^|[\s/])(?:ba|da|a|k|z)?sh(?:\s|$)|cmd\.exe|powershell(?:\.exe)?", arg_value, re.I):
+                    shell_offset = offset if shell_offset is None else shell_offset
+                    if "/dev/tcp/" in arg_value:
+                        network_offset = offset if network_offset is None else network_offset
+        if kind == "variable" and value in aliases:
+            add("request-callable", offset)
+        if name in ("call_user_func", "call_user_func_array", "array_map"):
+            # Inspect the first callback argument, without conflating request
+            # data passed as a later argument with a request-selected function.
+            argument_end, nesting = 0, 0
+            for argument_end, item in enumerate(arguments):
+                if item[0] == "code":
+                    if item[1] in ("(", "["):
+                        nesting += 1
+                    elif item[1] in (")", "]"):
+                        nesting -= 1
+                    elif item[1] == "," and nesting == 0:
+                        break
+            else:
+                argument_end = len(arguments)
+            if request(arguments[:argument_end]):
+                add("request-callable", offset)
+        if value == "]" and index in closing:
+            begin = closing[index]
+            if begin and request(tokens[begin - 1:index + 1]):
+                add("request-callable", offset)
+        if name in _WS_SINKS and request(arguments):
+            add("request-execution", offset)
+        if name in ("eval", "assert", "create_function"):
+            if encoded(arguments):
+                add("encoded-execution", offset)
+    if network_offset is not None and shell_offset is not None:
+        add("network-shell", min(network_offset, shell_offset))
+    return hits, incomplete
+
+
+def scan_webshells(args):
+    """Pin every traversed directory with dirfd; refuse symlinks and devices."""
+    report = Report()
+    report.discovery = dict(getattr(args, "discovery", {}), webshell_scan=True)
+    for issue in report.discovery.get("issues", []):
+        report.add("UNKNOWN", "Automatic discovery", issue, rule_id="P2S-DISC001", resource=issue)
+    stage(args, "Scanning local files for PHP webshell indicators")
+    for root in args.roots:
+        reasons, seen, examined, read_bytes, findings = set(), 0, 0, 0, 0
+        deadline = time.monotonic() + args.walk_seconds
+        frames = []
+        def open_root():
+            fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                for part in Path(root).parts[1:]:
+                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+                    os.close(fd)
+                    fd = child
+                return fd
+            except BaseException:
+                os.close(fd)
+                raise
+        try:
+            fd = open_root()
+            device = os.fstat(fd).st_dev
+            frames.append((fd, os.scandir(fd), root))
+            while frames:
+                if time.monotonic() > deadline:
+                    reasons.add("time")
+                    break
+                parent_fd, entries, parent = frames[-1]
+                entry = next(entries, None)
+                if entry is None:
+                    entries.close()
+                    os.close(parent_fd)
+                    frames.pop()
+                    continue
+                seen += 1
+                if seen > args.max_paths:
+                    reasons.add("entries")
+                    break
+                path = os.path.join(parent, entry.name)
+                file_fd = None
+                try:
+                    before = entry.stat(follow_symlinks=False)
+                    if stat.S_ISLNK(before.st_mode):
+                        reasons.add("symlink")
+                        continue
+                    if before.st_dev != device:
+                        reasons.add("mount")
+                        continue
+                    if not stat.S_ISREG(before.st_mode) and not stat.S_ISDIR(before.st_mode):
+                        reasons.add("special")
+                        continue
+                    file_fd = os.open(entry.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+                    opened = os.fstat(file_fd)
+                    if (opened.st_dev, opened.st_ino, stat.S_IFMT(opened.st_mode)) != (before.st_dev, before.st_ino, stat.S_IFMT(before.st_mode)):
+                        reasons.add("changed")
+                        continue
+                    if stat.S_ISDIR(opened.st_mode):
+                        if len(frames) >= 64:
+                            reasons.add("depth")
+                            continue
+                        frames.append((file_fd, os.scandir(file_fd), path))
+                        file_fd = None
+                        continue
+                    if opened.st_size > args.scan_file_bytes:
+                        reasons.add("file-size")
+                        continue
+                    chunks, size = [], 0
+                    while True:
+                        if time.monotonic() > deadline:
+                            reasons.add("time")
+                            break
+                        chunk = os.read(file_fd, min(65536, args.scan_file_bytes - size + 1, args.scan_total_bytes - read_bytes + 1))
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        read_bytes += len(chunk)
+                        if size > args.scan_file_bytes or read_bytes > args.scan_total_bytes:
+                            reasons.add("file-size" if size > args.scan_file_bytes else "total-bytes")
+                            break
+                        chunks.append(chunk)
+                    after = os.fstat(file_fd)
+                    if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                        reasons.add("changed")
+                        continue
+                    if size > args.scan_file_bytes or read_bytes > args.scan_total_bytes or "time" in reasons:
+                        if "total-bytes" in reasons or "time" in reasons:
+                            break
+                        continue
+                    data = b"".join(chunks)
+                    examined += 1
+                    hits, partial = webshell_indicators(data, deadline)
+                    if partial:
+                        reasons.add(partial)
+                    # These directives can be legitimate. Report the location,
+                    # never their target value or any adjacent credentials.
+                    if entry.name.lower() in (".user.ini", ".htaccess", "php.ini"):
+                        for line, text in enumerate(data.decode("latin-1").splitlines(), 1):
+                            directive = re.match(r"\s*(?:(?:php_value|php_admin_value)\s+)?auto_(?:prepend|append)_file\b\s*(?:=|\s)\s*(.*)", text, re.I)
+                            if directive and directive[1].split(";", 1)[0].strip().strip("\"'").lower() not in ("", "none", "off"):
+                                hits.setdefault("startup-reference", line)
+                    fingerprint = digest(data)
+                    for indicator, line in sorted(hits.items()):
+                        if findings >= 200:
+                            break
+                        rule = "P2S-WS002" if indicator == "startup-reference" else "P2S-WS001"
+                        row = report.add("OPEN", "PHP file indicator " + path,
+                            "Line " + str(line) + ": " + WEBSHELL_INDICATORS[indicator] + "; SHA256 " + fingerprint,
+                            rule_id=rule, resource=dict(path=path, indicator=indicator),
+                            evidence=dict(indicators=[indicator], line=line))
+                        row["sha256"] = fingerprint
+                        findings += 1
+                    if findings >= 200:
+                        reasons.add("findings")
+                        break
+                except OSError:
+                    reasons.add("access")
+                finally:
+                    if file_fd is not None:
+                        os.close(file_fd)
+        except OSError:
+            reasons.add("access")
+        finally:
+            for fd, entries, _ in frames:
+                entries.close()
+                os.close(fd)
+        facts = dict(examined_files=examined, indicator_count=findings, coverage_reasons=sorted(reasons))
+        report.add("UNKNOWN" if reasons else "INFO", "Webshell scan coverage",
+            str(examined) + " files examined; " + str(findings) + " indicators; " +
+            ("incomplete: " + ", ".join(sorted(reasons)) if reasons else "selected scan completed") +
+            "; absence of indicators does not establish a clean server",
+            rule_id="P2S-WS003", resource=dict(root=root), evidence=facts)
+    return report
 
 
 # Source: src/audit.py
@@ -2978,6 +3397,7 @@ def main(argv=None):
     for name, help_text in (("check", "Audit selected settings, permissions and HTTP paths (default)"),
                             ("doctor", "Explain prerequisites and missing capabilities"),
                             ("discover", "Show detected FPM pools and web mappings"),
+                            ("scan-webshells", "Read-only PHP webshell indicator scan; no FPM service required"),
                             ("dry-run", "Show proposed values and a unified diff without changes"),
                             ("fix", "Apply the displayed supported plan after confirmation"),
                             ("rollback", "Restore only the latest transaction, or one explicit backup ID")):
@@ -2991,6 +3411,8 @@ def main(argv=None):
     parser.add_argument("--max-sites", type=int, default=32, help=text('Maximum automatic HTTP mappings (default 32)'))
     parser.add_argument("--max-paths", type=int, default=250000, help=text("Maximum entries per filesystem walk (default 250000)"))
     parser.add_argument("--walk-seconds", type=float, default=10, help=text("Seconds per filesystem walk (default 10)"))
+    parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("Webshell scan byte limit per file (default 2097152)"))
+    parser.add_argument("--scan-total-bytes", type=int, default=128 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 134217728)"))
     parser.add_argument("--max-http-probes", type=int, default=128, help=text("Total HTTP request budget (default 128)"))
     parser.add_argument("--runtime-dir", action="append", default=[], help=text("Declare writable runtime storage inside selected roots; repeatable"))
     parser.add_argument("--protect-dir", action="append", default=[], help=text('Transfer explicit directory ownership to root; non-recursive'))
@@ -3029,8 +3451,8 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
-        if args.redact and args.mode not in ("check", "doctor", "discover"):
-            raise CheckError("--redact supports --check, --doctor and --discover; review change previews locally without redaction")
+        if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
+            raise CheckError("--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
             raise CheckError("--ignore requires a finding id or rule_id from --json")
         if args.mode == "doctor":
@@ -3053,6 +3475,10 @@ def main(argv=None):
             raise CheckError("--walk-seconds must be between 0.05 and 120")
         if not 1 <= args.max_http_probes <= 4096:
             raise CheckError("--max-http-probes must be between 1 and 4096")
+        if not 1024 <= args.scan_file_bytes <= 16 * 1024 * 1024:
+            raise CheckError("--scan-file-bytes must be between 1024 and 16777216")
+        if not 1024 <= args.scan_total_bytes <= 1024 * 1024 * 1024:
+            raise CheckError("--scan-total-bytes must be between 1024 and 1073741824")
         if args.mode == "rollback" and os.geteuid() != 0:
             raise CheckError('Changes require root: sudo bash p2s-harden.sh --fix or --ssh root@SERVER')
         if args.mode == "rollback":
@@ -3063,7 +3489,14 @@ def main(argv=None):
             show_report()
             return 0
         stage(args, 'Discovering Nginx mappings and audit paths')
+        if args.mode == "scan-webshells" and args.root:
+            # An explicit local scan needs neither Nginx nor FPM nor HTTP.
+            args.no_auto = True
         prepare_scope(args)
+        if args.mode == "scan-webshells":
+            report = scan_webshells(args)
+            show_report()
+            return report.exit_code()
         prepare_runtime_dirs(args)
         report, updates, instances, users = scan(args, inventory_only=True) if args.mode == "discover" else scan(args)
         if args.mode in ("dry-run", "fix"):

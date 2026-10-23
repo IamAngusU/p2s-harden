@@ -783,6 +783,41 @@ _POOL_TEMPLATES = {
     "ffi.enable={value}; native/preloaded code requires separate review; function restrictions are defense in depth": "ffi.enable={value}; nativen/vorgeladenen Code separat prüfen; Funktionssperren sind zusätzliche Härtung",
     "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
 }
+_WS_GERMAN = {
+    "PHP webshell indicator scan": "PHP-Webshell-Indikatorprüfung",
+    "--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction": "--redact unterstützt --check, --doctor, --discover und --scan-webshells; Änderungsvorschauen lokal ohne Maskierung prüfen",
+    "Read-only PHP webshell indicator scan; no FPM service required": "PHP-Webshell-Indikatoren lesend prüfen; kein FPM-Dienst erforderlich",
+    "Webshell scan byte limit per file (default 2097152)": "Webshell-Datenlimit je Datei (Standard 2097152)",
+    "Webshell scan byte limit per root (default 134217728)": "Webshell-Datenlimit je Wurzel (Standard 134217728)",
+    "Scanning local files for PHP webshell indicators": "Lokale Dateien auf PHP-Webshell-Indikatoren prüfen",
+    "PHP webshell indicator": "PHP-Webshell-Indikator",
+    "PHP startup reference": "PHP-Startdatei-Verweis",
+    "Webshell scan coverage": "Webshell-Prüfabdeckung",
+    "Indicators": "Indikatoren", "Line": "Zeile", "Examined files": "Untersuchte Dateien",
+    "Indicator count": "Indikatorzahl", "Coverage reasons": "Abdeckungshinweise",
+    "selected scan completed": "Ausgewählter Suchlauf abgeschlossen",
+    "Request data near a code/command execution sink": "Request-Daten nahe einer Code-/Befehlsausführung",
+    "Decoder output near a PHP code execution sink": "Decoder-Ausgabe nahe einer PHP-Code-Ausführung",
+    "Request data near a PHP include/require": "Request-Daten nahe einem PHP-Include/Require",
+    "Request-selected dynamic function call": "Durch Request gewählter dynamischer Funktionsaufruf",
+    "Network connection and shell launch in one PHP file": "Netzwerkverbindung und Shell-Start in derselben PHP-Datei",
+    "PHP startup-file directive requires verification": "PHP-Startdatei-Direktive muss geprüft werden",
+    "Preserve the file and relevant logs; compare with a trusted deployment and review the reported line. An indicator is not a malware verdict. If compromise is confirmed, isolate and rebuild from trusted sources, close the entry point and rotate exposed credentials.": "Datei und relevante Logs sichern; mit vertrauenswürdigem Deployment vergleichen und gemeldete Zeile prüfen. Ein Indikator ist kein Malware-Nachweis. Bei bestätigter Kompromittierung isolieren, aus vertrauenswürdigen Quellen neu aufsetzen, Einstiegslücke schließen und betroffene Zugangsdaten erneuern.",
+    "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically.": "Startdirektive mit vertrauenswürdiger Anwendungskonfiguration vergleichen und ihr Ziel separat prüfen. Ein legitimer Preload ist möglich; Dateien werden nicht automatisch geändert.",
+    "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean.": "Abdeckungshinweise, Rechte und Suchlimits prüfen; ausgelassene Pfade separat untersuchen. Ein abgeschlossener Indikator-Suchlauf belegt keinen sauberen Server.",
+    "--scan-file-bytes must be between 1024 and 16777216": "--scan-file-bytes muss zwischen 1024 und 16777216 liegen",
+    "--scan-total-bytes must be between 1024 and 1073741824": "--scan-total-bytes muss zwischen 1024 und 1073741824 liegen",
+}
+_POOL_TEMPLATES.update({
+    "PHP file indicator {path}": "PHP-Datei-Indikator {path}",
+    "Line {line}: {message}; SHA256 {sha256}": "Zeile {line}: {message}; SHA256 {sha256}",
+    "{files} files examined; {indicators} indicators; {message}; absence of indicators does not establish a clean server": "{files} Dateien untersucht; {indicators} Indikatoren; {message}; fehlende Indikatoren belegen keinen sauberen Server",
+    "incomplete: {reasons}": "unvollständig: {reasons}",
+})
+_NEW_GERMAN.update(_WS_GERMAN)
+_EVIDENCE_GERMAN.update(access="Zugriff", symlink="Symlink", mount="Dateisystemgrenze", special="Spezialdatei",
+    changed="Datei geändert", depth="Verzeichnistiefe", entries="Eintragslimit", time="Zeitlimit",
+    **{"file-size":"Dateigröße", "total-bytes":"Gesamtdatenlimit", "tokens":"Tokenlimit", "expression":"Ausdruckslimit", "findings":"Befundlimit"})
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)

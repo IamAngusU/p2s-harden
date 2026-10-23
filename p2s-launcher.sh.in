@@ -31,6 +31,7 @@ p2s-harden 2.2.1 — one file, automatic discovery
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
   bash p2s-harden.sh --doctor                  Explain prerequisites and next steps
   sudo bash p2s-harden.sh --discover           Show discovered mappings
+  sudo bash p2s-harden.sh --scan-webshells     Read-only PHP file indicator scan
   sudo bash p2s-harden.sh --dry-run            Preview specific changes
   sudo bash p2s-harden.sh --fix                Apply bounded INI fixes
   sudo bash p2s-harden.sh --rollback           Restore the latest transaction
@@ -56,6 +57,8 @@ Options (override automatically discovered values):
   --backup-id ID               Restore a specific transaction
   --json                      Machine-readable output
   --redact                    Shareable read-only report without host details
+  --scan-file-bytes N          Webshell scan: per-file byte limit (2097152)
+  --scan-total-bytes N         Webshell scan: bytes per root (134217728)
   --yes, -y                   Approve the fix without an interactive prompt
   --fail-on complete|open     Exit precedence; UNKNOWN never passes
   --ignore ID                 Keep a finding visible but suppress its OPEN exit
@@ -75,6 +78,7 @@ p2s-harden 2.2.1 — eine Datei, automatische Erkennung
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
   bash p2s-harden.sh --doctor                  Voraussetzungen und nächste Schritte
   sudo bash p2s-harden.sh --discover           Erkannte Zuordnungen anzeigen
+  sudo bash p2s-harden.sh --scan-webshells     PHP-Datei-Indikatoren lesend prüfen
   sudo bash p2s-harden.sh --dry-run            Konkrete Änderungen anzeigen
   sudo bash p2s-harden.sh --fix                Begrenzte INI-Fixes anwenden
   sudo bash p2s-harden.sh --rollback           Letzte Transaktion zurücknehmen
@@ -100,6 +104,8 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --backup-id ID                Bestimmte Transaktion zurücknehmen
   --json                       Maschinenlesbare Ausgabe
   --redact                     Teilbarer Prüfbericht ohne private Hostdetails
+  --scan-file-bytes N           Webshell-Suche: Dateilimit in Bytes (2097152)
+  --scan-total-bytes N          Webshell-Suche: Bytes je Wurzel (134217728)
   --yes, -y                    Fix ohne interaktive Rückfrage freigeben
   --fail-on complete|open      Exit-Vorrang; UNKNOWN besteht niemals
   --ignore ID                  Befund sichtbar lassen, seine OPEN-Exitwirkung ausnehmen

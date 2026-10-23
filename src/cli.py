@@ -14,6 +14,7 @@ def main(argv=None):
     for name, help_text in (("check", "Audit selected settings, permissions and HTTP paths (default)"),
                             ("doctor", "Explain prerequisites and missing capabilities"),
                             ("discover", "Show detected FPM pools and web mappings"),
+                            ("scan-webshells", "Read-only PHP webshell indicator scan; no FPM service required"),
                             ("dry-run", "Show proposed values and a unified diff without changes"),
                             ("fix", "Apply the displayed supported plan after confirmation"),
                             ("rollback", "Restore only the latest transaction, or one explicit backup ID")):
@@ -27,6 +28,8 @@ def main(argv=None):
     parser.add_argument("--max-sites", type=int, default=32, help=text('Maximum automatic HTTP mappings (default 32)'))
     parser.add_argument("--max-paths", type=int, default=250000, help=text("Maximum entries per filesystem walk (default 250000)"))
     parser.add_argument("--walk-seconds", type=float, default=10, help=text("Seconds per filesystem walk (default 10)"))
+    parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("Webshell scan byte limit per file (default 2097152)"))
+    parser.add_argument("--scan-total-bytes", type=int, default=128 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 134217728)"))
     parser.add_argument("--max-http-probes", type=int, default=128, help=text("Total HTTP request budget (default 128)"))
     parser.add_argument("--runtime-dir", action="append", default=[], help=text("Declare writable runtime storage inside selected roots; repeatable"))
     parser.add_argument("--protect-dir", action="append", default=[], help=text('Transfer explicit directory ownership to root; non-recursive'))
@@ -65,8 +68,8 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
-        if args.redact and args.mode not in ("check", "doctor", "discover"):
-            raise CheckError("--redact supports --check, --doctor and --discover; review change previews locally without redaction")
+        if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
+            raise CheckError("--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
             raise CheckError("--ignore requires a finding id or rule_id from --json")
         if args.mode == "doctor":
@@ -89,6 +92,10 @@ def main(argv=None):
             raise CheckError("--walk-seconds must be between 0.05 and 120")
         if not 1 <= args.max_http_probes <= 4096:
             raise CheckError("--max-http-probes must be between 1 and 4096")
+        if not 1024 <= args.scan_file_bytes <= 16 * 1024 * 1024:
+            raise CheckError("--scan-file-bytes must be between 1024 and 16777216")
+        if not 1024 <= args.scan_total_bytes <= 1024 * 1024 * 1024:
+            raise CheckError("--scan-total-bytes must be between 1024 and 1073741824")
         if args.mode == "rollback" and os.geteuid() != 0:
             raise CheckError('Changes require root: sudo bash p2s-harden.sh --fix or --ssh root@SERVER')
         if args.mode == "rollback":
@@ -99,7 +106,14 @@ def main(argv=None):
             show_report()
             return 0
         stage(args, 'Discovering Nginx mappings and audit paths')
+        if args.mode == "scan-webshells" and args.root:
+            # An explicit local scan needs neither Nginx nor FPM nor HTTP.
+            args.no_auto = True
         prepare_scope(args)
+        if args.mode == "scan-webshells":
+            report = scan_webshells(args)
+            show_report()
+            return report.exit_code()
         prepare_runtime_dirs(args)
         report, updates, instances, users = scan(args, inventory_only=True) if args.mode == "discover" else scan(args)
         if args.mode in ("dry-run", "fix"):

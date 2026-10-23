@@ -131,7 +131,7 @@ inspected PHP configuration. Network reachability, host firewall, container
 publication, named ACL grant intent and production-worker values are not inferred.
 See [production scope](PRODUCTION.md) and [per-rule actions](FINDINGS.md).
 
-`--redact` supports check/doctor/discover, with human or JSON output. It uses
+`--redact` supports check/doctor/discover and the development webshell scan, with human or JSON output. It uses
 an allowlist projection, so paths, domains, users, arbitrary diagnostics,
 inventory, preview and transaction data cannot enter the report through a
 new metadata field. Redacted instance IDs are fresh per output; original IDs

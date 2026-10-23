@@ -60,6 +60,7 @@ p2s-harden 2.2.1 - Windows -> Linux, directly over OpenSSH
   .\p2s-harden.ps1 --ssh root@SERVER              Discover and audit
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Explain prerequisites
   .\p2s-harden.ps1 --ssh root@SERVER --discover   Discovered inventory
+  .\p2s-harden.ps1 --ssh root@SERVER --scan-webshells   PHP file indicator scan
   .\p2s-harden.ps1 --ssh root@SERVER --dry-run    Preview changes
   .\p2s-harden.ps1 --ssh root@SERVER --fix        Apply bounded fixes
 
@@ -77,6 +78,8 @@ p2s-harden 2.2.1 - Windows -> Linux, directly over OpenSSH
   --rollback [--backup-id ID]  Restore a transaction
   --json --verbose --no-auto --no-progress      Same options as the Bash CLI
   --redact                    Omit host details from a read-only shareable report
+  --scan-file-bytes N          Webshell scan: per-file byte limit (2097152)
+  --scan-total-bytes N         Webshell scan: bytes per root (134217728)
   --yes --fail-on complete|open --ignore ID     Approval and automation policy
 
 The Linux target requires Python 3.8+. Missing helpers are explained individually.
@@ -90,6 +93,7 @@ p2s-harden 2.2.1 - Windows -> Linux, direkt per OpenSSH
   .\p2s-harden.ps1 --ssh root@SERVER              Erkennen und prüfen
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Voraussetzungen erklären
   .\p2s-harden.ps1 --ssh root@SERVER --discover   Erkanntes Inventar
+  .\p2s-harden.ps1 --ssh root@SERVER --scan-webshells   PHP-Datei-Indikatoren
   .\p2s-harden.ps1 --ssh root@SERVER --dry-run    Fixes anzeigen
   .\p2s-harden.ps1 --ssh root@SERVER --fix        Begrenzte Fixes anwenden
 
@@ -107,6 +111,8 @@ p2s-harden 2.2.1 - Windows -> Linux, direkt per OpenSSH
   --rollback [--backup-id ID]  Eine Transaktion zurücknehmen
   --json --verbose --no-auto --no-progress      Wie bei der Bash-Datei
   --redact                    Teilbarer Prüfbericht ohne private Hostdetails
+  --scan-file-bytes N          Webshell-Suche: Dateilimit in Bytes (2097152)
+  --scan-total-bytes N         Webshell-Suche: Bytes je Wurzel (134217728)
   --yes --fail-on complete|open --ignore ID     Freigabe und Automatisierungsregeln
 
 Das Linux-Ziel braucht Python 3.8+. Fehlende Helfer werden einzeln erklärt.
