@@ -88,7 +88,10 @@ the tested image.
 Each disposable container has a 0.5-CPU, 128-MiB memory and 32-PID limit. It runs
 unprivileged, with no network, no published ports, a read-only root filesystem
 and only its generated fixture directory mounted. Requests use a private Unix
-socket. Cleanup checks the run's exact container label before removal.
+socket with mode `0600`. On a nonroot host, the container uses the caller's
+effective UID and GID so the host client can connect; a root caller instead uses
+container UID/GID `33:33`. FPM never runs as root. Cleanup checks the run's exact
+container label before removal.
 
 Exit codes describe **test evidence**:
 
@@ -100,6 +103,8 @@ The client also has ten protocol regressions, including fragmented responses,
 premature EOF, HTTP/CGI error status, invalid JSON, wrong request identity and
 FastCGI application/protocol failure. They passed on Windows and Linux. These
 prevent transport failures from being accepted as successful runtime evidence.
+Three additional fixture regressions check the Docker user argument and private
+socket mode for root, nonroot and nonzero-UID/root-group callers.
 
 ## What this does not establish
 

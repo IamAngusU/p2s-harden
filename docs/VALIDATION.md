@@ -2,7 +2,7 @@
 
 ## 2.2.0-rc.2
 
-Executed locally on 2026-10-23: **143 tool regressions and 18 protocol/proof
+Executed locally on 2026-10-23: **143 tool regressions and 21 protocol/proof
 tests passed** on the existing Linux host in protected disposable fixtures.
 Native Windows PowerShell 5.1 passed language/help, Unicode JSON errors,
 argument quoting, exact embedded payload and SSH exit/language transport checks.

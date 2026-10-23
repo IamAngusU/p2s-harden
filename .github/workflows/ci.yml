@@ -50,6 +50,24 @@ jobs:
           mkdir -p artifacts
           python3 -B tools/test_fpm_runtime.py --engine p2s_harden.py \
             --image "$PHP_IMAGE" --json > artifacts/fpm-runtime.json
+      - name: Summarize runtime evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/fpm-runtime.json").read_text())
+          for image in report.get("images", []):
+              passed = sum(case["status"] == "PASS" for case in image["cases"])
+              print(f"{image['image']}: {passed}/{len(image['cases'])} observed cases passed")
+              if image.get("error"):
+                  print("Incomplete runtime evidence: " + image["error"])
+              for case in image["cases"]:
+                  for failure in case["failures"]:
+                      print(case["name"] + ": " + failure)
+          if report.get("error"):
+              print("Incomplete runtime evidence: " + report["error"])
+          PY
       - name: Retain runtime image identities and observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import struct
 import sys
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -91,6 +92,42 @@ class ClientTests(unittest.TestCase):
     def test_name_value_lengths_have_fastcgi_encoding(self):
         self.assertEqual(runtime.encoded_length(127), b"\x7f")
         self.assertEqual(runtime.encoded_length(128), b"\x80\x00\x00\x80")
+
+
+class FixtureIdentityTests(unittest.TestCase):
+    def observe_as(self, uid, gid, expected_user):
+        commands = []
+
+        def docker(argv, **unused):
+            commands.append(argv)
+            if argv[:2] == ["docker", "run"]:
+                self.assertEqual(argv[argv.index("--user") + 1], expected_user)
+                mount = argv[argv.index("--mount") + 1]
+                fixture = Path(mount[len("type=bind,src="):-len(",dst=/lab")])
+                config = (fixture / "fpm.conf").read_text()
+                self.assertIn("\nlisten.mode=0600\n", config)
+                self.assertEqual(config.count("listen.mode="), 1)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with patch.object(runtime.os, "geteuid", return_value=uid, create=True), \
+                patch.object(runtime.os, "getegid", return_value=gid, create=True), \
+                patch.object(runtime, "run", side_effect=docker), \
+                patch.object(runtime, "fastcgi_request", return_value={"sapi": "fpm-fcgi"}), \
+                patch.object(runtime, "cleanup_container") as cleanup:
+            result = runtime.observe("fixture-image-id", runtime.cases()[0], "fixture-run-id")
+        self.assertEqual(result["sapi"], "fpm-fcgi")
+        self.assertEqual(commands[0][:2], ["docker", "run"])
+        self.assertEqual(commands[1][:2], ["docker", "exec"])
+        cleanup.assert_called_once()
+
+    def test_root_host_keeps_unprivileged_container_identity(self):
+        self.observe_as(0, 1001, "33:33")
+
+    def test_nonroot_host_owns_private_socket(self):
+        self.observe_as(1001, 1002, "1001:1002")
+
+    def test_nonzero_uid_with_root_group_is_still_nonroot(self):
+        self.observe_as(1, 0, "1:0")
 
 
 if __name__ == "__main__":

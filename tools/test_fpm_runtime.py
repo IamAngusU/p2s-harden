@@ -222,6 +222,12 @@ def cleanup_container(name, run_id):
         run(["docker", "rm", "--force", name])
 
 
+def container_user():
+    """Let the host client read its 0600 socket without running FPM as root."""
+    uid = os.geteuid()
+    return "33:33" if uid == 0 else "{}:{}".format(uid, os.getegid())
+
+
 def observe(image_id, case, run_id):
     name = "p2s-fpm-runtime-" + uuid.uuid4().hex[:16]
     with tempfile.TemporaryDirectory(prefix="p2s-fpm-runtime-") as temporary:
@@ -231,7 +237,7 @@ def observe(image_id, case, run_id):
             run(["docker", "run", "--detach", "--name", name, "--label", LABEL + "=" + run_id,
                  "--cpus", "0.5", "--memory", "128m", "--memory-swap", "128m", "--pids-limit", "32",
                  "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-                 "--user", "33:33", "--mount", "type=bind,src=" + str(directory) + ",dst=/lab",
+                 "--user", container_user(), "--mount", "type=bind,src=" + str(directory) + ",dst=/lab",
                  "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=16m", "--env", "PHP_INI_SCAN_DIR=",
                  image_id, "php-fpm", "-F", "-y", "/lab/fpm.conf", "-c", "/lab/php.ini"])
             deadline, last_error = time.monotonic() + 15, "not ready"
