@@ -1,5 +1,9 @@
 # Stable scope and release gates
 
+Development branches may report a development version. The new `--scan-webshells`
+mode is a **2.3.0 development preview**, not a capability of the published 2.2.1
+assets or their existing release evidence. [Detection scope and limits](WEBSHELLS.md).
+
 p2s-harden 2.2.1 is a stable terminal product for the supported host workflow.
 It is not a universal vulnerability scanner. A successful audit means its
 selected checks passed for the reported resources. It cannot establish that

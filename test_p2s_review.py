@@ -84,6 +84,26 @@ class PrivateFacts(unittest.TestCase):
                 rows=json.loads(text)["findings"]
                 self.assertEqual(rows[0]["evidence"],dict(missing_functions=["popen"],affected_pool_count=3))
                 self.assertEqual(rows[1]["evidence"],dict(socket_mode="0666",source="observed"))
+                self.assertEqual(json.loads(rows[0]["detail"]),rows[0]["evidence"])
+            else:
+                self.assertIn("Missing: popen (3 pools)",text)
+                self.assertIn("Socket mode: 0666; Source: observed",text)
+                self.assertNotIn('"missing_functions"',text)
+
+    def test_readable_evidence_handles_languages_plurality_and_filters_private_values(self):
+        for lang, count, expected in (("en",1,"Missing: popen (1 pool)"),("en",2,"Missing: popen (2 pools)"),
+                                      ("de",1,"Fehlend: popen (1 Pool)"),("de",2,"Fehlend: popen (2 Pools)")):
+            self.assertEqual(p.evidence_summary("P2S-PHP001",dict(missing_functions=["popen"],affected_pool_count=count),lang),expected)
+        self.assertEqual(p.evidence_summary("P2S-FPM002",dict(socket_mode="0666",source="observed"),"de"),
+                         "Socket-Rechte: 0666; Quelle: beobachtet")
+        self.assertNotIn("PRIVATE",p.evidence_summary("P2S-FPM002",dict(socket_mode="PRIVATE",source="PRIVATE")))
+
+    def test_evidence_translation_does_not_translate_opaque_configuration_values(self):
+        report=p.Report()
+        report.add("OK","fixture","no",rule_id="P2S-PHP002",resource="fixture")
+        out=io.StringIO()
+        with contextlib.redirect_stdout(out): report.show(True,lang="de")
+        self.assertEqual(json.loads(out.getvalue())["findings"][0]["detail"],"no")
 
     def test_unapproved_types_values_and_nested_diagnostics_are_removed(self):
         secret="PRIVATE-CANARY"

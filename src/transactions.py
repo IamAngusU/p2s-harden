@@ -119,13 +119,18 @@ def change_plan(updates, protect_dirs, blockers):
     return dict(ini=entries, directories=list(protect_dirs), blockers=list(blockers))
 
 
-def confirm_fix(args):
+INI_UPGRADE_NOTICE = "Changing an existing INI such as php.ini may cause a package-upgrade configuration prompt if local and package versions both change."
+
+
+def confirm_fix(args, ini_changes=False):
     if args.yes:
         return True
     if args.json:
         raise CheckError("Review --dry-run --json first; --fix --json requires --yes")
     try:
         with open("/dev/tty", "r+", encoding="utf-8") as terminal:
+            if ini_changes:
+                terminal.write(localize(INI_UPGRADE_NOTICE, args.lang) + "\n")
             terminal.write(localize("Apply this displayed plan? [y/N] ", args.lang))
             terminal.flush()
             return terminal.readline().strip().lower() in ("y", "yes", "j", "ja")
@@ -138,7 +143,50 @@ class Transaction:
         self.root = Path(backup_root)
         self.path = None
         self.noop = False
+        self._lock_fd = None
         self.data = dict(version=1, status="prepared", files=[], directories=[], instances=[])
+
+    @contextlib.contextmanager
+    def locked(self, create=False):
+        """One writer per protected backup root; kernel releases locks on exit.
+
+        Lock the directory inode itself, so no replaceable lock file, stale PID
+        or symlink can split the lock. Reentrant only for this Transaction.
+        """
+        if self._lock_fd is not None:
+            yield
+            return
+        import fcntl
+        if os.geteuid() != 0:
+            raise CheckError('Changes and rollback require root')
+        if not self.root.is_absolute():
+            raise CheckError('Backup directory must be absolute')
+        trusted(self.root.parent)
+        if create:
+            try:
+                self.root.mkdir(mode=0o700)
+            except FileExistsError:
+                pass
+        trusted(self.root)
+        fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            opened = os.fstat(fd)
+            if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
+                raise CheckError('Backup directory must have mode 0700 and be owned by root')
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise CheckError('Another fix or rollback is using this backup root; wait for it to finish and rerun') from exc
+            current = self.root.lstat()
+            if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+                raise CheckError('Backup directory changed while acquiring transaction lock')
+            self._lock_fd = fd
+            try:
+                yield
+            finally:
+                self._lock_fd = None
+        finally:
+            os.close(fd)
 
     def begin(self):
         import time
@@ -171,6 +219,10 @@ class Transaction:
         self.save()
 
     def prepare(self, updates, protect_dirs, instances, expected=None):
+        with self.locked(create=True):
+            return self._prepare(updates, protect_dirs, instances, expected)
+
+    def _prepare(self, updates, protect_dirs, instances, expected=None):
         # Guard callers other than main as well: never edit first and discover
         # a missing reload/user-switch capability during recovery.
         affected = [i for i in instances if set(updates).intersection(i["inis"])]
@@ -203,6 +255,10 @@ class Transaction:
         self.save()
 
     def apply(self, instances, users):
+        with self.locked():
+            return self._apply(instances, users)
+
+    def _apply(self, instances, users):
         try:
             for item in self.data["files"]:
                 path = trusted(item["path"])
@@ -279,6 +335,10 @@ class Transaction:
         return states
 
     def restore(self, allow_partial=False, recover_service=False):
+        with self.locked():
+            return self._restore(allow_partial, recover_service)
+
+    def _restore(self, allow_partial=False, recover_service=False):
         # Preflight ALL entries before touching anything, so a conflict does
         # not leave a half-restored configuration or overwrite a newer edit.
         files = [i for i in self.data["files"] if i.get("started")]
@@ -343,6 +403,11 @@ class Transaction:
     @classmethod
     def rollback(cls, backup_root, backup_id=None):
         tx = cls(backup_root)
+        with tx.locked():
+            return tx._rollback(backup_id)
+
+    def _rollback(tx, backup_id=None):
+        cls = type(tx)
         trusted(tx.root)
         if backup_id is not None and not re.fullmatch(r"\d{8}T\d{6}-[a-f0-9]{10}", backup_id):
             raise CheckError('Invalid backup ID')

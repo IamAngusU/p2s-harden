@@ -131,7 +131,7 @@ inspected PHP configuration. Network reachability, host firewall, container
 publication, named ACL grant intent and production-worker values are not inferred.
 See [production scope](PRODUCTION.md) and [per-rule actions](FINDINGS.md).
 
-`--redact` supports check/doctor/discover, with human or JSON output. It uses
+`--redact` supports check/doctor/discover and the development webshell scan, with human or JSON output. It uses
 an allowlist projection, so paths, domains, users, arbitrary diagnostics,
 inventory, preview and transaction data cannot enter the report through a
 new metadata field. Redacted instance IDs are fresh per output; original IDs
@@ -181,3 +181,10 @@ a drop-in is not automatically a safe rollback if another tool changed it later.
 Checksums alone detect corruption, not independent origin. See the optional
 [GitHub attestation verification](PROVENANCE.md) for exact bytes, signer workflow,
 source-ref/commit checks and the same-maintainer CI account's trust boundary.
+
+
+## Transaction concurrency and retention (development preview)
+
+Fix preparation, apply/reload/recovery and rollback selection/restore use a nonblocking exclusive kernel lock on the protected backup-directory inode. The CLI holds it across prepare and apply; contention returns an actionable UNKNOWN without changing target files. No lock file or stale PID needs deletion; the kernel releases it on process exit. Read-only audits never acquire it. Use the same backup root for overlapping targets: different custom backup roots do not coordinate, and unrelated editors/package tools do not participate. Existing digest/metadata checks still apply.
+
+Backups are not automatically pruned. They retain configuration bytes and metadata for rollback; keep the directory protected, monitor its disk usage and remove only recovery data you no longer need after independently verifying the current deployment. Removing a backup removes that rollback option.

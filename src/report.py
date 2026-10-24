@@ -32,6 +32,12 @@ RULES = {
     "FIX001": ("info", "Resolve the specific fix preflight blocker, inspect the full proposed diff, and rerun."),
     "TX001": ("info", "Keep the backup ID; a repeated implicit rollback never selects an older transaction."),
     "EXEC001": ("info", "Resolve the execution error and rerun; consult transaction state before retrying a change."),
+    "WS001": ("high", "Preserve the file and relevant logs; compare with a trusted deployment and review the reported line. An indicator is not a malware verdict. If compromise is confirmed, isolate and rebuild from trusted sources, close the entry point and rotate exposed credentials."),
+    "WS002": ("medium", "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically."),
+    "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
+    "WS004": ("info", "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous."),
+    "WS005": ("info", "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings."),
+    "WS006": ("info", "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -62,6 +68,16 @@ def safe_evidence(rule_id, evidence):
         "FS004": dict(runtime_directories=count),
         "HTTP001": dict(http_status=lambda value: type(value) is int and 100 <= value <= 599),
         "SYS001": dict(ptrace_scope=lambda value: type(value) is int and 0 <= value <= 3),
+        "WS001": dict(indicators=names(*WEBSHELL_INDICATORS), line=count),
+        "WS002": dict(indicators=names("startup-reference"), line=count),
+        "WS003": dict(examined_files=count, attempted_files=count, incomplete_files=count, indicator_count=count,
+                      baseline_accepted_count=count, omitted_coverage_paths=count, coverage_reasons=names(*WEBSHELL_REASONS),
+                      coverage_counts=lambda value: type(value) is dict and len(value) <= len(WEBSHELL_REASONS) and
+                          all(type(k) is str and k in WEBSHELL_REASONS and count(v) for k,v in value.items())),
+        "WS004": dict(indicators=names("prefixed-include", "registry-callable"), line=count, review_required=boolean),
+        "WS005": dict(baseline_entries=count),
+        "WS006": dict(cpu_priority=choices("lowered", "already_low", "unavailable", "disabled"),
+                      io_priority=choices("idle", "unavailable", "disabled")),
     }.get(rule_id[4:], {})
     return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
 
@@ -70,7 +86,44 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "PHP004": "PHP FFI", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
-              "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope"}
+              "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
+              "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage",
+              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling"}
+
+
+def evidence_summary(rule_id, evidence, lang="en"):
+    facts = safe_evidence(rule_id, evidence)
+    say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {"non_loopback":"outside loopback", "acl":"ACL"}.get(value, value)
+    labels = dict(missing_functions="Missing", allow_url_include="URL includes", unrestricted="Unrestricted",
+                  ffi_policy="ffi.enable", binding="TCP binding", client_allowlist="Client allowlist",
+                  hostname_resolution="Name resolution", socket_mode="Socket mode", source="Source",
+                  named_acl="Named ACL", allowed_known_extensions="Known script extensions",
+                  other_extension_count="Other script extensions", clear_env="clear_env", pool_count="Pools",
+                  writable_files="Writable PHP files", writable_directories="Writable directories",
+                  runtime_directories="Runtime directories", http_status="HTTP status", ptrace_scope="ptrace_scope",
+                  indicators="Indicators", line="Line", examined_files="Examined files",
+                  indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
+                  incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
+                  omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
+                  cpu_priority="CPU priority", io_priority="I/O priority")
+    parts = []
+    for key, value in facts.items():
+        if key == "affected_pool_count":
+            continue
+        if isinstance(value, list):
+            value = ", ".join(localize(WEBSHELL_INDICATORS[item], lang) if key == "indicators" else say(item) for item in value) or say("none")
+        elif isinstance(value, dict):
+            value = ", ".join(say(reason) + ": " + str(number) for reason, number in sorted(value.items())) or say("none")
+        elif type(value) is bool:
+            value = say("yes" if value else "no")
+        elif type(value) is str and key != "socket_mode":
+            value = say(value)
+        parts.append(localize(labels[key], lang) + ": " + str(value))
+    result = "; ".join(parts) or localize("Host details omitted; rerun locally without --redact", lang)
+    if "affected_pool_count" in facts:
+        count = facts["affected_pool_count"]
+        result += " (" + str(count) + " " + say("pool" if count == 1 else "pools") + ")"
+    return result
 
 
 class Report:
@@ -93,13 +146,21 @@ class Report:
     def configure(self, fail_on="complete", ignore=()):
         self.fail_on = fail_on
         for row in self.rows:
-            row["suppressed"] = row["status"] == "OPEN" and (row["id"] in ignore or row["rule_id"] in ignore)
+            row["suppressed"] = (row["status"] == "OPEN" or self.review_row(row)) and (row.get("baseline_accepted") is True or row["id"] in ignore or row["rule_id"] in ignore)
+
+    @staticmethod
+    def review_row(row):
+        return row["status"] == "INFO" and row["rule_id"] == "P2S-WS004" and row["evidence"].get("review_required") is True
+
+    def has_review(self):
+        return any(self.review_row(row) and not row["suppressed"] and not row.get("baseline_accepted") for row in self.rows)
 
     def has(self, status):
         return any(r["status"] == status and not r["suppressed"] for r in self.rows)
 
     def exit_code(self):
-        if getattr(self, "fail_on", "complete") == "open" and self.has("OPEN"):
+        policy = getattr(self, "fail_on", "complete")
+        if policy in ("open", "review") and (self.has("OPEN") or policy == "review" and self.has_review()):
             return 1
         if self.has("UNKNOWN"):
             return 2
@@ -115,12 +176,17 @@ class Report:
             nonce = uuid.uuid4().hex
             def project(index, row):
                 evidence = safe_evidence(row["rule_id"], row.get("evidence"))
+                if as_json:
+                    detail = json.dumps(evidence, sort_keys=True) if evidence else localize("Host details omitted; rerun locally without --redact", lang)
+                else:
+                    detail = evidence_summary(row["rule_id"], evidence, lang)
                 return dict(id=row["rule_id"] + "-" + digest((nonce + str(index)).encode())[:16],
                             rule_id=row["rule_id"], resource=None, status=row["status"],
                             title=localize(RULE_NAMES.get(row["rule_id"][4:], row["rule_id"]), lang),
-                            detail=json.dumps(evidence, sort_keys=True) if evidence else localize("Host details omitted; rerun locally without --redact", lang),
+                            detail=detail,
                             severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
-                            evidence=evidence, suppressed=row["suppressed"])
+                            evidence=evidence, suppressed=row["suppressed"],
+                            **({"baseline_accepted":row["baseline_accepted"] is True} if "baseline_accepted" in row else {}))
             rows = [project(index, row) for index, row in enumerate(self.rows)]
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
@@ -128,7 +194,9 @@ class Report:
             print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
-                                  suppressed_open=sum(r["suppressed"] for r in rows),
+                                  suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
+                                  has_review=self.has_review(),
+                                  suppressed_review=sum(r["suppressed"] and self.review_row(r) for r in rows),
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
@@ -137,7 +205,7 @@ class Report:
         def emit(line):
             # Configured names/paths must not inject terminal escape sequences.
             print("".join(c if c.isprintable() else "?" for c in line))
-        label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "Configuration audit"
+        label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "PHP webshell indicator scan" if self.discovery.get("webshell_scan") else "Configuration audit"
         emit(f"p2s-harden {VERSION} – {localize(label, lang)}")
         cap = discovery.get("capabilities", {})
         missing_tools = [name for name, present in cap.get("tools", {}).items() if not present and name != "curl"]
@@ -147,8 +215,9 @@ class Report:
         if self.discovery and not self.discovery.get("doctor") and not redact:
             pools = sum(len(i["pools"]) for i in self.discovery.get("fpm_instances", []))
             instance_count, site_count = len(self.discovery.get('fpm_instances', [])), len(self.discovery.get('selected_sites', []))
-            emit(f"Erkannt: {instance_count} Host-FPM-Instanzen, {pools} Pools, {site_count} HTTP-Zuordnungen" if lang == "de" else
-                 f"Discovered: {instance_count} host FPM instances, {pools} pools, {site_count} HTTP mappings")
+            if not self.discovery.get("webshell_scan"):
+                emit(f"Erkannt: {instance_count} Host-FPM-Instanzen, {pools} Pools, {site_count} HTTP-Zuordnungen" if lang == "de" else
+                     f"Discovered: {instance_count} host FPM instances, {pools} pools, {site_count} HTTP mappings")
             roots = self.discovery.get("scan_roots", [])
             emit(("Prüfpfade: " if lang == "de" else "Audit paths: ") + ", ".join(roots[:8]))
             if len(roots) > 8:
@@ -161,11 +230,25 @@ class Report:
                              f": {pool['user']} | Listener: {pool['listen']}")
                 for site in self.discovery.get("selected_sites", []):
                     emit("SITE    " + site)
-        shown = rows if verbose or self.discovery.get("doctor") else [r for r in rows if r["status"] != "OK"]
+        if not redact:
+            coverage_paths = [item for root in self.discovery.get("webshell_coverage", []) for item in root["paths"]]
+            for item in coverage_paths if verbose else coverage_paths[:20]:
+                reason = _EVIDENCE_GERMAN.get(item["reason"], item["reason"]) if lang == "de" else item["reason"]
+                emit(localize("Incomplete path ({reason}): {path}", lang).format(reason=reason, path=item["path"]))
+            if not verbose and len(coverage_paths) > 20:
+                emit(localize("More incomplete paths: use --verbose or --json", lang))
+            if any(root["omitted_paths"] for root in self.discovery.get("webshell_coverage", [])):
+                emit(localize("Coverage path list truncated at 1000 entries per root; narrow --root to resolve remaining paths", lang))
+        shown = rows if verbose or self.discovery.get("doctor") else [r for r in rows if r["status"] != "OK" and not r.get("baseline_accepted")]
+        if self.discovery.get("webshell_scan"):
+            # Coverage remains visible even when a noisy tree hits the human
+            # output limit. Full finding details stay in --verbose/--json.
+            shown.sort(key=lambda row: row["rule_id"] != "P2S-WS003")
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
-            if row["status"] in ("OPEN", "UNKNOWN"):
-                emit("        " + row["id"] + (" [ignored OPEN]" if row["suppressed"] else ""))
+            if row["status"] in ("OPEN", "UNKNOWN") or row["rule_id"] == "P2S-WS004":
+                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
+                emit("        " + row["id"] + marker)
                 if row.get("affected_pools"):
                     count = len(row["affected_pools"])
                     emit(f"        Unverändert für {count} Pools; --json nennt die zugehörigen Pools." if lang == "de" else
@@ -176,6 +259,9 @@ class Report:
                  f"{len(shown) - 40} more findings: --verbose or --json shows all details.")
         counts = {s: sum(r["status"] == s for r in self.rows) for s in ("OK", "OPEN", "UNKNOWN", "INFO", "N/A")}
         print("\n" + "   ".join(f"{s}: {n}" for s, n in counts.items()))
+        accepted = sum(r.get("baseline_accepted") is True for r in self.rows)
+        if accepted:
+            emit(localize("Baseline accepted: {count} unchanged indicator rows; --verbose or --json retains them", lang).format(count=accepted))
         emit("Nur die ausgewiesenen Host-Pfade/Instanzen wurden geprüft; keine Sicherheitszertifizierung." if lang == "de" else
              "Only the reported host paths and instances were checked; this is not a security certification.")
         if self.discovery.get("assessment"):

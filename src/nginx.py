@@ -315,7 +315,7 @@ def prepare_scope(args):
         # Prefer HTTPS, then shorter/root mappings before nested aliases.
         from urllib.parse import urlsplit
         entries = sorted(entries, key=lambda e: (bool(urlsplit(e["url"]).path), not e["url"].startswith("https://"), e["url"]))
-        if len(entries) > args.max_sites:
+        if len(entries) > args.max_sites and getattr(args, "mode", None) != "scan-webshells":
             inventory["issues"].append(f'HTTP limit: {len(entries) - args.max_sites} mappings omitted; increase --max-sites or narrow the scope with --site')
         for entry in entries[:args.max_sites]:
             sites.append(entry["url"] + "=" + entry["root"])

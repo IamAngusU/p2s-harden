@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import pwd
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -155,6 +156,60 @@ class TransactionTests(unittest.TestCase):
         self.assertTrue(result.noop)
         self.assertIn(b"Off", self.ini.read_bytes())
         self.assertEqual(second.read_bytes(), b"allow_url_include=On\n")
+
+    def test_concurrent_fix_prepare_apply_and_rollback_are_refused_without_changes(self):
+        tx=self.prepare(self.ini)
+        self.apply(tx)
+        original=self.ini.read_bytes()
+        before={path.name for path in self.backups.iterdir()}
+        code='''import json,sys
+from pathlib import Path
+import p2s_harden as p
+try:
+    tx=p.Transaction(sys.argv[1])
+    if sys.argv[4]=='prepare':tx.prepare({sys.argv[2]:{'allow_url_include':'Off'}},[],[])
+    elif sys.argv[4]=='apply':
+        tx.path=Path(sys.argv[3]);tx.data=json.loads((tx.path/'manifest.json').read_text());tx.apply([],[])
+    else:p.Transaction.rollback(sys.argv[1])
+except p.CheckError as exc:
+    print(str(exc));sys.exit(3)
+'''
+        with tx.locked():
+            for operation in ('prepare','apply','rollback'):
+                with self.subTest(operation=operation):
+                    run=subprocess.run([sys.executable,'-B','-c',code,str(self.backups),str(self.ini),str(tx.path),operation],capture_output=True,text=True,timeout=10)
+                    self.assertEqual(run.returncode,3,run.stdout+run.stderr)
+                    self.assertIn('Another fix or rollback',run.stdout)
+                    self.assertEqual(self.ini.read_bytes(),original)
+                    self.assertEqual({path.name for path in self.backups.iterdir()},before)
+        self.rollback()
+        self.assertEqual(self.ini.read_bytes(),b'allow_url_include=On\n')
+
+    def test_kernel_releases_transaction_lock_after_process_is_terminated(self):
+        tx=self.prepare(self.ini)
+        code="import sys,time; import p2s_harden as p; tx=p.Transaction(sys.argv[1]); guard=tx.locked(); guard.__enter__(); print('locked',flush=True); time.sleep(30)"
+        child=subprocess.Popen([sys.executable,'-B','-c',code,str(self.backups)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            self.assertEqual(child.stdout.readline().strip(),'locked')
+            with self.assertRaisesRegex(p.CheckError,'Another fix or rollback'):
+                self.apply(tx)
+        finally:
+            child.terminate()
+            child.communicate(timeout=10)
+        self.apply(tx)
+        self.assertIn(b'Off',self.ini.read_bytes())
+
+    def test_lock_refuses_symlinks_writable_roots_and_special_files(self):
+        self.backups.mkdir(mode=0o700)
+        alias=self.root/'alias'
+        alias.symlink_to(self.backups,target_is_directory=True)
+        with self.assertRaises(p.CheckError),p.Transaction(alias).locked():pass
+        self.backups.chmod(0o770)
+        with self.assertRaises(p.CheckError),p.Transaction(self.backups).locked():pass
+        self.backups.chmod(0o700)
+        fifo=self.root/'fifo'
+        os.mkfifo(fifo,mode=0o600)
+        with self.assertRaises(OSError),p.Transaction(fifo).locked():pass
 
     def test_latest_unstarted_transaction_does_not_fall_back(self):
         older = self.prepare(self.ini)

@@ -1,8 +1,8 @@
 # p2s-harden 2.2.1
 
-Begrenzte PHP/FPM-PrÃ¼fung fÃ¼r Linux mit ausdrÃ¼cklich ausgewiesenem PrÃ¼fumfang.
+Begrenzte PHP/FPM-Prüfung für Linux mit ausdrücklich ausgewiesenem Prüfumfang.
 `OK` ist ein belegter Einzelbefund; `OPEN` ist eine Abweichung oder ein zu
-klÃ¤render Schreibpfad; `UNKNOWN` bedeutet, dass die PrÃ¼fung unvollstÃ¤ndig ist.
+klärender Schreibpfad; `UNKNOWN` bedeutet, dass die Prüfung unvollständig ist.
 Es gibt kein pauschales Urteil â€žServer sicherâ€œ.
 
 Zur kurzen Einstiegshilfe: [README auf Deutsch](../README.de.md).
@@ -14,7 +14,7 @@ Keine eigene Konfigurationsdatei und keine Installation des Tools erforderlich.
 
 Unter Windows reicht alternativ die einzelne Datei `p2s-harden.ps1` mit einem
 vorhandenen OpenSSH-Client. Auf dem Windows-Rechner sind weder Bash noch Python
-nÃ¶tig. Die AusfÃ¼hrung folgt der lokalen PowerShell-Richtlinie:
+nötig. Die Ausführung folgt der lokalen PowerShell-Richtlinie:
 
 ```powershell
 .\p2s-harden.ps1 --ssh root@SERVER
@@ -30,72 +30,72 @@ sudo bash p2s-harden.sh
 # Oder von deinem Rechner mit vorhandenem SSH-Zugang:
 bash p2s-harden.sh --ssh root@SERVER
 
-# Fehlende Voraussetzungen und konkrete nÃ¤chste Schritte:
+# Fehlende Voraussetzungen und konkrete nächste Schritte:
 sudo bash p2s-harden.sh --doctor
 
 # Erst das erkannte Inventar ansehen:
 sudo bash p2s-harden.sh --discover
 
-# Ã„nderungsvorschlÃ¤ge und begrenzte Fixes:
+# Änderungsvorschläge und begrenzte Fixes:
 sudo bash p2s-harden.sh --dry-run
 sudo bash p2s-harden.sh --fix
 ```
 
-StandardmÃ¤ÃŸig wird ausschlieÃŸlich geprÃ¼ft. Ohne Pfadangaben erkennt das Tool
-gÃ¤ngige Nginx-Konfigurationen, Includes, literal benannte Domains, HTTP-/HTTPS-
+Standardmäßig wird ausschließlich geprüft. Ohne Pfadangaben erkennt das Tool
+gängige Nginx-Konfigurationen, Includes, literal benannte Domains, HTTP-/HTTPS-
 Ports, einfache Location-Roots und Verzeichnis-Aliases. Root-Symlinks, dynamische
-Hostnamen/Pfade, widersprÃ¼chliche Zuordnungen und nicht vertrauenswÃ¼rdige Includes
-bleiben ausdrÃ¼cklich unbekannt. Andere eindeutig erkannte Sites werden trotzdem
-berÃ¼cksichtigt. FPM-Instanzen, Pools, Benutzer und Listener werden ebenfalls
-aufgelistet. Die Erkennung lÃ¤uft durch Lesen, ohne Nginx-Module zu laden.
+Hostnamen/Pfade, widersprüchliche Zuordnungen und nicht vertrauenswürdige Includes
+bleiben ausdrücklich unbekannt. Andere eindeutig erkannte Sites werden trotzdem
+berücksichtigt. FPM-Instanzen, Pools, Benutzer und Listener werden ebenfalls
+aufgelistet. Die Erkennung läuft durch Lesen, ohne Nginx-Module zu laden.
 
-Ãœberlappende Dateisystembereiche werden zusammengefasst. StandardmÃ¤ÃŸig werden
-hÃ¶chstens 32 automatische HTTP-Zuordnungen geprÃ¼ft; weitere Zuordnungen werden
-als ausgelassen ausgewiesen. `--max-sites` kann das Limit bis 512 erhÃ¶hen.
-Domains werden vor verschachtelten Alias-Pfaden priorisiert. IPv4 und IPv6 fÃ¼r
-dieselbe URL werden nicht doppelt geprÃ¼ft. Die Ausgabe konzentriert sich auf
-offene/unbekannte Punkte; `--verbose` und `--json` liefern sÃ¤mtliche Einzelbefunde.
+Überlappende Dateisystembereiche werden zusammengefasst. Standardmäßig werden
+höchstens 32 automatische HTTP-Zuordnungen geprüft; weitere Zuordnungen werden
+als ausgelassen ausgewiesen. `--max-sites` kann das Limit bis 512 erhöhen.
+Domains werden vor verschachtelten Alias-Pfaden priorisiert. IPv4 und IPv6 für
+dieselbe URL werden nicht doppelt geprüft. Die Ausgabe konzentriert sich auf
+offene/unbekannte Punkte; `--verbose` und `--json` liefern sämtliche Einzelbefunde.
 
-Dies ist eine Konfigurations- und RechteprÃ¼fung. Sie fÃ¼hrt keine vollstÃ¤ndige
+Dies ist eine Konfigurations- und Rechteprüfung. Sie führt keine vollständige
 PHP-to-Shell-Angriffssuite aus. Erfolgreiche Tooltests belegen keine allgemeine
-UnmÃ¶glichkeit von PHP-to-Shell.
+Unmöglichkeit von PHP-to-Shell.
 
 ## Dateien und Voraussetzungen
 
-Nur `p2s-harden.sh` wird fÃ¼r die AusfÃ¼hrung benÃ¶tigt. `p2s_harden.py` und die
+Nur `p2s-harden.sh` wird für die Ausführung benötigt. `p2s_harden.py` und die
 Build-Vorlage im Entwicklerpaket sind die lesbaren Quellen der eingebetteten
-Engine. Der Bash-Launcher benÃ¶tigt auf dem Client Bash und bei Remote-Nutzung OpenSSH;
+Engine. Der Bash-Launcher benötigt auf dem Client Bash und bei Remote-Nutzung OpenSSH;
 `SSH_BIN` kann einen anderen SSH-Pfad angeben. Unter Windows wird vorhandenes
 Windows-OpenSSH bevorzugt. Interaktive SSH-Aufrufe erlauben die bestehende
 Passwortanmeldung; nichtinteraktive Aufrufe bleiben im Batch-Modus.
-Der Linux-Kern benÃ¶tigt Python 3.8+ und lesbares `/proc`. Weitere Helfer
-werden pro TeilprÃ¼fung erkannt. Ohne `ps` wird direkt `/proc` verwendet. Ohne
-`curl` laufen HTTP-PrÃ¼fungen Ã¼ber die Python-Standardbibliothek;
+Der Linux-Kern benötigt Python 3.8+ und lesbares `/proc`. Weitere Helfer
+werden pro Teilprüfung erkannt. Ohne `ps` wird direkt `/proc` verwendet. Ohne
+`curl` laufen HTTP-Prüfungen über die Python-Standardbibliothek;
 ohne `runuser` werden fremde Benutzer einmal pro Benutzer ausgelassen. Als
-nicht-root laufen die lesbaren PrÃ¼fungen weiter. Fehlende systemd-Zuordnung
-verhindert automatische INI-Fixes, aber nicht die unterstÃ¼tzte FPM-DatentrÃ¤ger-
-prÃ¼fung. Auch ein Fehler in einer FPM-Instanz stoppt andere Instanzen und Module
-nicht. Die vollstÃ¤ndige Host-PrÃ¼fung benÃ¶tigt root.
+nicht-root laufen die lesbaren Prüfungen weiter. Fehlende systemd-Zuordnung
+verhindert automatische INI-Fixes, aber nicht die unterstützte FPM-Datenträger-
+prüfung. Auch ein Fehler in einer FPM-Instanz stoppt andere Instanzen und Module
+nicht. Die vollständige Host-Prüfung benötigt root.
 
-`--doctor` zeigt die FÃ¤higkeiten und Hinweise unabhÃ¤ngig von Webkonfigurationen.
-Auch ohne Python listet der Shell-Bootstrap fehlende Helfer auf und erklÃ¤rt den
-nÃ¤chsten Schritt; PHP-KonfigurationsprÃ¼fungen kÃ¶nnen erst mit Python laufen.
+`--doctor` zeigt die Fähigkeiten und Hinweise unabhängig von Webkonfigurationen.
+Auch ohne Python listet der Shell-Bootstrap fehlende Helfer auf und erklärt den
+nächsten Schritt; PHP-Konfigurationsprüfungen können erst mit Python laufen.
 Es werden keine Pakete automatisch installiert. Bei fehlendem SSH-Zugang wird
-eine verstÃ¤ndliche Fehlermeldung ausgegeben. Nach Behebung denselben Befehl
-erneut ausfÃ¼hren.
-Automatische FPM-Ã„nderungen unterstÃ¼tzen konventionelle Debian/Ubuntu-FPM-INIs
+eine verständliche Fehlermeldung ausgegeben. Nach Behebung denselben Befehl
+erneut ausführen.
+Automatische FPM-Änderungen unterstützen konventionelle Debian/Ubuntu-FPM-INIs
 und eindeutig zugeordnete systemd-Dienste. Andere Kontexte bleiben `UNKNOWN`.
 
-Der Python-Code wird Ã¼ber stdin in **einer** SSH-Verbindung ausgefÃ¼hrt.
-Es werden weder ControlMaster noch externe IP-Dienste benÃ¶tigt.
+Der Python-Code wird über stdin in **einer** SSH-Verbindung ausgeführt.
+Es werden weder ControlMaster noch externe IP-Dienste benötigt.
 
 ## Optionale Eingrenzung und abweichende Setups
 
-`--root` schrÃ¤nkt den Dateisystembereich ein. Explizite `--site`-Angaben ersetzen
+`--root` schränkt den Dateisystembereich ein. Explizite `--site`-Angaben ersetzen
 die automatische HTTP-Zuordnung; ohne `--root` werden ihre Dokumentwurzeln als
-PrÃ¼fbereiche verwendet. `--nginx-config` wÃ¤hlt eine abweichende Hauptkonfiguration.
+Prüfbereiche verwendet. `--nginx-config` wählt eine abweichende Hauptkonfiguration.
 `--no-auto` deaktiviert die automatische Zuordnung. Ohne erkannten/manuellen
-Webroot bleibt `/var/www` ein ausdrÃ¼cklich unvollstÃ¤ndiger Fallback.
+Webroot bleibt `/var/www` ein ausdrücklich unvollständiger Fallback.
 
 ```bash
 bash p2s-harden.sh --ssh root@SERVER --check \
@@ -106,12 +106,12 @@ bash p2s-harden.sh --ssh root@SERVER --dry-run \
   --root /var/www/html/MEINE-SITE --web-user www-data \
   --site https://example.org=/var/www/html/MEINE-SITE
 
-# Erst nach PrÃ¼fung der angezeigten, konkreten Ã„nderungen:
+# Erst nach Prüfung der angezeigten, konkreten Änderungen:
 bash p2s-harden.sh --ssh root@SERVER --fix \
   --root /var/www/html/MEINE-SITE --web-user www-data \
   --site https://example.org=/var/www/html/MEINE-SITE
 
-# Ein ausdrÃ¼cklich gewÃ¤hltes Code-Verzeichnis schÃ¼tzen, ohne Rekursion:
+# Ein ausdrücklich gewähltes Code-Verzeichnis schützen, ohne Rekursion:
 bash p2s-harden.sh --ssh root@SERVER --fix \
   --web-user www-data --protect-dir /var/www/html/MEINE-SITE
 
@@ -119,194 +119,194 @@ bash p2s-harden.sh --ssh root@SERVER --rollback
 bash p2s-harden.sh --ssh root@SERVER --rollback --backup-id TRANSAKTIONS-ID
 ```
 
-`--local` fÃ¼hrt dieselbe Engine direkt auf einem Linux-Server aus. `--site` und
-`--web-user` sind wiederholbar. Dokumentwurzeln und Schreibziele mÃ¼ssen absolut
-sein. FÃ¼r HTTP und HTTPS kÃ¶nnen getrennte `--site`-Angaben verwendet werden.
-URLs dÃ¼rfen keine Zugangsdaten, Query oder Fragmente enthalten. IPv6-SSH-Ziele
-wie `root@[::1]` und vorhandene SSH-Hostaliases werden unterstÃ¼tzt.
+`--local` führt dieselbe Engine direkt auf einem Linux-Server aus. `--site` und
+`--web-user` sind wiederholbar. Dokumentwurzeln und Schreibziele müssen absolut
+sein. Für HTTP und HTTPS können getrennte `--site`-Angaben verwendet werden.
+URLs dürfen keine Zugangsdaten, Query oder Fragmente enthalten. IPv6-SSH-Ziele
+wie `root@[::1]` und vorhandene SSH-Hostaliases werden unterstützt.
 
-Exitcodes: `0` alle ausgewiesenen EinzelprÃ¼fungen bestanden, `1` offene Punkte,
-`2` unbekannte Punkte, unvollstÃ¤ndige PrÃ¼fung oder technischer Fehler. Ein Fix
+Exitcodes: `0` alle ausgewiesenen Einzelprüfungen bestanden, `1` offene Punkte,
+`2` unbekannte Punkte, unvollständige Prüfung oder technischer Fehler. Ein Fix
 kann erfolgreich angewendet sein und trotzdem Exit 1/2 liefern, wenn andere
-Befunde verbleiben. `--json` ist in jedem Modus verfÃ¼gbar und enthÃ¤lt
-`schema_version: 2`, FÃ¤higkeiten, Befunde, Inventar und den passenden Exitcode.
+Befunde verbleiben. `--json` ist in jedem Modus verfügbar und enthält
+`schema_version: 2`, Fähigkeiten, Befunde, Inventar und den passenden Exitcode.
 Phasenhinweise gehen im interaktiven Terminal auf stderr; `--no-progress`
-unterdrÃ¼ckt sie. Fehlende FÃ¤higkeiten fÃ¼hren zu unvollstÃ¤ndigen Ergebnissen
-(Exit 2), wÃ¤hrend unabhÃ¤ngige TeilprÃ¼fungen zu Ende laufen.
-`--discover` fÃ¼hrt ausschlieÃŸlich die Inventarisierung aus.
-`--yes`/`-y` geben den Fix-Plan ausdrÃ¼cklich frei. Ohne diese Option fragt ein lokaler
-interaktiver Fix Ã¼ber /dev/tty; JSON-Fixes benÃ¶tigen --yes. Nur --no-self-guard bleibt
-eine wirkungslose alte KompatibilitÃ¤tsoption.
+unterdrückt sie. Fehlende Fähigkeiten führen zu unvollständigen Ergebnissen
+(Exit 2), während unabhängige Teilprüfungen zu Ende laufen.
+`--discover` führt ausschließlich die Inventarisierung aus.
+`--yes`/`-y` geben den Fix-Plan ausdrücklich frei. Ohne diese Option fragt ein lokaler
+interaktiver Fix über /dev/tty; JSON-Fixes benötigen --yes. Nur --no-self-guard bleibt
+eine wirkungslose alte Kompatibilitätsoption.
 
-## Was geprÃ¼ft wird
+## Was geprüft wird
 
-- Laufende Host-FPM-Master, BinÃ¤rdatei, Hauptkonfiguration, Include-Dateien,
-  Haupt-INI, geordnete zusÃ¤tzliche INIs und getrennte Poolabschnitte. Als root
-  werden nur vertrauenswÃ¼rdige Konfigurationen mit geschÃ¼tzten Vorfahren geladen.
+- Laufende Host-FPM-Master, Binärdatei, Hauptkonfiguration, Include-Dateien,
+  Haupt-INI, geordnete zusätzliche INIs und getrennte Poolabschnitte. Als root
+  werden nur vertrauenswürdige Konfigurationen mit geschützten Vorfahren geladen.
   Container und nicht eindeutig rekonstruierbare Startkontexte bleiben unbekannt.
 - `disable_functions`: globale und Pool-Sperren werden additiv ausgewertet.
   Definierter Mindestumfang: `exec`, `system`, `shell_exec`, `passthru`, `popen`,
   `proc_open`, `pcntl_exec`. Weitere vorhandene Sperren bleiben erhalten.
 - `allow_url_include` und `open_basedir`; leere Werte und `/` gelten nicht als
-  EinschrÃ¤nkung. `open_basedir` und Pools ersetzen keine Prozessisolation.
-- Schreibrechte an PHP-Dateien **und Verzeichnissen**, unter der tatsÃ¤chlichen
-  UID und den Gruppen jedes bekannten FPM-Benutzers, einschlieÃŸlich ACL-Wirkung.
-  Die PrÃ¼fung unterscheidet nicht automatisch sichere Laufzeitverzeichnisse von
-  Ã¼ber HTTP ausfÃ¼hrbaren Schreibpfaden; entsprechende Treffer bleiben sichtbar.
+  Einschränkung. `open_basedir` und Pools ersetzen keine Prozessisolation.
+- Schreibrechte an PHP-Dateien **und Verzeichnissen**, unter der tatsächlichen
+  UID und den Gruppen jedes bekannten FPM-Benutzers, einschließlich ACL-Wirkung.
+  Die Prüfung unterscheidet nicht automatisch sichere Laufzeitverzeichnisse von
+  über HTTP ausführbaren Schreibpfaden; entsprechende Treffer bleiben sichtbar.
 - HTTP auf `/.env`, `/.git/config` und verschachtelte gefundene Git-Pfade jeder
   expliziten Dokumentwurzel, mit lokalem Ziel sowie korrektem Host und TLS-SNI.
-  `2xx` wird mit zwei zufÃ¤lligen fehlenden Pfaden verglichen. Gleiche oder
+  `2xx` wird mit zwei zufälligen fehlenden Pfaden verglichen. Gleiche oder
   dynamische Catch-all-Antworten bleiben unbekannt. Inhalte werden nur
-  gehasht, nicht im Bericht gespeichert. `401/403/404/410` sind fÃ¼r den jeweiligen Endpunkt geschÃ¼tzt.
+  gehasht, nicht im Bericht gespeichert. `401/403/404/410` sind für den jeweiligen Endpunkt geschützt.
   Redirects, Serverfehler, Timeouts und fehlgeschlagene Abfragen sind unbekannt.
 - `ptrace_scope`. ImageMagick-Policies erscheinen als `INFO` zur separaten regel-
-  und versionsbezogenen PrÃ¼fung; bloÃŸe XML-SchlÃ¼sselwÃ¶rter beweisen nichts.
+  und versionsbezogenen Prüfung; bloße XML-Schlüsselwörter beweisen nichts.
 
-## Ã„nderungen, Sicherungen und RÃ¼cknahme
+## Änderungen, Sicherungen und Rücknahme
 
-`--check`, `--discover` und `--dry-run` schreiben keine Zielkonfiguration, verÃ¤ndern keine
+`--check`, `--discover` und `--dry-run` schreiben keine Zielkonfiguration, verändern keine
 Rechte, erzeugen keine Backups und laden keine Dienste neu. Die Abfragen und
-HTTP-Anfragen kÃ¶nnen gewÃ¶hnliche Zugriffs-/Dienstlogs und Dateizugriffszeiten
-aktualisieren. Es gibt keinerlei Firewall-, Fail2ban- oder SSH-Ã„nderungen.
+HTTP-Anfragen können gewöhnliche Zugriffs-/Dienstlogs und Dateizugriffszeiten
+aktualisieren. Es gibt keinerlei Firewall-, Fail2ban- oder SSH-Änderungen.
 
-`--fix` ergÃ¤nzt ausschlieÃŸlich fehlende Funktionen aus dem genannten
+`--fix` ergänzt ausschließlich fehlende Funktionen aus dem genannten
 Mindestumfang und setzt ein aktiviertes `allow_url_include` auf `Off`.
-`putenv`, `parse_ini_file`, `chmod` usw. werden nicht zusÃ¤tzlich gesperrt.
-Gemeinsam genutzte INI-Dateien auÃŸerhalb der jeweiligen FPM-INI-Wurzel werden
-nicht automatisch geÃ¤ndert, damit andere SAPIs wie CLI unberÃ¼hrt bleiben.
-Auch die sieben Mindestfunktionen kÃ¶nnen Anwendungen betreffen; deshalb den
-Trockenlauf und die betroffenen Anwendungen prÃ¼fen. Bestehende weitergehende
+`putenv`, `parse_ini_file`, `chmod` usw. werden nicht zusätzlich gesperrt.
+Gemeinsam genutzte INI-Dateien außerhalb der jeweiligen FPM-INI-Wurzel werden
+nicht automatisch geändert, damit andere SAPIs wie CLI unberührt bleiben.
+Auch die sieben Mindestfunktionen können Anwendungen betreffen; deshalb den
+Trockenlauf und die betroffenen Anwendungen prüfen. Bestehende weitergehende
 Sperren werden vom Tool nicht stillschweigend entfernt.
 
-Dateirechte werden nur fÃ¼r ausdrÃ¼cklich benannte `--protect-dir`-Verzeichnisse
-geÃ¤ndert: EigentÃ¼mer root, kein Gruppen-/Other-Schreibrecht, keine Rekursion.
-Ein schreibbarer oder ungeschÃ¼tzter Vorfahr verhindert die Ã„nderung. Unterordner,
-Uploads und andere Laufzeitdaten behalten ihre Rechte. Das schÃ¼tzt nur den
-benannten Knoten; weitere schreibbare Code-Verzeichnisse mÃ¼ssen separat geplant
+Dateirechte werden nur für ausdrücklich benannte `--protect-dir`-Verzeichnisse
+geändert: Eigentümer root, kein Gruppen-/Other-Schreibrecht, keine Rekursion.
+Ein schreibbarer oder ungeschützter Vorfahr verhindert die Änderung. Unterordner,
+Uploads und andere Laufzeitdaten behalten ihre Rechte. Das schützt nur den
+benannten Knoten; weitere schreibbare Code-Verzeichnisse müssen separat geplant
 werden. Es gibt keinen automatischen `.git`-chmod-, ImageMagick- oder Sysctl-Fix.
 
-Pro Ã„nderungslauf entsteht eine eindeutige Transaktion unter
+Pro Änderungslauf entsteht eine eindeutige Transaktion unter
 `/root/p2s-harden-backup-v2/<UTC-Zeit>-<Zufall>/`, mit Modus 0700. Jede betroffene
-Datei wird einmal gesichert. Das Manifest enthÃ¤lt absolute Ziele, Original- und
-Nachher-PrÃ¼fsummen sowie Owner, Gruppe, Modus, Zeiten und erweiterte Attribute.
+Datei wird einmal gesichert. Das Manifest enthält absolute Ziele, Original- und
+Nachher-Prüfsummen sowie Owner, Gruppe, Modus, Zeiten und erweiterte Attribute.
 Dateien werden atomar ersetzt. FPM-Syntax und erwartete neue INI-Werte werden
-vor dem Reload geprÃ¼ft; nur die eindeutig zugeordneten Dienste werden geladen.
-BenÃ¶tigte Root-, Benutzerwechsel- und DienstfÃ¤higkeiten werden vor Beginn der
-geplanten Transaktion geprÃ¼ft. Bei fehlenden Voraussetzungen wird der Fix
-gesperrt und der bis dahin erstellte PrÃ¼fbericht trotzdem ausgegeben.
-Fehler lÃ¶sen eine RÃ¼cknahme der begonnenen Ã„nderungen aus und werden gemeldet.
+vor dem Reload geprüft; nur die eindeutig zugeordneten Dienste werden geladen.
+Benötigte Root-, Benutzerwechsel- und Dienstfähigkeiten werden vor Beginn der
+geplanten Transaktion geprüft. Bei fehlenden Voraussetzungen wird der Fix
+gesperrt und der bis dahin erstellte Prüfbericht trotzdem ausgegeben.
+Fehler lösen eine Rücknahme der begonnenen Änderungen aus und werden gemeldet.
 
-Rollback prÃ¼ft zuerst auf zwischenzeitliche Ã„nderungen. Bei Konflikten wird
-nichts Ã¼berschrieben. Auch begonnene, unterbrochene Transaktionen kÃ¶nnen zurÃ¼ck-
-genommen werden. Ã„ltere flache v1-Backups werden nicht geraten; sie bleiben
-erhalten und erfordern eine manuelle Zuordnung. Einen vollstÃ¤ndigen Server-
+Rollback prüft zuerst auf zwischenzeitliche Änderungen. Bei Konflikten wird
+nichts überschrieben. Auch begonnene, unterbrochene Transaktionen können zurück-
+genommen werden. Ältere flache v1-Backups werden nicht geraten; sie bleiben
+erhalten und erfordern eine manuelle Zuordnung. Einen vollständigen Server-
 Snapshot oder Datenbank-Backups ersetzt dieser Mechanismus nicht.
 
 ## Grenzen und Tests
 
-Die KonfigurationsprÃ¼fung rekonstruiert einen Zustand vom DatentrÃ¤ger. Sie liest
+Die Konfigurationsprüfung rekonstruiert einen Zustand vom Datenträger. Sie liest
 keine PHP-Werte aus einem bestehenden Webrequest und beweist nicht, dass jeder
 laufende Worker genau diese Konfiguration verwendet. `-c`/`-d`-Startparameter,
 FastCGI-Overrides, Container, weitere vHosts, Aliases, andere PHP-Endungen und
-nicht verfolgte Symlinks kÃ¶nnen zusÃ¤tzliche PrÃ¼fung erfordern. HTTP-Ergebnisse
-gelten fÃ¼r die angegebenen lokalen Endpunkte, nicht fÃ¼r vorgeschaltete CDNs.
+nicht verfolgte Symlinks können zusätzliche Prüfung erfordern. HTTP-Ergebnisse
+gelten für die angegebenen lokalen Endpunkte, nicht für vorgeschaltete CDNs.
 
-`test_p2s_harden.py` ist eine isolierte Linux-Regressionssuite. Sie prÃ¼ft unter
+`test_p2s_harden.py` ist eine isolierte Linux-Regressionssuite. Sie prüft unter
 anderem falsche Erfolgsmeldungen, Kommentare, Pool-Vererbung, HTTP-Fehler,
-Trockenlauf, mehrere Ã„nderungen derselben Datei, ParallelÃ¤nderungen, atomare
-Sicherung/RÃ¼cknahme und nichtrekursive Verzeichnisrechte. Aus dem Hauptverzeichnis des vollstÃ¤ndigen Quellpakets starten. Der Teststarter
-erstellt und entfernt den geschÃ¼tzten temporÃ¤ren Fixture-Ordner selbst:
+Trockenlauf, mehrere Änderungen derselben Datei, Paralleländerungen, atomare
+Sicherung/Rücknahme und nichtrekursive Verzeichnisrechte. Aus dem Hauptverzeichnis des vollständigen Quellpakets starten. Der Teststarter
+erstellt und entfernt den geschützten temporären Fixture-Ordner selbst:
 
 ```bash
 python3 build-standalone.py --check
 sudo bash tools/test-linux.sh
 ```
 
-PrÃ¼fungen mit echten Schreiboperationen verwenden ausschlieÃŸlich Fixture-Dateien.
-Ein erfolgreicher Testlauf bedeutet keine vollstÃ¤ndige HÃ¤rtung des Zielservers.
+Prüfungen mit echten Schreiboperationen verwenden ausschließlich Fixture-Dateien.
+Ein erfolgreicher Testlauf bedeutet keine vollständige Härtung des Zielservers.
 
-Der zusÃ¤tzliche Erkennungstest deckt unter anderem Quotes, Kommentare,
+Der zusätzliche Erkennungstest deckt unter anderem Quotes, Kommentare,
 Includes, Include-Zyklen, Symlinks, Vererbung, Alias-/Root-Unterschiede, mehrere
-Domains, Ports, IPv6, mehrdeutige und unvollstÃ¤ndige Konfigurationen sowie die
+Domains, Ports, IPv6, mehrdeutige und unvollständige Konfigurationen sowie die
 exakte eingebettete Engine und den SSH-Argumenttransport ab. Rechteziele werden
 aus der Erkennung nicht automatisch abgeleitet.
 
-Der Teststarter arbeitet in einem geschÃ¼tzten temporÃ¤ren Fixture-Verzeichnis.
-Die ergÃ¤nzende Fehler-Injektionssuite prÃ¼ft fehlende Programme, fehlendes Python,
-SSH-Fehler, unvollstÃ¤ndige Benutzerrechte, isolierte FPM-Fehler und gesperrte Fixes.
+Der Teststarter arbeitet in einem geschützten temporären Fixture-Verzeichnis.
+Die ergänzende Fehler-Injektionssuite prüft fehlende Programme, fehlendes Python,
+SSH-Fehler, unvollständige Benutzerrechte, isolierte FPM-Fehler und gesperrte Fixes.
 Der Windows-Test wird mit `powershell -NoProfile -File test-windows-launcher.ps1`
-gestartet. [PrÃ¼fumgebungen und verbleibende Grenzen](VALIDATION.md).
+gestartet. [Prüfumgebungen und verbleibende Grenzen](VALIDATION.md).
 
-## PrÃ¤zisierungen in rc.2
+## Präzisierungen in rc.2
 
-`--lang en` ist Standard; `--lang de` Ã¼bersetzt Befunde, Hilfe und Bootstrap.
-`INFO` verÃ¤ndert den Exitcode nicht. ImageMagick bleibt ausdrÃ¼cklich auÃŸerhalb
+`--lang en` ist Standard; `--lang de` übersetzt Befunde, Hilfe und Bootstrap.
+`INFO` verändert den Exitcode nicht. ImageMagick bleibt ausdrücklich außerhalb
 der automatischen Bewertung. Echte fehlende Abdeckung bleibt `UNKNOWN` und hat
-vor `OPEN` Vorrang (Exit 2). VollstÃ¤ndig ausgewertete PrÃ¼fungen kÃ¶nnen Exit 0
+vor `OPEN` Vorrang (Exit 2). Vollständig ausgewertete Prüfungen können Exit 0
 oder 1 erreichen.
 
 `--runtime-dir /absoluter/pfad` deklariert einen existierenden, symlinkfreien
-Unterordner eines PrÃ¼fbereichs als benÃ¶tigten Laufzeitspeicher. Das ist eine
-ausdrÃ¼ckliche Einordnung, keine automatisch erkannte Ausnahme. Schreibbare
+Unterordner eines Prüfbereichs als benötigten Laufzeitspeicher. Das ist eine
+ausdrückliche Einordnung, keine automatisch erkannte Ausnahme. Schreibbare
 PHP-Dateien darin bleiben offen; Zugriffsfehler und Grenzen bleiben unbekannt.
-Der gesamte PrÃ¼fbereich kann nicht zum Runtime-Verzeichnis erklÃ¤rt werden.
+Der gesamte Prüfbereich kann nicht zum Runtime-Verzeichnis erklärt werden.
 
-DateisystemlÃ¤ufe sind standardmÃ¤ÃŸig auf 250000 EintrÃ¤ge und 10 Sekunden begrenzt
-(`--max-paths`, `--walk-seconds`), einschlieÃŸlich der Suche nach verschachtelten
+Dateisystemläufe sind standardmäßig auf 250000 Einträge und 10 Sekunden begrenzt
+(`--max-paths`, `--walk-seconds`), einschließlich der Suche nach verschachtelten
 Git-Verzeichnissen. HTTP hat insgesamt 128 Anfragen (`--max-http-probes`), pro
-Antwort hÃ¶chstens 1 MiB und 8 Sekunden. Zwei zufÃ¤llige fehlende URLs bilden
+Antwort höchstens 1 MiB und 8 Sekunden. Zwei zufällige fehlende URLs bilden
 bei 2xx eine Soft-404-Baseline. Dynamische oder gleiche Fallback-Antworten sind
 unbekannt. Weiterleitungen werden nicht verfolgt. Bodies werden nur im Speicher
-gestreamt/gehasht und nicht gespeichert oder ausgegeben. Die lokale TLS-PrÃ¼fung
-verifiziert Routing/Antwort, nicht die AuthentizitÃ¤t eines Zertifikats.
+gestreamt/gehasht und nicht gespeichert oder ausgegeben. Die lokale TLS-Prüfung
+verifiziert Routing/Antwort, nicht die Authentizität eines Zertifikats.
 
-`--json` funktioniert fÃ¼r jeden Modus. Neben Befunden und Inventar enthÃ¤lt es
+`--json` funktioniert für jeden Modus. Neben Befunden und Inventar enthält es
 `language`, `plan` und `transaction` (je nach Modus auch `null`). Fix-Fehler
-bewahren vorherige Befunde und den verfÃ¼gbaren Recovery-Status. Pfade und
-technische Werte werden nicht Ã¼bersetzt.
+bewahren vorherige Befunde und den verfügbaren Recovery-Status. Pfade und
+technische Werte werden nicht übersetzt.
 
-Fixes behalten keine alten Ã„nderungszeitpunkte. Nur Rollback stellt die
-ursprÃ¼nglichen Zeitstempel wieder her. Ohne ID wird ausschlieÃŸlich die neueste
-Transaktion gewÃ¤hlt. Ist sie zurÃ¼ckgenommen, ist ein weiterer Aufruf ohne
-Wirkung; ein Ã¤lterer Fix wird nicht stillschweigend zurÃ¼ckgenommen. Konflikte
-bei Inhalt, Owner, Mode, xattrs, IdentitÃ¤t oder mtime verhindern das Ãœberschreiben.
+Fixes behalten keine alten Änderungszeitpunkte. Nur Rollback stellt die
+ursprünglichen Zeitstempel wieder her. Ohne ID wird ausschließlich die neueste
+Transaktion gewählt. Ist sie zurückgenommen, ist ein weiterer Aufruf ohne
+Wirkung; ein älterer Fix wird nicht stillschweigend zurückgenommen. Konflikte
+bei Inhalt, Owner, Mode, xattrs, Identität oder mtime verhindern das Überschreiben.
 Eine unterbrochene Wiederherstellung ist fortsetzbar.
 
 [Praktische FPM-Nachweise und Korrektur der Review-Vermutung](REVIEW-FOLLOWUP.md).
 
 ## Neu in rc.3
 
-Die Vorschau enthÃ¤lt Werte und einen Diff ohne Nachbarzeilen. Seit der Vorschau
-verÃ¤nderte Inhalte werden abgelehnt. `--fix --yes --json` ist die explizite
-Automatisierungsform. Die SSH-Ãœbertragung verwendet keinen entfernten TTY:
-erst `--dry-run`, dann den geprÃ¼ften Fix mit `--yes` ausfÃ¼hren.
+Die Vorschau enthält Werte und einen Diff ohne Nachbarzeilen. Seit der Vorschau
+veränderte Inhalte werden abgelehnt. `--fix --yes --json` ist die explizite
+Automatisierungsform. Die SSH-Übertragung verwendet keinen entfernten TTY:
+erst `--dry-run`, dann den geprüften Fix mit `--yes` ausführen.
 
-Schema 2 enthÃ¤lt stabile Regel-/Ressourcen-IDs, severity, remediation und
-suppressed sowie has_open/has_unknown. `--ignore` lÃ¤sst akzeptierte OPEN-Befunde
+Schema 2 enthält stabile Regel-/Ressourcen-IDs, severity, remediation und
+suppressed sowie has_open/has_unknown. `--ignore` lässt akzeptierte OPEN-Befunde
 sichtbar und beeinflusst nur deren Exitwirkung; UNKNOWN besteht weiterhin nie.
 `--fail-on open` wertet OPEN vor UNKNOWN aus. Der Standard bleibt UNKNOWN zuerst.
-Die englische [vollstÃ¤ndige Anleitung](DETAILS.md) und [RegelÃ¼bersicht](FINDINGS.md)
-erlÃ¤utern diese VertrÃ¤ge. Die englische Quellsprache und acht Komponenten in src/
-werden vom Builder weiterhin zu eigenstÃ¤ndigen Ein-Datei-Launchern zusammengesetzt.
+Die englische [vollständige Anleitung](DETAILS.md) und [Regelübersicht](FINDINGS.md)
+erläutern diese Verträge. Die englische Quellsprache und acht Komponenten in src/
+werden vom Builder weiterhin zu eigenständigen Ein-Datei-Launchern zusammengesetzt.
 
 ## Stabile Version 2.2.0
 
-ZusÃ¤tzlich werden TCP-Listener/Client-Freigaben, konfigurierte und tatsÃ¤chliche
+Zusätzlich werden TCP-Listener/Client-Freigaben, konfigurierte und tatsächliche
 Unix-Socket-Rechte, Skript-Endungen, clear_env, gemeinsame numerische UIDs und
-geladene FFI-Einstellungen geprÃ¼ft. Netzwerk-Erreichbarkeit und bestehende
-Produktions-Worker werden dabei nicht attestiert. Pool- und NetzwerkÃ¤nderungen
+geladene FFI-Einstellungen geprüft. Netzwerk-Erreichbarkeit und bestehende
+Produktions-Worker werden dabei nicht attestiert. Pool- und Netzwerkänderungen
 bleiben manuell. [Umfang und Abnahme](PRODUCTION.md).
 
 Mit `--check --redact --json` entsteht ein teilbarer Bericht aus einer festen
-Auswahl: Regel-ID, Status, Schweregrad, Handlungshinweis und ZÃ¤hler. Private
+Auswahl: Regel-ID, Status, Schweregrad, Handlungshinweis und Zähler. Private
 Hostdaten, Rohdiagnosen, Inventar und Transaktionsdaten entfallen. Befund-IDs
-werden fÃ¼r geteilte Berichte neu erzeugt. Exit-Code und Ergebnisse bleiben
-erhalten. Auch doctor/discover und Textausgabe werden unterstÃ¼tzt. Fix-Vorschauen
-mÃ¼ssen lokal ohne Maskierung geprÃ¼ft werden. Die Maskierung gilt fÃ¼r stdout,
-nicht fÃ¼r SSH-/Systemdiagnosen auf stderr.
+werden für geteilte Berichte neu erzeugt. Exit-Code und Ergebnisse bleiben
+erhalten. Auch doctor/discover und Textausgabe werden unterstützt. Fix-Vorschauen
+müssen lokal ohne Maskierung geprüft werden. Die Maskierung gilt für stdout,
+nicht für SSH-/Systemdiagnosen auf stderr.
 
 FPM-Includes sind auf 64 Ebenen, 1024 Dateien, 2 MiB je Datei und 16 MiB insgesamt
-begrenzt. Ein erreichtes Limit bleibt UNKNOWN; unabhÃ¤ngige PrÃ¼fungen laufen weiter.
+begrenzt. Ein erreichtes Limit bleibt UNKNOWN; unabhängige Prüfungen laufen weiter.
 
 ## Änderungen in 2.2.1
 
@@ -328,3 +328,10 @@ Diff prüfen und danach erneut auditieren. Neue Drop-ins bleiben zurückgestellt
 Die Matrix enthält Debian 12/13 und Ubuntu 22.04/24.04 samt echter
 JSON-Fix-Verweigerung ohne --yes. [Build-Herkunft prüfen](PROVENANCE.md) und
 [aktuelle Review-Antwort](REVIEW-2.2.1.md).
+
+
+## Parallele Transaktionen und Aufbewahrung (Entwicklungsvorschau)
+
+Vorbereitung, Anwenden/Reload/Fehlerwiederherstellung und Auswahl/Rücknahme einer Transaktion verwenden eine nicht wartende exklusive Kernel-Sperre auf dem geschützten Backup-Verzeichnis. Die CLI hält sie über Vorbereitung und Anwendung hinweg. Bei Belegung folgt UNKNOWN mit einem konkreten Hinweis, ohne Zieldateien zu verändern. Keine Sperrdatei oder veraltete PID muss gelöscht werden; Prozessende gibt die Sperre frei. Lesende Audits sperren nicht. Für überlappende Ziele dasselbe Backup-Verzeichnis nutzen: Unterschiedliche eigene Backup-Wurzeln koordinieren sich nicht; externe Editoren/Paketprogramme nehmen nicht teil. Hash-/Metadatenprüfungen bleiben wirksam.
+
+Backups werden nicht automatisch bereinigt. Sie enthalten Konfiguration und Metadaten für Rollback. Verzeichnis geschützt halten, Speicherplatz überwachen und nur nicht mehr benötigte Sicherungen nach unabhängiger Prüfung des aktuellen Deployments entfernen. Eine entfernte Sicherung steht für Rollback nicht mehr zur Verfügung.

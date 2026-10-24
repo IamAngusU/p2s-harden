@@ -1,0 +1,219 @@
+{
+  "source": "WordPress/WordPress",
+  "source_commit": "c9675182926de3c788cd7c594705111a920403d3",
+  "source_scope": "all regular files in pinned GitHub source ZIP",
+  "archive_sha256": "5e7ce33dbc03c915059c3c14f60697f42ef52f910a1445c4ce57ba3e73769036",
+  "archive_bytes": 70753300,
+  "regular_files": 5320,
+  "source_bytes": 167112154,
+  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+  "scanner_version": "2.3.0-dev.3",
+  "platform": "linux",
+  "python": "3.10.12",
+  "results": [
+    {
+      "settings": "defaults",
+      "cli_overrides": [],
+      "elapsed_seconds": 9.689,
+      "exit_code": 2,
+      "counts": {
+        "OK": 0,
+        "OPEN": 1,
+        "UNKNOWN": 1,
+        "INFO": 4
+      },
+      "scan_priority": {
+        "cpu_priority": "lowered",
+        "io_priority": "idle"
+      },
+      "has_review": true,
+      "coverage": [
+        {
+          "examined_files": 5317,
+          "attempted_files": 5320,
+          "incomplete_files": 3,
+          "indicator_count": 4,
+          "baseline_accepted_count": 0,
+          "coverage_reasons": [
+            "expression",
+            "file-size",
+            "tokens"
+          ],
+          "coverage_counts": {
+            "file-size": 1,
+            "tokens": 1,
+            "expression": 1
+          },
+          "omitted_coverage_paths": 0
+        }
+      ],
+      "incomplete_paths": [
+        {
+          "path": "wp-includes/js/dist/script-modules/vips/worker.min.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
+          "reason": "tokens"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
+          "reason": "expression"
+        }
+      ],
+      "indicators": [
+        {
+          "path": "wp-admin/update.php",
+          "rule_id": "P2S-WS001",
+          "status": "OPEN",
+          "evidence": {
+            "indicators": [
+              "request-include"
+            ],
+            "line": 101
+          }
+        },
+        {
+          "path": "wp-admin/includes/ajax-actions.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 2433,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 300,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 373,
+            "review_required": true
+          }
+        }
+      ]
+    },
+    {
+      "settings": "expanded",
+      "cli_overrides": [
+        "--walk-seconds",
+        "0",
+        "--scan-file-bytes",
+        "16777216",
+        "--scan-total-bytes",
+        "1073741824",
+        "--scan-file-seconds",
+        "10"
+      ],
+      "elapsed_seconds": 9.214,
+      "exit_code": 2,
+      "counts": {
+        "OK": 0,
+        "OPEN": 1,
+        "UNKNOWN": 1,
+        "INFO": 4
+      },
+      "scan_priority": {
+        "cpu_priority": "lowered",
+        "io_priority": "idle"
+      },
+      "has_review": true,
+      "coverage": [
+        {
+          "examined_files": 5318,
+          "attempted_files": 5320,
+          "incomplete_files": 2,
+          "indicator_count": 4,
+          "baseline_accepted_count": 0,
+          "coverage_reasons": [
+            "expression",
+            "tokens"
+          ],
+          "coverage_counts": {
+            "tokens": 1,
+            "expression": 1
+          },
+          "omitted_coverage_paths": 0
+        }
+      ],
+      "incomplete_paths": [
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
+          "reason": "tokens"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
+          "reason": "expression"
+        }
+      ],
+      "indicators": [
+        {
+          "path": "wp-admin/update.php",
+          "rule_id": "P2S-WS001",
+          "status": "OPEN",
+          "evidence": {
+            "indicators": [
+              "request-include"
+            ],
+            "line": 101
+          }
+        },
+        {
+          "path": "wp-admin/includes/ajax-actions.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 2433,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 300,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 373,
+            "review_required": true
+          }
+        }
+      ]
+    }
+  ],
+  "interpretation": "Known benign source calibration only; review indicators and incomplete content remain visible. No general detection-rate or false-positive-rate claim."
+}

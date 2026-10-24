@@ -6,6 +6,21 @@ The same rule may appear for multiple FPM instances, pools, users, roots or URLs
 An OPEN severity is an assessment of the reported condition, not a CVSS score. UNKNOWN is incomplete evidence.
 Fixes only support the documented INI/directory subset; HTTP, process isolation and host policy need manual changes.
 
+## Webshell triage (development preview)
+
+- `P2S-WS001`: high-priority PHP code indicators. Preserve evidence, compare with
+  trusted source and review the line; this is not a malware verdict.
+- `P2S-WS002`: startup-file references that may be legitimate. Verify intended
+  configuration and inspect targets separately; their values are not reported.
+- `P2S-WS003`: scan summary (INFO) or incomplete coverage (UNKNOWN). A zero exit
+  never certifies absence of compromise. [Rules, limits and response](WEBSHELLS.md).
+- `P2S-WS004`: review-only INFO for indirect constant-prefixed includes and registry
+  callbacks. Context still needs review; this is not proof of a safe data flow.
+- `P2S-WS005`: protected reviewed baseline status. Exact path/hash/indicator
+  acceptance never suppresses coverage gaps; invalid input leaves UNKNOWN.
+
+None of these rules adds an automatic fix, deletion or quarantine action.
+
 ## Reviewing and accepting findings
 
 Start with `--json` and `--dry-run --json`. Review each resource and remediation. If an OPEN finding is explicitly accepted,
@@ -235,6 +250,10 @@ Neither function restrictions nor these checks establish a sandbox.
 
 Primary semantics: [PHP FPM configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
 and [PHP FFI configuration](https://www.php.net/manual/en/ffi.configuration.php).
+
+## P2S-WS006 — Scan scheduling (development preview)
+
+INFO records lowered/already-low/unavailable/disabled CPU priority and idle/unavailable/disabled I/O priority. Missing or denied helpers do not stop independent checks. Use `--no-nice` to opt out; see [scan scheduling and budgets](WEBSHELLS.md).
 
 ## Aggregated scope and safe facts (2.2.1)
 

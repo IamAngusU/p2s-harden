@@ -1,0 +1,62 @@
+{
+  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+  "cases": [
+    {
+      "client": "powershell",
+      "case": "unaccepted-review",
+      "exit_code": 1,
+      "has_review": true,
+      "has_unknown": false
+    },
+    {
+      "client": "powershell",
+      "case": "protected-baseline",
+      "exit_code": 0,
+      "has_review": false,
+      "has_unknown": false
+    },
+    {
+      "client": "powershell",
+      "case": "redacted-review",
+      "exit_code": 1,
+      "has_review": true,
+      "has_unknown": false
+    },
+    {
+      "client": "powershell",
+      "case": "changed-hash-requires-review",
+      "exit_code": 1,
+      "has_review": true,
+      "has_unknown": false
+    },
+    {
+      "client": "bash",
+      "case": "unaccepted-review",
+      "exit_code": 1,
+      "has_review": true,
+      "has_unknown": false
+    },
+    {
+      "client": "bash",
+      "case": "protected-baseline",
+      "exit_code": 0,
+      "has_review": false,
+      "has_unknown": false
+    },
+    {
+      "client": "bash",
+      "case": "redacted-review",
+      "exit_code": 1,
+      "has_review": true,
+      "has_unknown": false
+    },
+    {
+      "client": "bash",
+      "case": "changed-hash-requires-review",
+      "exit_code": 1,
+      "has_review": true,
+      "has_unknown": false
+    }
+  ],
+  "scope": "Owned disposable fixture only; no production configurations changed"
+}

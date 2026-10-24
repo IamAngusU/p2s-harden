@@ -24,9 +24,15 @@
 <p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
+**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **Supported configuration workflow: Debian/Ubuntu host PHP-FPM with Nginx and systemd.** RHEL, Apache/mod_php and Plesk/cPanel configuration fixes are outside the tested scope. Explicit-root static file scans have a broader Linux scope. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
 
 ## Start here
+
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.3**.
+Published **2.2.1 downloads below do not include that mode**. Use the generated
+launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
+[PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
+Preview files have branch CI evidence, not stable-release build attestations.
 
 Download **one file** for the computer you run it from:
 
@@ -110,11 +116,68 @@ sudo bash p2s-harden.sh --fix --yes --json
 sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 ```
 
-`--fix` only adds the defined shell-function restrictions and disables URL includes in supported INIs. Test application compatibility. Directory changes need an explicit `--protect-dir /absolute/code/path` and known PHP user; discovery never chooses permission changes. Human output prints the exact undo command; JSON returns the backup ID and state. Repeating implicit `--rollback` never selects an older fix. Rollback checks contents and metadata before writing, restores original timestamps and supports interrupted recovery. Fixes receive fresh modification times. [Transaction details](docs/DETAILS.md).
+`--fix` only adds the defined shell-function restrictions and disables URL includes in supported INIs. Test application compatibility. Directory changes need an explicit `--protect-dir /absolute/code/path` and known PHP user; discovery never chooses permission changes. Human output prints the exact undo command; JSON returns the backup ID and state. Repeating implicit `--rollback` never selects an older fix. Rollback checks contents and metadata before writing, restores original timestamps and supports interrupted recovery. Fixes receive fresh modification times. The development preview also adds a nonblocking kernel lock against simultaneous fix/rollback writers using the same protected backup root. Backups are retained until the operator removes them; monitor storage and retain needed recovery data. [Transaction details](docs/DETAILS.md).
 
 The existing-file fix can modify a package-managed `php.ini`. If both local and package-maintainer versions change, a later package upgrade may ask which configuration to keep. Review that diff and re-audit after upgrading; new-file drop-ins remain deferred. [Upgrade behavior](docs/DETAILS.md#package-upgrades).
 
 Audit, doctor, inventory and dry-run do not change target configuration, permissions or services. Reads and HTTP requests can update access times and ordinary logs.
+
+## Look for PHP webshell indicators
+
+Available in the **2.3.0 development preview**, separate from the configuration audit:
+
+```bash
+sudo bash p2s-harden.sh --scan-webshells
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --redact --json > indicators.json
+```
+
+From Windows, forward the same options:
+
+```powershell
+.\p2s-harden.ps1 --ssh root@SERVER --scan-webshells --root /srv/site --lang de
+```
+
+Without `--root`, existing Nginx discovery selects the reported roots. An explicit
+root works without Nginx, FPM, a web-user account or HTTP access. Files are read
+locally; no sample is executed, unpacked, uploaded, deleted or quarantined.
+
+- Flags request input near execution/include sinks, request-selected calls,
+  encoded code near execution, network/shell combinations and nonempty startup directives in `.user.ini`,
+  `.htaccess` and `php.ini`.
+- Includes hidden files, upload/cache/dependency directories and PHP content
+  under unusual extensions. Comments and literal examples inside PHP strings
+  are filtered. Legitimate code and test samples can still produce indicators.
+- Local findings contain a path, first relevant line, SHA-256 and next steps.
+  Reports contain no source excerpts or directive target values. `--redact`
+  removes paths, file hashes and original IDs while retaining validated reasons,
+  line numbers and coverage counts.
+- Default limits per root: 250000 entries, **120 seconds**, 2 MiB PHP parsing per file and
+  **256 MiB** read in total, with at most 200 unaccepted finding rows. Each file
+  has an independent **2-second** budget; a timed-out file does not stop later
+  files. `--walk-seconds 0` disables only the root clock; `--scan-file-seconds`
+  adjusts the file budget. Symlinks, mount boundaries,
+  special/unreadable/changed files, excessive depth and exhausted budgets produce
+  `UNKNOWN`; other accessible files continue where possible. Increase
+  `--max-paths`, `--walk-seconds`, `--scan-file-bytes` or `--scan-total-bytes`,
+  or split the scope. Nothing is silently accepted as clean.
+- Local text/JSON identifies incomplete paths and reasons; redaction keeps only
+  validated counters/reasons. Fully examined and incomplete files are counted
+  separately. Unknown-helper-derived constant-prefixed includes and registry callbacks are
+  visible **INFO review items**; a prefix/registry is not a safety guarantee.
+  An optional **reviewed `--baseline`** accepts identical path/hash/indicator
+  matches, keeps accepted rows in JSON and never accepts UNKNOWN coverage.
+  [Safe baseline workflow and limits](docs/WEBSHELLS.md#reviewed-baselines).
+
+The preview lowers scan CPU priority to nice 10 (or keeps an already lower priority) and requests idle I/O with optional `ionice`. `--no-nice` opts out. Missing/denied helpers are reported and scanning continues. These priorities do not cap CPU, memory or I/O usage. Large files are streamed for PHP openers before the parser size limit applies. Binary-like files require `<?php` or `<?=`; generic short tags in binary-like content are outside detection scope. Copies, casts and `basename()` retain HIGH/OPEN include priority.
+
+**An indicator requires review; absence of indicators does not establish a clean
+server.** This is a small static triage aid, without a malware signature database,
+full PHP data-flow analysis or coverage of OS persistence, memory, cron/SSH
+backdoors, encrypted payloads or files outside the selected roots. A startup
+reference's target is not followed automatically. If compromise is confirmed,
+preserve evidence, isolate the host, close the entry point, rebuild from trusted
+sources and rotate exposed credentials. [Detection rules, limits and response](docs/WEBSHELLS.md).
 
 ## Share a report without host details
 
@@ -127,7 +190,7 @@ for example `missing_functions: ["popen"]`, `socket_mode: "0666"`, setting state
 counts and HTTP status. Each rule validates its allowed fields and values.
 Paths, domains, users, raw diagnostics, inventory, plans and transactions are
 omitted. Shared finding IDs are fresh per report; use the original local IDs
-for per-resource `--ignore`. Supported modes: check, doctor and discover.
+for per-resource `--ignore`. Supported modes: check, doctor, discover and the development webshell scan.
 Results and exit codes stay the same. Review change previews locally without
 redaction. Report stdout is covered; SSH/system stderr may identify the host.
 [Send reviewed audit feedback](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
@@ -138,17 +201,25 @@ redaction. Report stdout is covered; SSH/system stderr may identify the host.
 - **TCP localhost:** its current host resolution is checked with a two-second deadline. Outside-loopback answers are OPEN; failed resolution and other hostnames remain UNKNOWN. This does not attest an existing listener or container service.
 
 - **Expected uploads/cache:** repeat `--runtime-dir /srv/site/uploads`. Writable directories there become INFO; writable PHP files and incomplete coverage remain findings. Verify execution restrictions separately.
-- **A larger application:** the default budget is **250000 entries and 10 seconds per walk**. Use `--max-paths`, `--walk-seconds` or a narrower `--root` when needed. Dependencies are not silently excluded. HTTP defaults to 128 total requests and 32 automatic mappings (`--max-http-probes`, `--max-sites`). Limits remain UNKNOWN.
+- **A larger application:** the configuration audit budget is **250000 entries and 10 seconds per walk**. Use `--max-paths`, `--walk-seconds` or a narrower `--root` when needed. Dependencies are not silently excluded. HTTP defaults to 128 total requests and 32 automatic mappings (`--max-http-probes`, `--max-sites`). The separate webshell mode defaults to 120 seconds per root and 2 seconds per file. Limits remain UNKNOWN.
 - **HTTP redirects to HTTPS:** select `--site https://example.org=/srv/site`. Redirects remain UNKNOWN until the target is checked; a redirect alone is not evidence of protection. Automatic mappings prefer HTTPS.
 - **Different layout:** supply `--nginx-config /path/nginx.conf`, or `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. Users and sites are repeatable.
 - **Automation:** schema 2 JSON includes `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` and `transaction`. Text/paths are not an API identifier. `--verbose` shows every row.
 - **Known accepted OPEN finding:** repeat `--ignore FINDING_ID` for one resource, or `--ignore P2S-FS002` for the entire rule. It stays visible and marked suppressed; UNKNOWN cannot be suppressed into a pass. This affects exit evaluation only, not fix scope or file traversal.
 
-Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, otherwise **1 for OPEN**, otherwise **0**. For CI that must distinguish an OPEN even alongside incomplete checks, use `--fail-on open`: OPEN returns 1 first, otherwise UNKNOWN still returns 2. JSON always exposes both flags and every finding. Ignored OPEN rows do not change the exit code; they remain in the report.
+Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, otherwise **1 for OPEN**, otherwise **0**. For CI that must distinguish an OPEN even alongside incomplete checks, use `--fail-on open`: OPEN returns 1 first, otherwise UNKNOWN still returns 2. The preview adds `--fail-on review`: an unaccepted WS004 code-review item or OPEN returns 1 first; otherwise UNKNOWN returns 2. Ordinary INFO does not fail. `--ignore`/exact baselines may accept review rows; JSON adds `has_review` and `suppressed_review`. JSON always exposes the flags and every finding. Ignored OPEN rows do not change the exit code; they remain in the report.
 
 ## Verify your download
 
 Checksums detect corruption or mismatched downloads. A checksum from the same release cannot independently authenticate its origin. Releases also include **GitHub-signed build provenance** for the four distribution files, built after all test jobs pass. Verify the exact bytes, expected workflow and source commit with optional `gh attestation verify`: [verification commands and trust boundary](docs/PROVENANCE.md).
+
+With an authenticated GitHub CLI (optional; Bash and PowerShell):
+
+```text
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/main --deny-self-hosted-runners
+```
+
+Use `p2s-harden.ps1` for the Windows download. Add `--source-digest EXPECTED_COMMIT` to pin the release commit; [bundle/offline verification](docs/PROVENANCE.md) explains the required trust material. The CI fork belongs to the same maintainer.
 
 Download the SHA-256 sums alongside the chosen launcher. On Windows:
 

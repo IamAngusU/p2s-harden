@@ -1,0 +1,28 @@
+[
+  {
+    "engine": "before",
+    "engine_sha256": "3954cdf587977ac8343144b79663d626af2cdb92b72879eb20f12a55d5fbdac9",
+    "platform": "win32",
+    "python": "3.12.14",
+    "bytes": 1800024,
+    "line_comments": 450000,
+    "deadline_seconds": 2,
+    "elapsed_seconds": 2.016,
+    "indicators": {},
+    "incomplete": "time"
+  },
+  {
+    "engine": "after",
+    "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+    "platform": "win32",
+    "python": "3.12.14",
+    "bytes": 1800024,
+    "line_comments": 450000,
+    "deadline_seconds": 2,
+    "elapsed_seconds": 0.203,
+    "indicators": {
+      "request-execution": 450002
+    },
+    "incomplete": null
+  }
+]
