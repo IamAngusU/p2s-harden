@@ -38,3 +38,5 @@ gh repo sync angusu-de/p2s-harden --source IamAngusU/p2s-harden --branch main
 Then inspect the new run, or trigger `CLI tests` manually in the fork. Compare the source/fork commit IDs and wait for all expected jobs and proof publication before relying on the badge for a release. A later source change does not inherit a previous successful result.
 
 The separate `ci-proof` branch contains generated evidence only and is excluded from ordinary push CI. The proof workflow is enabled only in the named CI fork and uses its own scoped workflow token. No cross-account personal token is stored in this repository.
+
+The native Windows job also runs `python -B tools/test_json_interop.py`: real pinned Rust `serde_json::Value` must accept generated report/draft JSON and reject the former lone-surrogate fixture. Cargo and its locked dependencies are development-only; the distributed CLI does not invoke Rust or install anything.

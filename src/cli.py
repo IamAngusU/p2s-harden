@@ -31,6 +31,7 @@ def main(argv=None):
     parser.add_argument("--walk-seconds", type=float, help=text("Seconds per walk: audit 10, webshell scan 120; scan only: 0 disables root time limit"))
     parser.add_argument("--scan-file-seconds", type=float, default=2, help=text("Webshell time budget per file (default 2 seconds; maximum 30)"))
     parser.add_argument("--baseline", help=text("Reviewed webshell JSON baseline; exact path, SHA256 and indicator matches only"))
+    parser.add_argument("--write-baseline-draft", metavar="FILE", help=text("Write a new private baseline draft; every entry is unreviewed and accepts nothing"))
     parser.add_argument("--no-nice", action="store_true", help=text("Skip lowering CPU/I/O priority for the webshell scan"))
     parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("PHP parsing byte limit per file; opener search streams larger files (default 2097152)"))
     parser.add_argument("--scan-total-bytes", type=int, default=256 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 268435456)"))
@@ -76,6 +77,10 @@ def main(argv=None):
     try:
         if args.baseline and args.mode != "scan-webshells":
             raise CheckError("--baseline supports --scan-webshells only")
+        if args.write_baseline_draft and args.mode != "scan-webshells":
+            raise CheckError("--write-baseline-draft supports --scan-webshells only")
+        if args.write_baseline_draft and args.redact:
+            raise CheckError("--write-baseline-draft contains local paths and hashes; use it locally without --redact")
         if args.no_nice and args.mode != "scan-webshells":
             raise CheckError("--no-nice supports --scan-webshells only")
         if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
@@ -132,6 +137,16 @@ def main(argv=None):
             report.add("INFO", "Scan scheduling", "CPU: " + priority["cpu_priority"] + "; I/O: " + priority["io_priority"] +
                        "; missing or denied priority helpers do not stop the scan; --no-nice opts out",
                        rule_id="P2S-WS006", resource="scheduling", evidence=priority)
+            if args.write_baseline_draft:
+                try:
+                    report.baseline_draft = write_baseline_draft(args.write_baseline_draft, report)
+                    report.add("INFO", "Webshell baseline", "Unreviewed baseline draft written; compare complete files with trusted source before setting reviewed=true; existing files are never overwritten",
+                               rule_id="P2S-WS005", resource=dict(path=report.baseline_draft["path"]),
+                               evidence=dict(baseline_entries=report.baseline_draft["indicator_files"] + report.baseline_draft["coverage_files"]))
+                except (OSError, ValueError, CheckError) as exc:
+                    reason = str(exc) if isinstance(exc, CheckError) else "Draft destination exists, is unsafe or is not writable"
+                    report.add("UNKNOWN", "Webshell baseline", "Baseline draft was not written; " + reason,
+                               rule_id="P2S-WS005", resource=dict(path=os.path.abspath(args.write_baseline_draft)))
             show_report()
             return report.exit_code()
         prepare_runtime_dirs(args)

@@ -176,6 +176,8 @@ jobs:
       - name: PowerShell native transport tests
         shell: powershell
         run: .\test-windows-launcher.ps1
+      - name: Strict Rust JSON parser interoperability
+        run: python -B tools/test_json_interop.py
   provenance:
     name: Release provenance
     needs: [linux, fpm, system_ubuntu, system_debian, windows]

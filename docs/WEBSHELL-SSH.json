@@ -1,5 +1,5 @@
 {
-  "engine_sha256": "fcaf4e435ba3cafe3257a985d97b95b728f29ccacdabc2572704e9eecf8b2a1b",
+  "engine_sha256": "f8d91ab4497c319c97101bd748c33d89f69eb57d8bae4065663cc0e8235db886",
   "cases": [
     {
       "client": "powershell",
@@ -38,6 +38,33 @@
       "filesystem_bytes_preserved": true
     },
     {
+      "client": "powershell",
+      "case": "draft-create-original-exit",
+      "exit_code": 1
+    },
+    {
+      "client": "powershell",
+      "case": "unreviewed-draft-never-accepts",
+      "exit_code": 1,
+      "has_unknown": true
+    },
+    {
+      "client": "powershell",
+      "case": "reviewed-byte-draft-accepted",
+      "exit_code": 0,
+      "filesystem_bytes_preserved": true
+    },
+    {
+      "client": "powershell",
+      "case": "draft-byte-hash-change-needs-review",
+      "exit_code": 1
+    },
+    {
+      "client": "powershell",
+      "case": "redacted-draft-refused",
+      "exit_code": 2
+    },
+    {
       "client": "bash",
       "case": "unaccepted-review",
       "exit_code": 1,
@@ -72,6 +99,33 @@
       "has_unknown": false,
       "ascii_utf8_json": true,
       "filesystem_bytes_preserved": true
+    },
+    {
+      "client": "bash",
+      "case": "draft-create-original-exit",
+      "exit_code": 1
+    },
+    {
+      "client": "bash",
+      "case": "unreviewed-draft-never-accepts",
+      "exit_code": 1,
+      "has_unknown": true
+    },
+    {
+      "client": "bash",
+      "case": "reviewed-byte-draft-accepted",
+      "exit_code": 0,
+      "filesystem_bytes_preserved": true
+    },
+    {
+      "client": "bash",
+      "case": "draft-byte-hash-change-needs-review",
+      "exit_code": 1
+    },
+    {
+      "client": "bash",
+      "case": "redacted-draft-refused",
+      "exit_code": 2
     }
   ],
   "scope": "Owned disposable fixture only; no production configurations changed"

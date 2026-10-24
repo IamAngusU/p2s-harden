@@ -31,7 +31,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.4"
+VERSION = "2.3.0-dev.5"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -45,7 +45,7 @@ class HttpBudgetExceeded(CheckError):
 
 
 def configure_output(as_json=False):
-    """ASCII JSON escapes preserve filesystem surrogates; terminals never fail."""
+    """Use safe terminal encodings; JSON projection supplies Unicode path displays."""
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:

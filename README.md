@@ -28,13 +28,13 @@
 
 ## Start here
 
-**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.4**.
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.5**.
 Published **2.2.1 downloads below do not include that mode**. Use the generated
 launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
 [PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
 Preview files have commit-specific CI evidence; they are separate from the stable-release assets.
 
-**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.4 preview above or edit/review the configuration manually. Read-only audits are unaffected. Dev.4 refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
+**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.5 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
 
 Download **one file** for the computer you run it from:
 
@@ -169,6 +169,7 @@ locally; no sample is executed, unpacked, uploaded, deleted or quarantined.
   visible **INFO review items**; a prefix/registry is not a safety guarantee.
   An optional **reviewed `--baseline`** accepts identical path/hash/indicator
   matches and keeps accepted rows in JSON. Explicit `reviewed_files` entries can acknowledge selected fully hashed parse/window limits after trusted source comparison; unreadable, unstable, timed-out or unvisited content stays UNKNOWN. Accepted incomplete files remain counted separately.
+  Create a private, unreviewed proposal with `--write-baseline-draft /root/p2s-draft.json`. Every entry starts with `reviewed: false`; complete-file trusted-source review is required before approval. Existing files are never overwritten.
   [Safe baseline workflow and limits](docs/WEBSHELLS.md#reviewed-baselines).
 
 The preview lowers scan CPU priority to nice 10 (or keeps an already lower priority) and requests idle I/O with optional `ionice`. `--no-nice` opts out. Missing/denied helpers are reported and scanning continues. These priorities do not cap CPU, memory or I/O usage. Large files are streamed for PHP openers before the parser size limit applies. Binary-like files require `<?php` or `<?=`; generic short tags in binary-like content are outside detection scope. Copies, casts and `basename()` retain OPEN include findings. Constant-prefixed request includes have their own MEDIUM rule; unrestricted request includes remain HIGH.
@@ -242,7 +243,7 @@ Unblocking removes the downloaded-file marker; it does not override Restricted o
 
 ## Scope and release status
 
-**Stable within the documented scope.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Current review response](docs/REVIEW-WEBSHELLS.md) · [2.2.1 review](docs/REVIEW-2.2.1.md) · [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
+**Stable within the documented scope.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Current review response](docs/REVIEW-DRAFTS.md) · [2.2.1 review](docs/REVIEW-2.2.1.md) · [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
 
 GitHub-hosted runner access is currently unavailable in the source account. The public CI fork uses a separate account owned by the same maintainer; it is not an independent audit. The proof checks that the tested commit, source main and fork main match before publishing. [Exact jobs and steps](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [How synchronization works](docs/CI.md).
 

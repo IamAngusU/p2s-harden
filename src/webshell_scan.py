@@ -29,6 +29,8 @@ def webshell_baseline_entries(data):
     from pathlib import PurePosixPath
     if not isinstance(data, dict) or data.get("redacted"):
         raise CheckError("Baseline must be a local, nonredacted webshell report or schema 1 file list")
+    if "requires_review" in data and data["requires_review"] is not True:
+        raise CheckError("Baseline requires_review marker must be true")
     reviewed = []
     if data.get("schema_version") == 2 and isinstance(data.get("discovery"), dict) and data["discovery"].get("webshell_scan") is True:
         if data.get("reviewed_files"):
@@ -45,7 +47,7 @@ def webshell_baseline_entries(data):
             resource = row.get("resource")
             if not isinstance(resource, dict):
                 raise CheckError("Invalid baseline resource")
-            entries.append(dict(path=resource.get("path"), sha256=row.get("sha256"), indicators=[resource.get("indicator")]))
+            entries.append(dict(resource, sha256=row.get("sha256"), indicators=[resource.get("indicator")]))
     elif data.get("schema_version") == 1:
         entries = data.get("files", [])
         reviewed = data.get("reviewed_files", [])
@@ -59,9 +61,11 @@ def webshell_baseline_entries(data):
     for entry, coverage_entry in [(entry, False) for entry in entries] + [(entry, True) for entry in reviewed]:
         if not isinstance(entry, dict):
             raise CheckError("Invalid baseline entry")
-        path, fingerprint = entry.get("path"), entry.get("sha256")
+        path, fingerprint = baseline_path(entry), entry.get("sha256")
         indicators = entry.get("coverage_reasons" if coverage_entry else "indicators")
         allowed = WEBSHELL_REVIEWABLE_REASONS if coverage_entry else WEBSHELL_INDICATORS
+        if (data.get("requires_review") is True or "reviewed" in entry) and entry.get("reviewed") is not True:
+            raise CheckError("Unreviewed baseline draft: compare complete files with trusted source and set reviewed=true explicitly")
         if coverage_entry and entry.get("reviewed") is not True:
             raise CheckError("Coverage exceptions require reviewed=true after trusted full-file comparison")
         if (type(path) is not str or "\x00" in path or not PurePosixPath(path).is_absolute() or

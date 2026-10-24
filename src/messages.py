@@ -447,6 +447,21 @@ _MESSAGES = {'Invalid backup manifest: {name}': ('Invalid backup manifest: {name
                                                            '--ignore erfordert eine Befund-id oder rule_id aus '
                                                            '--json')}
 
+_MESSAGES.update({
+    'Baseline requires_review marker must be true': ('Baseline requires_review marker must be true', 'Baseline-Markierung requires_review muss true sein'),
+    'Write a new private baseline draft; every entry is unreviewed and accepts nothing': ('Write a new private baseline draft; every entry is unreviewed and accepts nothing', 'Neue private Baseline-Vorlage schreiben; alle Einträge sind ungeprüft und geben nichts frei'),
+    '--write-baseline-draft supports --scan-webshells only': ('--write-baseline-draft supports --scan-webshells only', '--write-baseline-draft unterstützt nur --scan-webshells'),
+    '--write-baseline-draft contains local paths and hashes; use it locally without --redact': ('--write-baseline-draft contains local paths and hashes; use it locally without --redact', '--write-baseline-draft enthält lokale Pfade und Hashes; lokal ohne --redact verwenden'),
+    'Unreviewed baseline draft written; compare complete files with trusted source before setting reviewed=true; existing files are never overwritten': ('Unreviewed baseline draft written; compare complete files with trusted source before setting reviewed=true; existing files are never overwritten', 'Ungeprüfter Baseline-Entwurf geschrieben; vollständige Dateien vor reviewed=true mit vertrauenswürdigem Quellstand vergleichen; vorhandene Dateien werden nie überschrieben'),
+    'Baseline draft was not written; Draft destination exists, is unsafe or is not writable': ('Baseline draft was not written; Draft destination exists, is unsafe or is not writable', 'Baseline-Entwurf nicht geschrieben; Ziel existiert bereits, ist unsicher oder nicht beschreibbar'),
+    'Unreviewed baseline draft: compare complete files with trusted source and set reviewed=true explicitly': ('Unreviewed baseline draft: compare complete files with trusted source and set reviewed=true explicitly', 'Ungeprüfter Baseline-Entwurf: vollständige Dateien mit vertrauenswürdigem Quellstand vergleichen und reviewed=true ausdrücklich setzen'),
+    'Baseline path encoding requires matching path_bytes_hex': ('Baseline path encoding requires matching path_bytes_hex', 'Baseline-Pfadkodierung benötigt passende path_bytes_hex'),
+    'Invalid baseline path byte encoding': ('Invalid baseline path byte encoding', 'Ungültige Byte-Kodierung des Baseline-Pfads'),
+    'Baseline display path does not match its exact bytes': ('Baseline display path does not match its exact bytes', 'Angezeigter Baseline-Pfad passt nicht zu seinen exakten Bytes'),
+    'Baseline draft entry limit exceeded; narrow the scan scope': ('Baseline draft entry limit exceeded; narrow the scan scope', 'Eintragslimit des Baseline-Entwurfs überschritten; Prüfbereich einschränken'),
+    'Baseline draft exceeds 2 MiB; narrow the scan scope': ('Baseline draft exceeds 2 MiB; narrow the scan scope', 'Baseline-Entwurf überschreitet 2 MiB; Prüfbereich einschränken'),
+    'Baseline draft requires a new file path': ('Baseline draft requires a new file path', 'Baseline-Entwurf benötigt einen neuen Dateipfad'),
+})
 _MESSAGE_TEMPLATES = (('Additional skipped paths: {count}', 'Additional skipped paths: {count}', 'Weitere ausgelassene Pfade: {count}'),
  ('HTTP request failed: {kind}', 'HTTP request failed: {kind}', 'HTTP-Anfrage fehlgeschlagen: {kind}'),
  ('{code}; unexpected HTTP status', '{code}; unexpected HTTP status', '{code}; unerwarteter HTTP-Status'),
