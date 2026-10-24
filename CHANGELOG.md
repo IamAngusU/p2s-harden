@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update to 2.3.0-dev.4: ASCII-safe JSON/byte filename roundtrips and legacy-terminal output, conservative multiline-INI refusal, BOM/CRLF preservation, one appended PHP section, before/after effective INI verification with rollback before reload, a fixed system transaction lock, MEDIUM prefixed include findings, bounded explicit-opener window leads and explicit protected full-hash reviewed coverage exceptions. Add 14 real INI parser cases per FPM image and document WordPress integrity verification before baselining. 2.2.1 downloads do not contain these fixes.
+
 - Update the preview to 2.3.0-dev.3: preserve include priority through request copies/casts and known string transforms, stream opener searches before PHP parse-size limits, distinguish binary short-tag noise, lower scan CPU/I/O priority with an opt-out, add review-first exit policy and serialize fix/rollback writers with a protected-directory kernel lock. Document scope and backup retention prominently. Record actual Bash/PowerShell SSH baseline/redaction checks.
 
 - Update the preview to 2.3.0-dev.2: linear comment lexing, independent file timeouts, actionable local coverage paths/counters, 120-second root defaults and explicit root-clock override, review-only registry/prefixed-include context, protected exact-hash baselines and correct Apache/INI comment handling. Confirm pure JSON fix output in the real distro VM harness.

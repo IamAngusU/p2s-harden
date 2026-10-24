@@ -873,6 +873,28 @@ _NEW_GERMAN.update({
 })
 _MESSAGE_TEMPLATES += (('CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; fehlende oder gesperrte Prioritätshelfer stoppen die Suche nicht; --no-nice deaktiviert dies'),)
 _EVIDENCE_GERMAN.update(lowered="abgesenkt", already_low="bereits niedrig", unavailable="nicht verfügbar", disabled="deaktiviert", idle="Leerlauf")
+_NEW_GERMAN.update({
+    "Multiline or unclosed INI quotes: automatic changes refused; review the file manually": "Mehrzeilige oder offene INI-Anführungszeichen: automatische Änderungen verweigert; Datei manuell prüfen",
+    "PHP INI snapshot is ambiguous; automatic changes refused": "Effektive PHP-INI-Werte nicht eindeutig lesbar; automatische Änderungen verweigert",
+    "Cannot verify the complete PHP INI snapshot; automatic changes refused": "Effektive PHP-INI-Werte nicht vollständig prüfbar; automatische Änderungen verweigert",
+    "Complete FPM instances are required for before/after INI verification": "Vollständige FPM-Zuordnung für den INI-Vorher-/Nachhervergleich erforderlich",
+    "Unrelated effective PHP INI settings changed; restoring the original configuration before reload": "Andere effektive PHP-INI-Werte wurden verändert; ursprüngliche Konfiguration wird vor dem Reload wiederhergestellt",
+    "Transaction lock and backup directories must have mode 0700 and be owned by root": "Transaktionssperr- und Backup-Verzeichnisse müssen root gehören und Modus 0700 haben",
+    "Another fix or rollback is running; wait for it to finish and rerun": "Ein anderer Fix oder Rollback läuft; Abschluss abwarten und erneut ausführen",
+    "Transaction lock directory changed while acquiring the lock": "Verzeichnis der Transaktionssperre wurde beim Sperren ausgetauscht",
+    "Reviewed coverage exceptions require an explicit schema 1 baseline": "Geprüfte Abdeckungsausnahmen benötigen eine explizite Schema-1-Baseline",
+    "Baseline requires files or explicit reviewed_files": "Baseline benötigt files oder ausdrücklich reviewed_files",
+    "Coverage exceptions require reviewed=true after trusted full-file comparison": "Abdeckungsausnahmen benötigen reviewed=true nach vertrauenswürdigem Vergleich der vollständigen Datei",
+    "Reviewed baseline loaded; exact path, full-file SHA256 and indicator/reviewed-coverage matches only": "Geprüfte Baseline geladen; nur exakter Pfad, vollständiger SHA256 und Indikator bzw. geprüfte Abdeckungsausnahme werden akzeptiert",
+    "Reviewed incomplete files": "Geprüfte unvollständige Dateien",
+    "Windowed files": "Dateien mit Fensteranalyse",
+    "Prefixed PHP include": "PHP-Include mit Präfix",
+    "Request-derived PHP include with a constant prefix; traversal requires review": "Request-basierter PHP-Include mit konstantem Präfix; Traversal muss geprüft werden",
+    "Review the request-derived include and its validation against trusted source. A constant directory prefix does not prevent path traversal; accept only a reviewed exact file hash and indicator.": "Request-basierten Include und Validierung mit vertrauenswürdigem Quellstand vergleichen. Ein konstantes Verzeichnispräfix verhindert keine Pfad-Traversal; nur geprüften exakten Dateihash und Indikator akzeptieren."
+})
+_MESSAGE_TEMPLATES = (('{files} files fully examined; {incomplete} incomplete files; {indicators} indicators; {message}; {accepted} incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server', '{files} files fully examined; {incomplete} incomplete files; {indicators} indicators; {message}; {accepted} incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server', '{files} Dateien vollständig untersucht; {incomplete} unvollständige Dateien; {indicators} Indikatoren; {message}; {accepted} unvollständige Dateien durch geprüften vollständigen Dateihash akzeptiert; fehlende Indikatoren belegen keinen sauberen Server'),) + _MESSAGE_TEMPLATES
+_EVIDENCE_GERMAN.update(window="Fensteranalyse")
+_NEW_GERMAN['Use a protected reviewed baseline. Indicator exceptions bind path, full-file SHA256 and indicator. Coverage exceptions additionally require explicit reviewed_files entries; unreadable, unstable, timed-out or unvisited content cannot be accepted.'] = 'Geschützte geprüfte Baseline verwenden. Indikator-Ausnahmen binden Pfad, vollständigen SHA256 und Indikator. Abdeckungsausnahmen benötigen zusätzlich ausdrückliche reviewed_files-Einträge; unlesbare, instabile, zeitlich abgebrochene oder unbesuchte Inhalte können nicht akzeptiert werden.'
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]

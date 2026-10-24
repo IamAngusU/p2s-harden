@@ -185,6 +185,15 @@ source-ref/commit checks and the same-maintainer CI account's trust boundary.
 
 ## Transaction concurrency and retention (development preview)
 
-Fix preparation, apply/reload/recovery and rollback selection/restore use a nonblocking exclusive kernel lock on the protected backup-directory inode. The CLI holds it across prepare and apply; contention returns an actionable UNKNOWN without changing target files. No lock file or stale PID needs deletion; the kernel releases it on process exit. Read-only audits never acquire it. Use the same backup root for overlapping targets: different custom backup roots do not coordinate, and unrelated editors/package tools do not participate. Existing digest/metadata checks still apply.
+Fix preparation, apply/reload/recovery and rollback selection/restore use a nonblocking exclusive kernel lock on the fixed root-owned mode-0700 `/run/p2s-harden` directory inode, plus the protected backup-directory inode for compatibility. The CLI holds it across prepare and apply; contention returns an actionable UNKNOWN without changing target files. No lock file or stale PID needs deletion; the kernel releases it on process exit. Read-only audits never acquire it. Changing `--backup-root` cannot bypass the system lock. All current tool instances coordinate; unrelated editors/package tools and older versions do not participate in the new system lock. Do not remove its directory while writers are active. Existing digest/metadata checks still apply.
 
 Backups are not automatically pruned. They retain configuration bytes and metadata for rollback; keep the directory protected, monitor its disk usage and remove only recovery data you no longer need after independently verifying the current deployment. Removing a backup removes that rollback option.
+
+
+## INI editor and byte transport safeguards (dev.4 preview)
+
+Multiline or unmatched quotes anywhere in a target INI are refused before editing. Single-line quotes/comments remain supported; a leading UTF-8 BOM and CRLF endings are preserved, and missing target directives share one appended PHP section. The tool does not attempt to rewrite general PHP INI syntax.
+
+Before any target replacement, the affected FPM binaries provide complete three-column effective INI tables. The engine hashes directive values in memory, excludes environment dumps, then compares all unrelated registered directives after writing and before service reload. Ambiguous/incomplete snapshots refuse the fix. A mismatch restores original files instead of reloading the altered configuration. Only directive names/digests are handled internally; configuration values and process environments are not persisted in reports. The PHP-FPM matrix also runs 14 real editor/parser cases per image, including a 379M memory-limit sentinel and multiline refusal.
+
+Schema-2 JSON is ASCII-escaped UTF-8, including legacy filesystem byte names. `path_encoding` describes filesystem-surrogateescape strings; Python `os.fsencode()` roundtrips their original bytes. Human streams use backslash replacement under restricted encodings; the banner uses an ASCII hyphen. These fixes are in dev.4, not the unchanged 2.2.1 downloads.

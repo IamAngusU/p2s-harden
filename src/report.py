@@ -36,8 +36,9 @@ RULES = {
     "WS002": ("medium", "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically."),
     "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
     "WS004": ("info", "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous."),
-    "WS005": ("info", "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings."),
+    "WS005": ("info", "Use a protected reviewed baseline. Indicator exceptions bind path, full-file SHA256 and indicator. Coverage exceptions additionally require explicit reviewed_files entries; unreadable, unstable, timed-out or unvisited content cannot be accepted."),
     "WS006": ("info", "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit."),
+    "WS007": ("medium", "Review the request-derived include and its validation against trusted source. A constant directory prefix does not prevent path traversal; accept only a reviewed exact file hash and indicator."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -71,11 +72,13 @@ def safe_evidence(rule_id, evidence):
         "WS001": dict(indicators=names(*WEBSHELL_INDICATORS), line=count),
         "WS002": dict(indicators=names("startup-reference"), line=count),
         "WS003": dict(examined_files=count, attempted_files=count, incomplete_files=count, indicator_count=count,
-                      baseline_accepted_count=count, omitted_coverage_paths=count, coverage_reasons=names(*WEBSHELL_REASONS),
+                      baseline_accepted_count=count, accepted_incomplete_files=count, windowed_files=count,
+                      omitted_coverage_paths=count, coverage_reasons=names(*WEBSHELL_REASONS),
                       coverage_counts=lambda value: type(value) is dict and len(value) <= len(WEBSHELL_REASONS) and
                           all(type(k) is str and k in WEBSHELL_REASONS and count(v) for k,v in value.items())),
         "WS004": dict(indicators=names("prefixed-include", "registry-callable"), line=count, review_required=boolean),
         "WS005": dict(baseline_entries=count),
+        "WS007": dict(indicators=names("request-prefixed-include"), line=count),
         "WS006": dict(cpu_priority=choices("lowered", "already_low", "unavailable", "disabled"),
                       io_priority=choices("idle", "unavailable", "disabled")),
     }.get(rule_id[4:], {})
@@ -88,7 +91,7 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
               "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage",
-              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling"}
+              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling", "WS007": "Prefixed PHP include"}
 
 
 def evidence_summary(rule_id, evidence, lang="en"):
@@ -105,7 +108,7 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
                   incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
                   omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
-                  cpu_priority="CPU priority", io_priority="I/O priority")
+                  cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -167,6 +170,7 @@ class Report:
         return int(self.has("OPEN"))
 
     def show(self, as_json=False, verbose=False, lang="en", redact=False):
+        configure_output(as_json)
         rows = [dict(row, title=localize(row["title"], lang), detail=localize(row["detail"], lang),
                      remediation=localize(row["remediation"], lang)) for row in self.rows]
         discovery = localized_discovery(self.discovery, lang)
@@ -200,13 +204,14 @@ class Report:
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
-                                  exit_code=self.exit_code()), ensure_ascii=False, indent=2))
+                                  path_encoding="filesystem-surrogateescape",
+                                  exit_code=self.exit_code()), ensure_ascii=True, indent=2))
             return
         def emit(line):
             # Configured names/paths must not inject terminal escape sequences.
             print("".join(c if c.isprintable() else "?" for c in line))
         label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "PHP webshell indicator scan" if self.discovery.get("webshell_scan") else "Configuration audit"
-        emit(f"p2s-harden {VERSION} – {localize(label, lang)}")
+        emit(f"p2s-harden {VERSION} - {localize(label, lang)}")
         cap = discovery.get("capabilities", {})
         missing_tools = [name for name, present in cap.get("tools", {}).items() if not present and name != "curl"]
         if missing_tools:

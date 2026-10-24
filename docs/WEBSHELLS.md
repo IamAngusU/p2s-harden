@@ -1,4 +1,4 @@
-# PHP webshell indicator triage (2.3.0-dev.3 preview)
+# PHP webshell indicator triage (2.3.0-dev.4 preview)
 
 `--scan-webshells` is a separate read-only mode. It supplies local leads for
 investigation, not a malware verdict, an application vulnerability assessment
@@ -34,7 +34,7 @@ its exit impact only. The mode cannot be combined with `--fix` or `--rollback`.
   plus simple local variable/constant aliases. It covers selected request
   superglobals, `filter_input` and literal `php://input` reads, the selected shell
   functions, `eval`, legacy string `assert`/`create_function`, include/require and
-  six decoder names. Selected request-controlled callback arguments are checked.
+  six decoder names. Constant-prefixed request includes use WS007 instead. Selected request-controlled callback arguments are checked.
   `network-shell` combines a socket connection and a literal shell launch within
   one file, or a shell command containing `/dev/tcp/`; it does not establish that
   the socket and shell are connected. A report does not prove reachability, malicious intent or
@@ -54,12 +54,15 @@ its exit impact only. The mode cannot be combined with `--fix` or `--rollback`.
   An unknown-helper-derived request value in a constant-prefixed include, or selection
   from a registry array (including simple registry-result aliases), remains visible
   for manual review without a HIGH/OPEN verdict. Direct request expressions in
-  includes, plain copy/cast chains, known transforms such as `basename()`/`trim()`, and a request-supplied callback/registry remain WS001. A helper of unknown semantics can only lower triage priority to visible review, never establish safety. Reassignments and function-local scopes are tracked conservatively within the documented small heuristic. This is triage
+  includes without a prefix and a request-supplied callback/registry remain WS001; constant-prefixed direct/copy/cast/`basename()` flows remain OPEN under WS007. A helper of unknown semantics can only lower triage priority to visible review, never establish safety. Reassignments and function-local scopes are tracked conservatively within the documented small heuristic. This is triage
   priority, not proof of safety: a prefix does not stop traversal and a registry
   can be attacker-controlled. No framework/filename whitelist exempts the file.
+- **P2S-WS007 (medium, OPEN):** `request-prefixed-include`, including direct request values, copies, casts and known transforms with a constant directory prefix. A prefix does not prevent traversal. The lower severity distinguishes the context without hiding it as INFO. This is a preview rule/indicator change; older indicator baselines need review again.
 - **P2S-WS005 (INFO or UNKNOWN):** reviewed baseline loading. Invalid, unsafe or
   unreadable baselines yield UNKNOWN and the independent file scan continues.
 - **P2S-WS006 (INFO):** scan scheduling. The engine lowers its own CPU priority to nice 10 using the standard OS API, preserving an already lower priority, and invokes optional trusted `ionice -c 3 -p PID` with a two-second timeout. Missing/denied capabilities are reported independently; no package is installed and the scan continues. `--no-nice` skips both adjustments, without raising inherited priorities. The SSH payload is not restarted, and the caller/parent process is unaffected. Scheduling is not a hard resource cap.
+
+JSON is ASCII-escaped, valid UTF-8 even for legacy byte filenames. `path_encoding: filesystem-surrogateescape` identifies Python filesystem byte escapes such as `\udcff`; `os.fsencode(resource["path"])` reconstructs the original Linux filename bytes. IDs/hash matching use the original path, not terminal display text. Restricted human output encodings use backslash replacement rather than crashing.
 
 Local JSON adds a `sha256` to each indicator row. The hash covers the bytes read
 for that file and supports comparison; it is not checked against a reputation
@@ -99,9 +102,11 @@ Defaults **per root**: 250000 entries, **120 seconds**, 2 MiB PHP materializatio
 **256 MiB** total bytes and 200 unaccepted indicator rows. Each file has an
 independent **2-second** budget; an expensive file becomes `file-time` UNKNOWN
 and later files continue. Baseline-accepted rows do not exhaust the active
-finding budget. Files are fully streamed for PHP openers (including across read boundaries) before applying the parse-size cap. A stable file with no applicable opener and no selected startup configuration is fully examined even when larger than that cap. Every byte still consumes root byte/time and per-file time budgets. An oversized file containing an applicable PHP opener or selected startup configuration remains `file-size` UNKNOWN.
+finding budget. Files are fully streamed for PHP openers (including across read boundaries) before applying the parse-size cap. A stable file with no applicable opener and no selected startup configuration is fully examined even when larger than that cap. Every byte still consumes root byte/time and per-file time budgets. Oversized startup configuration or short-tag-only PHP remains `file-size` UNKNOWN. For oversized files with explicit PHP openers, bounded windows supply additional indicators while retaining incomplete coverage.
 
 Binary-like means any NUL or ASCII control byte except tab/LF/CR appears anywhere in the file. These files require explicit `<?php` or `<?=` tags; text also accepts generic `<?` short tags except XML declarations. This content heuristic avoids random generic-tag bytes in assets without exempting any suffix. It deliberately misses generic short-tag PHP in binary-like content, including deliberately constructed polyglots with control bytes. Explicit tags can also occur randomly or in benign embedded examples; they still trigger analysis and limits, not a safety exemption. No PHP interpreter settings or runtime execution are inferred.
+Explicit-opener windows inspect at most **64 KiB per opener**, at most **256 windows** and at most the configured per-file parse bytes in total; the default 2 MiB permits 32 windows. Small binary-like files use full selected analysis; if token/expression limits stop it, windows add leads. Window reads also consume the root byte/time budgets. Global line numbers and the full stable-file hash are retained and metadata is rechecked after rereads. Omitted aliases/control flow outside the windows can change interpretation: windowed files remain `window` incomplete, even if the visible blocks look benign. Windows do not certify the rest of the file.
+
 The traversal depth is 64; per-file lexical analysis is capped at 100000 tokens,
 128 nested parentheses/brackets and 512 tokens per inspected expression.
 Root and file time budgets are checked during traversal, chunk reads and analysis;
@@ -156,8 +161,7 @@ absolute Linux paths:
 Only the identical **path + file bytes' SHA-256 + indicator name** match. A new
 path, changed file or new indicator needs review again. Accepted rows remain in
 JSON/`--verbose`, marked `baseline_accepted`; accepted OPEN rows are also visibly
-suppressed. Default text hides accepted rows and prints their count. UNKNOWN
-coverage cannot be accepted. After package/application updates, review changes
+suppressed. Default text hides accepted indicator rows and prints their count. An ordinary scan report never implicitly accepts coverage. After package/application updates, review changes
 before replacing the baseline. The target reads this file locally; SSH does not
 upload a client-side baseline.
 
@@ -167,6 +171,26 @@ ordinary user's writable home baseline directly. The loader accepts only a
 regular, stable JSON file up to 2 MiB and 10000 path/indicator entries. Redacted
 or unrelated reports, conflicts, invalid paths/hashes and unsafe files are refused;
 other scan checks continue without baseline acceptance.
+
+## Explicit reviewed coverage exceptions
+
+A separate manual **schema 1** baseline may contain `reviewed_files`. Each entry requires a canonical absolute path, the **complete stable file SHA256**, `reviewed: true`, and explicit `coverage_reasons` drawn only from `file-size`, `tokens`, `expression`, or `window`. This records an operator acknowledgement after trusted full-file comparison; it never claims the scanner fully analyzed that content. The protected baseline ownership rules still apply.
+
+```json
+{"schema_version":1,"files":[],"reviewed_files":[{"path":"/srv/site/assets/font.ttf","sha256":"REPLACE_WITH_REVIEWED_64_HEX_HASH","reviewed":true,"coverage_reasons":["window"]}]}
+```
+
+Accepted gaps stay in `discovery.webshell_coverage.paths` with reason, hash and `baseline_accepted: true`. `examined_files` stays unchanged; `incomplete_files` includes them and `accepted_incomplete_files` counts the reviewed subset. The coverage row is INFO only if every remaining gap is explicitly accepted; `coverage_counts` still records the gaps. New indicators remain independent, even in a coverage-accepted file. A changed hash/path/reason loses acceptance. Access failures, symlinks, changed files, root/file timeouts, total-byte/entry/finding limits and unvisited files cannot be accepted. `--ignore P2S-WS003` still cannot turn UNKNOWN into a pass.
+
+## WordPress integrity first
+
+With a trusted WP-CLI installation, first run:
+
+```bash
+wp core verify-checksums --path=/srv/site --include-root
+```
+
+Use the intended released version/locale; investigate mismatches and do not bypass TLS validation or exclude unexplained files. If WP-CLI is unavailable, compare with a separately obtained trusted matching release. Plugins, themes and extra files need their own trusted-source checks. A core checksum pass does not prove application safety or absence of other persistence. Only then review indicator context and selected full-file coverage exceptions; do not promote a scan of an untrusted host straight into an approved baseline. [Official WP-CLI command and scope](https://developer.wordpress.org/cli/commands/core/verify-checksums/).
 
 ## Validation and benign-source calibration
 
@@ -196,12 +220,12 @@ sample does not establish a general false-positive rate or certify WordPress.
 The same pinned commit is also tested as a **complete 5320-file source archive**
 (167112154 uncompressed bytes), including media and fonts. Default and expanded
 runs record fully examined/incomplete counts and **every retained incomplete
-relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). The dev.3 default run fully examines 5317 files with 3 explicit incomplete files (a large JS file containing PHP-like text and two fonts containing explicit PHP-like tags); the expanded run has 2 incomplete fonts. Three review rows and one OPEN include remain. The legitimate WordPress `wp-admin/update.php` include at line 101 is OPEN because copies/`basename()` cannot prove path safety; inspect its actual guards before explicitly baselining it. There is no framework exemption. The residual explicit-tag/parser gaps stay UNKNOWN; the report does not claim the whole tree passed. Timing is a measurement
+relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). The dev.4 default run fully examines 5317 files with 3 windowed incomplete files (the large JS worker and two fonts); expanded budgets leave 2 incomplete fonts. Three review rows and one MEDIUM/OPEN include remain. There is no framework exemption. A third fixture run compares the exact files against the pinned archive, explicitly baselines the four indicators and three known gaps, and exits 0 with 5317 examined / 3 incomplete / 3 reviewed exceptions. The raw accepted OPEN row remains in JSON. This is an acknowledgement demonstration on pinned benign test data, not a malware-clean result or evidence that WP-CLI was run on this development Git archive. Timing is a measurement
 on the recorded run, not a performance guarantee. The regression suite also
 includes 450000 line comments followed by an indicator and a 300-file indicator
 tree that still reaches the active 200-finding cap.
 
-[Actual SSH launcher evidence](WEBSHELL-SSH.json) records eight cases using Bash and native Windows PowerShell against a protected disposable fixture: review exit 1, exact-baseline exit 0, redacted reports without paths/hashes, and changed hashes requiring review again. This is transport/baseline evidence, not production compromise recovery.
+[Actual SSH launcher evidence](WEBSHELL-SSH.json) records ten cases using Bash and native Windows PowerShell against a protected disposable fixture: review exit 1, exact-baseline exit 0, redacted reports without paths/hashes, changed hashes requiring review again, and raw-byte filename JSON roundtrips through both launchers. This is transport/baseline evidence, not production compromise recovery.
 
 ## What to do with a finding
 

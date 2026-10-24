@@ -1,107 +1,110 @@
-# Webshell preview review response: 2.3.0-dev.3
+# Review response: 2.3.0-dev.4
 
-This update addresses the follow-up review of `037c500` / dev.2. It remains a
-development preview. Stable 2.2.1 downloads and main are separate. The earlier
-[dev.2 response](https://github.com/IamAngusU/p2s-harden/blob/037c5005cf5271adea60cc34d2bd84f2dc40ccf0/docs/REVIEW-WEBSHELLS.md)
-records the previous comment-lexer, coverage-path, file-timer and baseline work.
-The [scanner guide](WEBSHELLS.md) is the current behavioral contract.
+This addresses the adversarial review of `347ad4a` / dev.3. It is an unreleased
+development preview; published 2.2.1 files do not contain these corrections.
+Both READMEs flag its known multiline-INI editing limitation before the download
+and fix instructions. Read-only checks are unaffected. The previous
+[dev.3 decisions](https://github.com/IamAngusU/p2s-harden/blob/347ad4a258ac7eb41a226d7b394d495166a8e038/docs/REVIEW-WEBSHELLS.md)
+remain historical context, not the current contract.
 
-## 1. Include aliases no longer reduce priority
+## 1. Byte filenames and strict JSON
 
-Plain request copies, copy chains, casts, interpolated copies and selected known
-transforms such as `basename()`/`trim()` retain `request-include` HIGH/OPEN even
-with a constant directory prefix. The scanner tracks their provenance through
-reassignment and function-local scope. Values passing through helpers of unknown
-semantics may remain `prefixed-include` review; registry callbacks remain visible
-review items. These are triage priorities, not proof that any value is safe.
+Report JSON now uses ASCII escapes and UTF-8 transport. Surrogate-escaped Linux
+filename bytes cannot escape as raw 0xff/0xfe. `path_encoding` identifies the
+filesystem-surrogateescape representation; Python `os.fsencode()` reconstructs
+the exact original bytes. IDs and baseline matching still use the original
+path. Regression tests create actual invalid-UTF-8 filenames, decode the report
+strictly and verify the byte roundtrip and file hash. Node JSON.parse and jq
+also accept the escaped wire representation.
 
-This correction makes a legitimate `wp-admin/update.php` include OPEN again. Its
-application guards require contextual review; suppressing all copies simply to
-make WordPress return zero would restore the reported defect. A reviewed exact
-baseline can accept unchanged indicators, but cannot accept coverage gaps.
+Human stdout/stderr use backslash replacement under restricted encodings and
+the banner uses an ASCII hyphen. Real CLI help/doctor runs cover ASCII with
+UTF-8 mode/coercion disabled; terminal control-character sanitization remains.
+[Ten actual SSH cases](WEBSHELL-SSH.json) cover both Bash and native PowerShell,
+including legacy byte filenames, baseline matching, changed hashes and redaction.
 
-## 2. Stream opener searches before the parser cap
+## 2. INI edits and effective configuration
 
-Each stable regular file is fully streamed for applicable PHP openers, with
-cross-chunk/short-read handling. A large file without an opener or selected
-startup configuration no longer hits the PHP parse-size cap. Every read still
-consumes global bytes and per-file/root time; large PHP/startup files remain
-explicitly incomplete. Full-file SHA256 and identity/metadata checks remain.
+The reported multiline value could leave a trailing quoted line and stop PHP
+from loading subsequent settings. The editor now refuses multiline/unclosed
+quotes anywhere in the target file before a line-based rewrite. It preserves
+a leading BOM and CRLF and appends only one PHP section for missing targets.
+It does not attempt to repair general INI syntax automatically.
 
-Files containing NUL/selected ASCII control bytes require explicit `<?php` or
-`<?=` openers; other text also accepts generic short tags except XML declarations.
-This avoids random generic short tags in binary assets without filename or
-framework exemptions. Generic short-tag PHP embedded in binary-like data is a
-documented detection limitation. Explicit tags can still occur in benign data.
+Before the first replacement, affected FPM instances provide effective registered
+INI tables; after writing, every unrelated directive is compared before reload.
+Incomplete/ambiguous tables refuse the fix. Values are hashed in memory, never
+printed or stored in the transaction/report. A mismatch restores original files
+before the altered configuration is reloaded. Digests, metadata checks and
+interrupted rollback remain in place.
 
-The [complete pinned WordPress archive](WEBSHELL-FULL-CORPUS.json) has 5320 files
-and 167112154 bytes. The default run now fully examines **5317**, leaving **3**
-incomplete (previously 38): one large JS file with PHP-like text and two fonts
-with explicit PHP-like tags hitting lexical bounds. Expanded budgets leave the
-two fonts incomplete. There are **3 review rows and 1 OPEN include**. The exact
-relative paths and reasons remain recorded; neither run is called a clean pass.
-The [25-file calibration](WEBSHELL-CORPUS.json) has two review indicators, complete
-coverage and no OPEN. These are benign-source measurements, not detection rates.
+The runtime harness adds **14 real editor/parser cases per PHP image**: plain,
+CRLF, BOM, duplicates, quoted values, inline comments, quoted semicolons, escaped
+quotes, absent keys, no final newline, ordinary sections, conditional sections,
+multiline targets and multiline unrelated values. A **379M memory_limit** sentinel
+and all unrelated effective registered directives must survive. Refused inputs
+must remain byte-identical. Four FPM versions exercise these alongside the
+existing 104 FastCGI observations; no production config is mounted or changed.
 
-## 3. Low-priority scanning without restarting SSH
+## 3. Useful WordPress triage without blanket exclusions
 
-The scanner lowers its own CPU priority to nice 10 using the OS API, preserving
-an already lower priority. Optional trusted `ionice -c 3 -p PID` requests idle
-I/O under a two-second helper timeout. Missing, unsafe or denied helpers leave
-an INFO scheduling result and the file scan continues. Nothing is installed.
-`--no-nice` skips both changes without raising inherited priorities.
+Constant-prefixed request includes now have **P2S-WS007 MEDIUM/OPEN**. Direct
+input, copies, casts and basename still cannot hide the finding as INFO. A prefix
+does not prevent traversal; unrestricted request includes remain HIGH. This is
+a preview rule/indicator change, so an older baseline needs contextual review.
 
-The Python payload is never re-executed, so stdin/SSH transport stays intact.
-Actual subprocess tests verify inherited child niceness and an unaffected parent;
-negative tests cover absent/denied helpers and opt-out. Scheduling priorities are
-not hard resource caps and are not applied by ordinary configuration audits.
+Oversized files with explicit PHP openers receive bounded window analysis;
+binary files that hit token/expression bounds get additional window leads. Each
+window is at most 64 KiB; parser bytes, opener count, root bytes and clocks remain
+bounded. Full-file hashing, global line numbers and post-reread metadata checks
+remain. Windows can miss aliases/control flow elsewhere and therefore retain
+`window` incomplete coverage. Large startup/short-tag-only files retain size
+gaps. No PHP payload is executed, unpacked, uploaded or deleted.
 
-## 4. Optional blocking review policy
+An explicit protected schema-1 `reviewed_files` entry may acknowledge a stable,
+fully hashed file after trusted full-file comparison. It must name the canonical
+path, complete SHA256, `reviewed: true` and selected parse/window reasons. An
+ordinary scan report never automatically approves coverage. Read/access/race,
+symlink, timeout, global-budget and unvisited-content failures cannot be accepted.
+New indicators remain independent; changed bytes/path/reason invalidate approval.
+Accepted incomplete files remain in the diagnostics and incomplete counters,
+with separate `accepted_incomplete_files`; they never become fully examined.
 
-`--fail-on review` returns 1 for unaccepted WS004 review items or OPEN, before
-considering UNKNOWN. Without those, UNKNOWN returns 2; ordinary INFO never fails.
-The default UNKNOWN-first and existing OPEN-first policies retain their behavior.
-Exact baselines and explicit finding/rule ignores can accept review exit impact;
-rows remain visible in JSON with unchanged status/evidence. `has_review` and
-`suppressed_review` are additive schema-2 fields; `suppressed_open` counts only
-suppressed OPEN. Coverage cannot become a pass through an ignore or baseline.
+The [WordPress recipe](WEBSHELLS.md#wordpress-integrity-first) starts with trusted
+`wp core verify-checksums`, followed by separate trusted-source checks for themes,
+plugins and extra files as needed. No checksum tool is installed or run by p2s.
+This is integrity evidence, not a clean-server guarantee.
 
-## 5. Concurrent transaction writers
+The [pinned 5320-file archive](WEBSHELL-FULL-CORPUS.json) has 5317 fully examined
+files and 3 window gaps under defaults; expanded limits have 5318 / 2. One
+MEDIUM include and three review indicators remain. A third disposable fixture
+run compares the exact known files against the pinned archive and explicitly
+accepts four indicators and three gaps. It exits 0 with **5317 examined, 3
+incomplete, 3 reviewed exceptions**, retaining the accepted OPEN row in JSON.
+It does not claim all 5320 files were analyzed, nor that WP-CLI verified this
+development Git archive. No WordPress filename/framework whitelist is built in.
 
-Fix preparation/apply/reload/recovery and rollback selection/restore acquire a
-nonblocking kernel `flock` on the protected backup-directory inode. The CLI holds
-it across prepare and apply. There is no replaceable lock file or stale PID to
-remove; process exit releases the lock. Contention becomes actionable UNKNOWN
-before target changes. Ownership, mode, no-symlink and inode checks protect the
-lock target. Read-only checks never acquire it.
+## 4. System-wide transaction coordination
 
-Actual separate-process regressions attempt prepare, apply and rollback while
-another writer holds the lock, assert no changes, and verify recovery after the
-holder exits/is terminated. Use one backup root for overlapping targets: distinct
-custom roots and unrelated package tools/editors do not coordinate. Existing
-digest and metadata conflict checks remain necessary.
-
-## 6. Retention and supported scope
-
-Both READMEs now put Debian/Ubuntu host PHP-FPM with Nginx/systemd beside the
-initial introduction. Configuration fixes for RHEL, Apache/mod_php and hosting
-panels are outside the tested workflow. Explicit-root static scans have broader
-Linux applicability. The transaction documentation explains that backups are not
-automatically pruned; operators retain needed recovery data and monitor storage.
+All current fix/rollback writers now acquire the fixed protected mode-0700
+`/run/p2s-harden` directory lock before the backup-root lock. Changing
+`--backup-root` cannot bypass it. The legacy root lock remains for compatibility.
+Ownership, mode, no-symlink and inode checks protect both directories; there is
+no configurable global path or stale PID file. The kernel releases locks after
+exit/termination. Actual separate-process tests cover prepare/apply/rollback
+contention and a different backup root with no target changes. Unrelated editors
+and older versions do not participate in the new system lock. Read-only modes
+do not acquire it, and backup retention remains an explicit operator decision.
 
 ## Validation and release boundary
 
-The fixture suite has **236 tool tests and 23 auxiliary tests**, including the
-new alias, streaming, priority, review-policy and real concurrency cases. Native
-PowerShell 5.1 verifies the exact payload and new option forwarding.
-[Eight actual SSH cases](WEBSHELL-SSH.json) exercise both Bash and PowerShell:
-review exit 1, protected exact-baseline exit 0, redaction privacy, and changed
-hashes requiring review again. Tests use owned disposable fixtures only.
-
-The PR links exact-commit public CI and verified runtime artifacts: Python
-3.8/3.12, native Windows, PHP-FPM 8.2–8.5 and four Debian/Ubuntu systemd VMs.
-The VM harness asserts pure JSON during actual `--fix --json --yes` and validates
-reload, workers and rollback. Never run that destructive developer harness on
-an existing server. The CI account belongs to the same maintainer; this is not
-an independent audit. Branch CI is not stable-release attestation verification.
-No production compromise recovery or evasive-malware detection rate is claimed.
+**251 tool tests and 23 auxiliary tests** cover the new failure modes and previous
+contracts. Native PowerShell verifies exact UTF-8 source payload/option forwarding;
+the actual SSH cases additionally verify byte-filename reports. The public CI
+matrix covers Python 3.8/3.12, Windows, PHP-FPM 8.2–8.5 (104 FastCGI + 56 INI
+parser cases), and four real Debian/Ubuntu systemd VMs with fix/reload/worker and
+rollback observations. The PR/main run links identify the exact tested commits;
+runtime artifacts carry the engine hash. Main additionally has signed build
+provenance and commit-specific public proof. The fork belongs to the same
+maintainer and is not an independent audit. No production compromise recovery,
+universal detection or evasive-malware detection rate is claimed.

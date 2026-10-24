@@ -11,6 +11,8 @@ GitHub-hosted runner access is currently unavailable in the source account. Publ
 - Four real booted VMs with distro Nginx/systemd: Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The guarded system harness exercises actual discovery, automatic mapping, check, private report projection, preview, unapproved-JSON-fix refusal, confirmed fix, permission changes, service reload and HTTP worker observations, then rollback and repeated rollback. No fixture instance or mocked systemctl is used.
 - Windows: generated-file consistency and native PowerShell/SSH transport with a temporary fake SSH executable, including quoting and exit codes.
 
+- Each real FPM job additionally runs 14 INI editor/parser cases: BOM, CRLF, duplicates, comments, quoting, missing keys, section handling and multiline refusal. All unrelated effective registered directives and the 379M memory sentinel must remain unchanged.
+
 - A dependent provenance job signs the four exact distribution files only after all eleven test jobs pass and source/fork heads match. [Signer identity and verification](PROVENANCE.md).
 
 Actual jobs and steps are recorded in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) and [JSON](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/public-proof.json). Each snapshot names its exact source commit, run and attempt. The badge counts measured job results; missing expected jobs remain visible and do not pass.

@@ -7,19 +7,19 @@
     "bytes": 1800024,
     "line_comments": 450000,
     "deadline_seconds": 2,
-    "elapsed_seconds": 2.016,
+    "elapsed_seconds": 2.015,
     "indicators": {},
     "incomplete": "time"
   },
   {
     "engine": "after",
-    "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+    "engine_sha256": "fcaf4e435ba3cafe3257a985d97b95b728f29ccacdabc2572704e9eecf8b2a1b",
     "platform": "win32",
     "python": "3.12.14",
     "bytes": 1800024,
     "line_comments": 450000,
     "deadline_seconds": 2,
-    "elapsed_seconds": 0.203,
+    "elapsed_seconds": 0.188,
     "indicators": {
       "request-execution": 450002
     },

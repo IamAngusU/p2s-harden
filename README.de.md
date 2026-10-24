@@ -28,11 +28,13 @@
 
 ## Direkt starten
 
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.3**.
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.4**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
 Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
-Für die Vorschau gibt es Branch-CI-Nachweise, keine Stable-Release-Build-Attestierung.
+Die Vorschau hat Commit-genaue CI-Nachweise und ist von den Stable-Release-Dateien getrennt.
+
+**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.4-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Dev.4 verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
 [Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
 
 Lade **eine Datei** für deinen Startrechner:
@@ -116,7 +118,7 @@ sudo bash p2s-harden.sh --fix --yes --json
 sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 ```
 
-Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includes in unterstützten INIs. Anwendungskompatibilität prüfen. Verzeichnisänderungen brauchen `--protect-dir /absoluter/codepfad` und bekannten PHP-Benutzer; Erkennung wählt keine Rechteziele. Die Textausgabe nennt den exakten Undo-Befehl, JSON Backup-ID und Status. Wiederholtes implizites Rollback wählt keinen älteren Fix. Es prüft Inhalt und Metadaten, stellt ursprüngliche Zeitstempel wieder her und lässt sich nach Unterbrechung fortsetzen. Fixes erhalten aktuelle Änderungszeitpunkte. Die Entwicklungsvorschau ergänzt eine nicht wartende Kernel-Sperre gegen parallele Fix-/Rollback-Schreibzugriffe mit demselben geschützten Backup-Verzeichnis. Backups werden nicht automatisch gelöscht; Speicherplatz und benötigte Wiederherstellungen selbst verwalten.
+Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includes in unterstützten INIs. Anwendungskompatibilität prüfen. Verzeichnisänderungen brauchen `--protect-dir /absoluter/codepfad` und bekannten PHP-Benutzer; Erkennung wählt keine Rechteziele. Die Textausgabe nennt den exakten Undo-Befehl, JSON Backup-ID und Status. Wiederholtes implizites Rollback wählt keinen älteren Fix. Es prüft Inhalt und Metadaten, stellt ursprüngliche Zeitstempel wieder her und lässt sich nach Unterbrechung fortsetzen. Fixes erhalten aktuelle Änderungszeitpunkte. Die Entwicklungsvorschau ergänzt eine nicht wartende Kernel-Sperre gegen parallele Fix-/Rollback-Schreibzugriffe über ein festes geschütztes Systemverzeichnis, auch bei unterschiedlichen `--backup-root`-Werten. Backups werden nicht automatisch gelöscht; Speicherplatz und benötigte Wiederherstellungen selbst verwalten.
 
 Audit, Diagnose, Inventar und Trockenlauf ändern keine Zielkonfiguration, Rechte oder Dienste. Lesen und HTTP können Zugriffszeiten und gewöhnliche Logs aktualisieren.
 
@@ -227,7 +229,7 @@ HTTP-Zugriff. Die Suche liest lokal; sie führt keinen Fund aus und entpackt,
   Dateien werden getrennt gezählt. Indirekte Includes mit konstantem Präfix und
   Registry-Callbacks bleiben als **INFO-Prüfpunkte** sichtbar; das belegt keine
   Sicherheit. Eine ausdrücklich geprüfte **`--baseline`** akzeptiert nur denselben
-  Pfad, Hash und Indikator und blendet keine UNKNOWN-Prüflücken aus.
+  Pfad, Hash und Indikator. Ausdrückliche `reviewed_files`-Einträge können nach vertrauenswürdigem Quellvergleich bestimmte Parser-/Fensterlimits bei vollständig gehashten Dateien anerkennen. Unlesbare, instabile, zeitlich abgebrochene oder unbesuchte Inhalte bleiben UNKNOWN; akzeptierte unvollständige Dateien werden getrennt gezählt.
   [Sichere Baseline-Nutzung und Grenzen](docs/WEBSHELLS.md#reviewed-baselines).
 
 **Ein Indikator braucht Prüfung; keine Treffer belegen keinen sauberen Server.**
@@ -236,7 +238,7 @@ OS-, Cron-/SSH- und Speicher-Backdoors, verschlüsselte Payloads und Dateien au�
 der ausgewählten Wurzeln bleiben außerhalb ihres Umfangs. Ziele von Startdirektiven
 werden nicht automatisch verfolgt. Bei bestätigtem Einbruch Beweise sichern, Host
 isolieren, Einstiegslücke schließen, aus vertrauenswürdigen Quellen neu aufsetzen
-und betroffene Zugangsdaten erneuern. Die Vorschau senkt die Scan-CPU-Priorität auf nice 10 (bereits niedrigere bleibt erhalten) und fordert Idle-I/O mit optionalem `ionice` an. `--no-nice` deaktiviert dies; fehlende oder gesperrte Helfer werden gemeldet und die Suche läuft weiter. Das sind keine festen Ressourcenlimits. Große Dateien werden vor dem Parserlimit nach PHP-Tags durchsucht. Binärartig erkannte Inhalte benötigen `<?php` oder `<?=`; einfache Short-Tags darin liegen außerhalb der Erkennung. Kopien, Casts und `basename()` behalten die hohe Include-Priorität. [Regeln, Grenzen und Reaktion](docs/WEBSHELLS.md).
+und betroffene Zugangsdaten erneuern. Die Vorschau senkt die Scan-CPU-Priorität auf nice 10 (bereits niedrigere bleibt erhalten) und fordert Idle-I/O mit optionalem `ionice` an. `--no-nice` deaktiviert dies; fehlende oder gesperrte Helfer werden gemeldet und die Suche läuft weiter. Das sind keine festen Ressourcenlimits. Große Dateien werden vor dem Parserlimit nach PHP-Tags durchsucht. Binärartig erkannte Inhalte benötigen `<?php` oder `<?=`; einfache Short-Tags darin liegen außerhalb der Erkennung. Kopien, Casts und `basename()` behalten offene Include-Befunde. Request-Includes mit konstantem Präfix haben eine eigene MEDIUM-Regel; unbeschränkte Request-Includes bleiben HIGH. [Regeln, Grenzen und Reaktion](docs/WEBSHELLS.md).
 
 ## Umfang und Reifegrad
 

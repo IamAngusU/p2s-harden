@@ -18,6 +18,9 @@ class CliContracts(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(dir=Path.cwd(), prefix="p2s-cli-")
         self.root = Path(self.temporary.name)
+        lock_path = patch.object(p, "TRANSACTION_LOCK_ROOT", str(self.root / "system-transaction-lock"))
+        lock_path.start()
+        self.addCleanup(lock_path.stop)
         self.ini = self.root / "php.ini"
         self.original = b"allow_url_include=On\n"
         self.ini.write_bytes(self.original)

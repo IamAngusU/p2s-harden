@@ -4,6 +4,7 @@ WEBSHELL_INDICATORS = {
     "request-execution": "Request data near a code/command execution sink",
     "encoded-execution": "Decoder output near a PHP code execution sink",
     "request-include": "Request data near a PHP include/require",
+    "request-prefixed-include": "Request-derived PHP include with a constant prefix; traversal requires review",
     "request-callable": "Request-selected dynamic function call",
     "network-shell": "Network connection and shell launch in one PHP file",
     "startup-reference": "PHP startup-file directive requires verification",
@@ -11,7 +12,8 @@ WEBSHELL_INDICATORS = {
     "registry-callable": "Request-selected registry callback requires review",
 }
 WEBSHELL_REASONS = ("access", "symlink", "mount", "special", "changed", "depth",
-                   "entries", "time", "file-time", "file-size", "total-bytes", "tokens", "expression", "findings", "config-syntax")
+                   "entries", "time", "file-time", "file-size", "total-bytes", "tokens", "expression", "findings", "config-syntax", "window")
+WEBSHELL_REVIEWABLE_REASONS = frozenset(("file-size", "tokens", "expression", "window"))
 _WS_SOURCE = frozenset(("$_GET", "$_POST", "$_REQUEST", "$_COOKIE", "$_SERVER", "$_FILES"))
 _WS_SINKS = REQUIRED | frozenset(("eval", "assert", "create_function"))
 _WS_DECODERS = frozenset(("base64_decode", "gzinflate", "gzuncompress", "gzdecode", "str_rot13", "hex2bin"))
@@ -256,7 +258,8 @@ def webshell_indicators(data, deadline=None, short_tags=True):
                 incomplete = incomplete or "expression"
             if request(tokens[index + 1:end]):
                 expression = tokens[index + 1:end]
-                add("prefixed-include" if prefixed(expression) and not direct_input(index + 1, end) else "request-include", offset)
+                indicator = ("request-prefixed-include" if direct_input(index + 1, end) else "prefixed-include") if prefixed(expression) else "request-include"
+                add(indicator, offset)
             if uncertain(tokens[index + 1:end]):
                 incomplete = incomplete or "expression"
         if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
