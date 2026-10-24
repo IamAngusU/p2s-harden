@@ -24,17 +24,31 @@
 <p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **Supported configuration workflow: Debian/Ubuntu host PHP-FPM with Nginx and systemd.** RHEL, Apache/mod_php and Plesk/cPanel configuration fixes are outside the tested scope. Explicit-root static file scans have a broader Linux scope. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
+**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **Supported configuration workflow: Debian/Ubuntu host PHP-FPM with Nginx and systemd.** RHEL, Apache/mod_php and Plesk/cPanel configuration fixes are outside the tested scope. Explicit-root static file scans have a broader Linux scope. **2.2.1 is the older published configuration release; heed the INI advisory below.** English is the source/default language; `--lang de` selects German.
 
 ## Start here
 
-**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.5**.
+An attacker may already execute PHP through a vulnerable application or an uploaded file. **`disable_functions` is defense in depth, not a sandbox:** `--fix` restricts selected direct paths; it does not prevent the initial compromise, close every indirect execution path or make a host clean. Application updates, least privilege, OS isolation and incident recovery remain separate requirements; the new Nginx/systemd observations are read-only and bounded.
+
+| Attack path | Countermeasure | Checked by p2s | Changed by p2s |
+|---|---|---|---|
+| Vulnerable plugin/application | Patch, remove vulnerable code, protect authentication | No application/CVE audit | Nothing |
+| Selected direct PHP-to-command calls | Seven function restrictions and URL-include policy | Global/pool policy; separate CI worker tests | Supported INIs after reviewed confirmation |
+| Indirect helpers, FFI, environment and file APIs | Application-specific policy plus OS confinement | FFI policy and residual policy observations; no bypass verdict | Nothing extra |
+| PHP stored in upload paths | Nonexecutable storage and correct Nginx routing | Selected static root/URI mappings; ambiguous routes stay UNKNOWN | No Nginx changes |
+| Privilege gain and OS writes/temp sharing | Review NoNewPrivileges, ProtectSystem, PrivateTmp and exceptions | Matched active unit's manager properties; no worker/kernel attestation | No unit changes |
+| PHP user can replace code | Separate code ownership from writable runtime data | User/permission checks in selected roots | Only explicit supported directory targets |
+| Existing webshell/persistence | Preserve evidence, isolate, rebuild, rotate exposed secrets | Bounded PHP indicators; no OS/memory persistence audit | No malware removal or recovery |
+
+[What each observation means, supported Nginx subset and verification](docs/DEFENSES.md).
+
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.6**.
 Published **2.2.1 downloads below do not include that mode**. Use the generated
 launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
 [PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
 Preview files have commit-specific CI evidence; they are separate from the stable-release assets.
 
-**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.5 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
+**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.6 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
 
 Download **one file** for the computer you run it from:
 
@@ -243,7 +257,7 @@ Unblocking removes the downloaded-file marker; it does not override Restricted o
 
 ## Scope and release status
 
-**Stable within the documented scope.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Current review response](docs/REVIEW-DRAFTS.md) · [2.2.1 review](docs/REVIEW-2.2.1.md) · [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
+**Validated configuration workflow; preview additions remain under evaluation.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Current review response](docs/DEFENSES.md) · [2.2.1 review](docs/REVIEW-2.2.1.md) · [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
 
 GitHub-hosted runner access is currently unavailable in the source account. The public CI fork uses a separate account owned by the same maintainer; it is not an independent audit. The proof checks that the tested commit, source main and fork main match before publishing. [Exact jobs and steps](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [How synchronization works](docs/CI.md).
 

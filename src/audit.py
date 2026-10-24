@@ -22,10 +22,13 @@ def scan(args, inventory_only=False):
         for instance in instances:
             users.update(v["user"] for v in instance["pools"].values() if v.get("user"))
         return report, {}, instances, users
+    nginx_upload_security(report, args)
     for instance in instances:
         saved_updates = {name: dict(values) for name, values in updates.items()}
         try:
             pool_security(report, instance)
+            residual_php_policy(report, instance)
+            fpm_service_posture(report, instance, cap)
             label = instance["config"]
             values = instance["values"]
             disabled = functions(values.get("disable_functions", ""))

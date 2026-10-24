@@ -1,4 +1,4 @@
-# p2s-harden 2.3.0-dev.5. Self-contained Windows -> Linux SSH launcher.
+# p2s-harden 2.3.0-dev.6. Self-contained Windows -> Linux SSH launcher.
 # No PowerShell modules, Bash, Python or installation needed on the client.
 $ErrorActionPreference = 'Stop'
 $target = $null
@@ -18,7 +18,7 @@ function Write-Failure([string]$Title, [string]$Detail) {
         $Detail = Message 'Host details omitted; rerun locally without --redact' 'Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen'
     }
     if ($script:jsonMode) {
-        @{ schema_version = 2; version = '2.3.0-dev.5'; language = $script:lang; redacted = $script:redactMode; exit_code = 2;
+        @{ schema_version = 2; version = '2.3.0-dev.6'; language = $script:lang; redacted = $script:redactMode; exit_code = 2;
            has_open = $false; has_unknown = $true;
            findings = @(@{ id = 'P2S-EXEC001-9773e1e8b98e2493'; rule_id = 'P2S-EXEC001'; resource = 'ssh_transport'; severity = 'unknown';
                            suppressed = $false; remediation = $Detail; status = 'UNKNOWN'; title = $Title; detail = $Detail }); discovery = @{} } | ConvertTo-Json -Depth 5
@@ -55,7 +55,7 @@ try {
             '--help' {
                 if ($lang -eq 'en') {
                     @'
-p2s-harden 2.3.0-dev.5 - Windows -> Linux, directly over OpenSSH
+p2s-harden 2.3.0-dev.6 - Windows -> Linux, directly over OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Discover and audit
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Explain prerequisites
@@ -92,7 +92,7 @@ The default mode is read-only. No installer or configuration file is needed.
                     exit 0
                 }
                 @'
-p2s-harden 2.3.0-dev.5 - Windows -> Linux, direkt per OpenSSH
+p2s-harden 2.3.0-dev.6 - Windows -> Linux, direkt per OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Erkennen und prüfen
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Voraussetzungen erklären
@@ -128,7 +128,7 @@ Standard ist eine Prüfung. Kein Installer und keine Konfigurationsdatei.
 '@
                 exit 0
             }
-            '--version' { 'p2s-harden 2.3.0-dev.5'; exit 0 }
+            '--version' { 'p2s-harden 2.3.0-dev.6'; exit 0 }
             default { $cliArguments.Add($argument) }
         }
     }

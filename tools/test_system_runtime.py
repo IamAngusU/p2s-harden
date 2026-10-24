@@ -63,9 +63,10 @@ def main(argv=None):
         os.chmod(root,0o755)
         ini.write_text(engine.set_ini(ini.read_text(),dict(disable_functions='exec',allow_url_include='On')))
         nginx=Path('/etc/nginx/sites-enabled/p2s-system-test')
-        nginx.write_text('server { listen 127.0.0.1:18080; server_name p2s-ci.test; root '+str(root)+'; '
+        nginx_text=('server { listen 127.0.0.1:18080; server_name p2s-ci.test; root '+str(root)+'; '
                          'location ~ /\\.(env|git) { deny all; } '
                          'location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php'+version+'-fpm.sock; } }\n')
+        nginx.write_text(nginx_text)
         run(['systemctl','restart',service])
         run(['nginx','-t'])
         run(['systemctl','restart','nginx'])
@@ -121,6 +122,49 @@ def main(argv=None):
         assert str(root) not in json.dumps(shared) and 'p2s-ci.test' not in json.dumps(shared)
         assert ini.read_bytes()==baseline
         evidence['cases'].append(dict(name='shareable-report-preserves-results-without-host-details',status='PASS'))
+        posture=next(row for row in checked['findings'] if row['rule_id']=='P2S-SYS002' and row['resource']['service']==service)
+        expected=dict(line.split('=',1) for line in run(['systemctl','show','--property=NoNewPrivileges,ProtectSystem,PrivateTmp','--',service]).splitlines())
+        assert posture['status']=='INFO' and posture['evidence']['assessment']=='manager_policy',posture
+        assert [posture['evidence'][key] for key in ('no_new_privileges','protect_system','private_tmp')]==[expected[key] for key in ('NoNewPrivileges','ProtectSystem','PrivateTmp')]
+        assert posture['evidence']['worker_attestation'] is False
+        evidence['cases'].append(dict(name='actual-systemd-manager-policy-observation',status='PASS',properties=expected,worker_attestation=False))
+        uploads=root/'uploads';uploads.mkdir(mode=0o755)
+        (uploads/'p2s-upload.php').write_text('<?php echo "P2S_UPLOAD_FIXTURE";')
+        def upload_response(expected_status=200):
+            for _ in range(60):
+                connection=http.client.HTTPConnection('127.0.0.1',18080,timeout=2)
+                try:
+                    connection.request('GET','/uploads/p2s-upload.php',headers={'Host':'p2s-ci.test'})
+                    response=connection.getresponse()
+                    result=response.status,response.read(65536)
+                    if result[0]==expected_status:return result
+                except (OSError,http.client.HTTPException):pass
+                finally:connection.close()
+                time.sleep(0.1)
+            raise RuntimeError('Upload fixture did not reach expected HTTP status '+str(expected_status))
+        def upload_row():
+            original_nginx=nginx.read_bytes()
+            result=cli('--check','--runtime-dir',str(uploads))
+            assert nginx.read_bytes()==original_nginx and ini.read_bytes()==baseline and root.stat().st_uid==33
+            return next(row for row in result['findings'] if row['rule_id']=='P2S-NGX001' and isinstance(row['resource'],dict) and row['resource'].get('path')==str(uploads))
+        assert upload_row()['status']=='OPEN'
+        assert upload_response()==(200,b'P2S_UPLOAD_FIXTURE')
+        assert nginx.read_text()==nginx_text and ini.read_bytes()==baseline
+        evidence['cases'].append(dict(name='actual-upload-php-route-open',status='PASS',http_status=200,php_executed=True,audit_status='OPEN',configuration_unchanged=True))
+        def route_variant(extra):
+            head,tail=nginx_text.rsplit('}',1)
+            nginx.write_text(head+extra+' }'+tail)
+            run(['nginx','-t']);run(['systemctl','reload','nginx'])
+        route_variant('location ^~ /uploads/ { return 403; }')
+        assert upload_row()['status']=='OK'
+        status,body=upload_response(403)
+        assert status==403 and b'P2S_UPLOAD_FIXTURE' not in body
+        evidence['cases'].append(dict(name='actual-upload-static-guard-blocks',status='PASS',http_status=403,php_executed=False,audit_status='OK',configuration_unchanged=True))
+        route_variant('location /uploads/ { location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php'+version+'-fpm.sock; } }')
+        assert upload_row()['status']=='UNKNOWN'
+        assert upload_response()==(200,b'P2S_UPLOAD_FIXTURE')
+        evidence['cases'].append(dict(name='actual-upload-nested-route-never-false-green',status='PASS',http_status=200,php_executed=True,audit_status='UNKNOWN',configuration_unchanged=True))
+        nginx.write_text(nginx_text);run(['nginx','-t']);run(['systemctl','reload','nginx'])
         preview=cli('--dry-run')
         assert preview['plan']['ini'] and not preview['plan']['blockers']
         assert any('+disable_functions' in e['diff'] for e in preview['plan']['ini'])
