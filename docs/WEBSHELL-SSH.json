@@ -1,5 +1,5 @@
 {
-  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+  "engine_sha256": "fcaf4e435ba3cafe3257a985d97b95b728f29ccacdabc2572704e9eecf8b2a1b",
   "cases": [
     {
       "client": "powershell",
@@ -30,6 +30,14 @@
       "has_unknown": false
     },
     {
+      "client": "powershell",
+      "case": "raw-byte-filename-json-roundtrip",
+      "exit_code": 1,
+      "has_unknown": false,
+      "ascii_utf8_json": true,
+      "filesystem_bytes_preserved": true
+    },
+    {
       "client": "bash",
       "case": "unaccepted-review",
       "exit_code": 1,
@@ -56,6 +64,14 @@
       "exit_code": 1,
       "has_review": true,
       "has_unknown": false
+    },
+    {
+      "client": "bash",
+      "case": "raw-byte-filename-json-roundtrip",
+      "exit_code": 1,
+      "has_unknown": false,
+      "ascii_utf8_json": true,
+      "filesystem_bytes_preserved": true
     }
   ],
   "scope": "Owned disposable fixture only; no production configurations changed"

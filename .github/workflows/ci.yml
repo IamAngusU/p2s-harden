@@ -65,6 +65,11 @@ jobs:
               for case in image["cases"]:
                   for failure in case["failures"]:
                       print(case["name"] + ": " + failure)
+              ini_cases = image.get("ini_editor_cases", [])
+              print(f"INI editor: {sum(case['status'] == 'PASS' for case in ini_cases)}/{len(ini_cases)} real PHP parser cases")
+              for case in ini_cases:
+                  for failure in case["failures"]:
+                      print(case["name"] + ": " + failure)
           if report.get("error"):
               print("Incomplete runtime evidence: " + report["error"])
           PY

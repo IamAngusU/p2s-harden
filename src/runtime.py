@@ -31,7 +31,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.3"
+VERSION = "2.3.0-dev.4"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -42,6 +42,17 @@ class CheckError(RuntimeError):
 
 class HttpBudgetExceeded(CheckError):
     pass
+
+
+def configure_output(as_json=False):
+    """ASCII JSON escapes preserve filesystem surrogates; terminals never fail."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            options = dict(errors="backslashreplace")
+            if as_json and stream is sys.stdout:
+                options["encoding"] = "utf-8"
+            reconfigure(**options)
 
 
 def install_hint(package):
@@ -173,22 +184,72 @@ def pool_values(text):
 def active_ini_lines(text, key):
     # Exclude both PHP comment syntaxes, retain only real assignments.
     pattern = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
-    return [i for i, line in enumerate(text.splitlines()) if pattern.match(line)]
+    return [i for i, line in enumerate(text.splitlines()) if pattern.match(line[1:] if i == 0 and line.startswith("\ufeff") else line)]
+
+
+def validate_ini_edit(text):
+    """Refuse multiline/unclosed quotes anywhere before a line-based edit."""
+    for line in text.splitlines():
+        quote, escaped = None, False
+        if line.lstrip("\ufeff \t").startswith((";", "#")):
+            continue
+        for char in line:
+            if escaped:
+                escaped = False
+            elif quote and char == "\\":
+                escaped = True
+            elif quote and char == quote:
+                quote = None
+            elif quote is None and char in ("'", '"'):
+                quote = char
+            elif quote is None and char in (";", "#"):
+                break
+        if quote:
+            raise CheckError("Multiline or unclosed INI quotes: automatic changes refused; review the file manually")
+
+
+def ini_snapshot(text):
+    """Hash only PHP's three-column INI tables, never its environment dump."""
+    values, table = {}, False
+    for line in text.splitlines():
+        if line.strip() == "Directive => Local Value => Master Value":
+            table = True
+            continue
+        if not line.strip():
+            table = False
+            continue
+        if not table:
+            continue
+        parts = line.split(" => ")
+        key = parts[0].strip()
+        if len(parts) != 3 or key in values or re.fullmatch(r"[A-Za-z_][A-Za-z_0-9.-]*", key) is None:
+            raise CheckError("PHP INI snapshot is ambiguous; automatic changes refused")
+        values[key] = digest(json.dumps(parts[1:], ensure_ascii=True).encode("ascii"))
+    if not {"disable_functions", "allow_url_include", "memory_limit"} <= values.keys():
+        raise CheckError("Cannot verify the complete PHP INI snapshot; automatic changes refused")
+    return values
 
 
 def set_ini(text, updates):
+    validate_ini_edit(text)
     if re.search(r"^\s*\[(?:PATH|HOST)\s*=", text, re.M | re.I):
         raise CheckError('Conditional PATH/HOST INI sections: automatic changes refused')
     lines = text.splitlines(keepends=True)
+    newline = next(iter(re.findall(r"\r\n|\n|\r", text)), "\n")
+    missing = []
     for key, value in updates.items():
         indices = active_ini_lines("".join(lines), key)
-        replacement = f"{key} = {value}\n"
         if indices:
-            lines[indices[-1]] = replacement
+            old = lines[indices[-1]]
+            ending = "\r\n" if old.endswith("\r\n") else "\n" if old.endswith("\n") else "\r" if old.endswith("\r") else newline
+            bom = "\ufeff" if indices[-1] == 0 and old.startswith("\ufeff") else ""
+            lines[indices[-1]] = bom + f"{key} = {value}" + ending
         else:
-            if lines and not lines[-1].endswith("\n"):
-                lines[-1] += "\n"
-            lines.extend(["\n[PHP]\n", replacement])
+            missing.append(f"{key} = {value}" + newline)
+    if missing:
+        if lines and not lines[-1].endswith(("\n", "\r")):
+            lines[-1] += newline
+        lines.extend([newline + "[PHP]" + newline, *missing])
     return "".join(lines)
 
 

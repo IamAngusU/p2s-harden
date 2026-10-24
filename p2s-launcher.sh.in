@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.3.0-dev.3 — self-contained; engine is embedded below.
+# p2s-harden 2.3.0-dev.4 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.3.0-dev.3 — one file, automatic discovery
+p2s-harden 2.3.0-dev.4 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -75,7 +75,7 @@ HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.3.0-dev.3 — eine Datei, automatische Erkennung
+p2s-harden 2.3.0-dev.4 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -140,7 +140,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.3.0-dev.3'; exit 0 ;;
+    --version) echo 'p2s-harden 2.3.0-dev.4'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -197,7 +197,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.3.0-dev.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -226,7 +226,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -245,7 +245,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi

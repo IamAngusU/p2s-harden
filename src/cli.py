@@ -1,4 +1,5 @@
 def main(argv=None):
+    configure_output()
     language = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     language.add_argument("--lang", choices=("en", "de"), default="en")
     selected, _ = language.parse_known_args(argv)

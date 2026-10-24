@@ -17,6 +17,9 @@ class ToolTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="p2s-test-", dir=Path.cwd())
         self.root = Path(self.tmp.name)
+        lock_path = patch.object(p, "TRANSACTION_LOCK_ROOT", str(self.root / "system-transaction-lock"))
+        lock_path.start()
+        self.addCleanup(lock_path.stop)
         self.ini = self.root / "php.ini"
         self.ini.write_text("; disable_functions = exec,system\nallow_url_include = On\n")
         self.ini.chmod(0o640)
@@ -195,7 +198,8 @@ class ToolTests(unittest.TestCase):
         def command(argv, **kwargs):
             calls.append(argv)
             if "-i" in argv:
-                return "disable_functions => " + ",".join(p.REQUIRED) + "\nallow_url_include => Off\n", ""
+                disabled=','.join(sorted(p.REQUIRED))
+                return "Directive => Local Value => Master Value\ndisable_functions => " + disabled + " => " + disabled + "\nallow_url_include => Off => Off\nmemory_limit => 379M => 379M\n", ""
             if "show" in argv:
                 return "0\n", ""
             return "", ""

@@ -107,7 +107,7 @@ class WebshellIndicators(unittest.TestCase):
     def test_prefixed_indirect_include_is_review_but_direct_input_stays_high_priority(self):
         self.assertIn('prefixed-include', self.indicators("<?php $page=lookup_page($_GET['page']); include WP_PLUGIN_DIR . '/' . $page;"))
         self.assertIn('prefixed-include', self.indicators("<?php $page=lookup_page($_GET['page']); include '/plugins/' . $page;"))
-        self.assertIn('request-include', self.indicators("<?php include '/plugins/' . $_GET['page'];"))
+        self.assertIn('request-prefixed-include', self.indicators("<?php include '/plugins/' . $_GET['page'];"))
         self.assertIn('request-include', self.indicators("<?php $page=$_GET['page']; include $page;"))
 
     def test_include_priority_survives_copies_casts_known_transforms_and_scope(self):
@@ -121,7 +121,7 @@ class WebshellIndicators(unittest.TestCase):
                       "$p=$_GET['p']; function unrelated(){$p='x';}"):
             with self.subTest(setup=setup):
                 hits=self.indicators("<?php " + setup + " include __DIR__ . '/' . $p;")
-                self.assertIn('request-include',hits)
+                self.assertIn('request-prefixed-include',hits)
                 self.assertNotIn('prefixed-include',hits)
         for setup in ("$p=lookup($_GET['p']);", "$a=lookup($_GET['p']); $p=$a;",
                       "$a=$_GET['p']; $p=lookup($a);", "$a=$_GET['p']; $p=lookup(basename($a));"):
@@ -176,6 +176,18 @@ class WebshellBaselineContracts(unittest.TestCase):
             p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry(),self.entry(sha256='b'*64)]))
         with self.assertRaises(p.CheckError):
             p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry()]*10001))
+
+    def test_coverage_requires_explicit_review_and_never_accepts_unstable_or_unreadable_content(self):
+        entry=dict(path='/srv/site/font.ttf',sha256='a'*64,reviewed=True,coverage_reasons=['window'])
+        value=dict(schema_version=1,reviewed_files=[entry])
+        self.assertEqual(p.webshell_baseline_entries(value),{('/srv/site/font.ttf','coverage:window'):'a'*64})
+        for change in (dict(reviewed=False),dict(reviewed='true'),dict(coverage_reasons=['access']),
+                       dict(coverage_reasons=['changed']),dict(coverage_reasons=['time']),dict(coverage_reasons=['total-bytes']),
+                       dict(coverage_reasons=['symlink']),dict(coverage_reasons=['findings']),dict(coverage_reasons=['*'])):
+            with self.subTest(change=change),self.assertRaises(p.CheckError):
+                p.webshell_baseline_entries(dict(schema_version=1,reviewed_files=[dict(entry,**change)]))
+        with self.assertRaises(p.CheckError):
+            p.webshell_baseline_entries(dict(schema_version=2,discovery=dict(webshell_scan=True),findings=[],reviewed_files=[entry]))
 
 
 class WebshellReviewPolicy(unittest.TestCase):
@@ -388,7 +400,7 @@ class WebshellFilesystem(unittest.TestCase):
         report = self.scan()
         self.assertEqual(report.exit_code(), 2)
         self.assertTrue(report.has('OPEN'))
-        self.assertIn('file-size', report.rows[-1]['evidence']['coverage_reasons'])
+        self.assertIn('window', report.rows[-1]['evidence']['coverage_reasons'])
         report.configure('open')
         self.assertEqual(report.exit_code(), 1)
         self.args.scan_total_bytes = 10
@@ -439,7 +451,7 @@ class WebshellFilesystem(unittest.TestCase):
             file=self.root/'large.data'
             file.write_bytes(b'\x00'+b'x'*(offset-1)+b'<?php eval($_GET["x"]);')
             self.args.scan_file_bytes=1024
-            self.assertIn('file-size',self.scan().rows[-1]['evidence']['coverage_reasons'])
+            self.assertIn('window',self.scan().rows[-1]['evidence']['coverage_reasons'])
             self.args.scan_file_bytes=262144
             self.assertTrue(self.scan().has('OPEN'))
         file.write_bytes(b'x'*65535+b'<?')
@@ -460,6 +472,52 @@ class WebshellFilesystem(unittest.TestCase):
         (self.root/'.user.ini').write_bytes(b'; benign\n'*1024+b'auto_prepend_file=payload.php\n')
         self.args.scan_file_bytes=1024
         self.assertIn('file-size',self.scan().rows[-1]['evidence']['coverage_reasons'])
+
+    def test_windows_find_payload_after_parse_cap_and_keep_global_line_numbers(self):
+        file=self.root/'large.jpg'
+        file.write_bytes(b'\0'+b'benign\n'*20000+b"<?php eval($_GET['x']);")
+        self.args.scan_file_bytes=1024
+        report=self.scan()
+        self.assertTrue(report.has('OPEN'))
+        self.assertTrue(report.has('UNKNOWN'))
+        row=next(row for row in report.rows if row['rule_id']=='P2S-WS001')
+        self.assertEqual(row['evidence']['line'],20001)
+        self.assertEqual(row['sha256'],p.digest(file.read_bytes()))
+        self.assertEqual(report.rows[-1]['evidence']['windowed_files'],1)
+        self.assertEqual(report.rows[-1]['evidence']['examined_files'],0)
+
+    def test_reviewed_file_hash_accepts_only_named_coverage_and_keeps_incomplete_counts(self):
+        file=self.root/'large.bin'
+        file.write_bytes(b'\0'+b'x'*70000+b'<?= echo 1;')
+        self.args.scan_file_bytes=1024
+        entry=dict(path=str(file),sha256=p.digest(file.read_bytes()),reviewed=True,coverage_reasons=['window'])
+        baseline=p.webshell_baseline_entries(dict(schema_version=1,reviewed_files=[entry]))
+        self.args.baseline='fixture'
+        with patch.object(p,'read_webshell_baseline',return_value=baseline):
+            report=self.scan()
+            self.assertEqual(report.exit_code(),0)
+            facts=report.rows[-1]['evidence']
+            self.assertEqual(facts['examined_files'],0)
+            self.assertEqual(facts['incomplete_files'],1)
+            self.assertEqual(facts['accepted_incomplete_files'],1)
+            self.assertTrue(report.discovery['webshell_coverage'][0]['paths'][0]['baseline_accepted'])
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):report.show(True,redact=True)
+            self.assertNotIn(str(file),output.getvalue())
+            self.assertNotIn(entry['sha256'],output.getvalue())
+            file.write_bytes(file.read_bytes()+b'changed')
+            self.assertEqual(self.scan().exit_code(),2)
+            file.write_bytes(b'\0'+b'x'*70000+b"<?php eval($_GET['x']);")
+            # A coverage acceptance never accepts a new execution indicator.
+            baseline[(str(file),'coverage:window')]=p.digest(file.read_bytes())
+            self.assertTrue(self.scan().has('OPEN'))
+
+    def test_prefixed_request_include_is_medium_and_cannot_disappear_as_info(self):
+        (self.root/'include.php').write_bytes(b"<?php $p=basename($_GET['p']); include __DIR__ . '/' . $p;")
+        report=self.scan()
+        row=next(row for row in report.rows if row['rule_id']=='P2S-WS007')
+        self.assertEqual((row['status'],row['severity']),('OPEN','medium'))
+        self.assertEqual(report.exit_code(),1)
 
     def test_redaction_has_useful_facts_but_no_path_source_hash_or_original_id(self):
         file = self.root / 'PRIVATE_HOST.php'
@@ -520,7 +578,9 @@ class WebshellFilesystem(unittest.TestCase):
         self.assertEqual(facts['examined_files'],1)
         self.assertEqual(facts['incomplete_files'],1)
         self.assertEqual(facts['coverage_counts'],{'file-time':1})
-        self.assertEqual(report.discovery['webshell_coverage'][0]['paths'],[dict(path=str(slow),reason='file-time')])
+        issue=report.discovery['webshell_coverage'][0]['paths'][0]
+        self.assertEqual((issue['path'],issue['reason']),(str(slow),'file-time'))
+        self.assertFalse(issue['baseline_accepted'])
 
     def test_comment_stress_file_does_not_hide_later_shells(self):
         (self.root/'comment-heavy.php').write_bytes(b'<?php\n'+b'//x\n'*450000)
@@ -542,14 +602,14 @@ class WebshellFilesystem(unittest.TestCase):
             output=io.StringIO()
             with contextlib.redirect_stdout(output): report.show(as_json)
             self.assertIn(str(file),output.getvalue())
-            self.assertIn('file-size',output.getvalue())
+            self.assertIn('window',output.getvalue())
             output=io.StringIO()
             with contextlib.redirect_stdout(output): report.show(as_json,redact=True)
             self.assertNotIn('PRIVATE_OVERSIZED',output.getvalue())
             self.assertNotIn(str(self.root),output.getvalue())
             if as_json:
                 data=json.loads(output.getvalue())
-                self.assertEqual(data['findings'][-1]['evidence']['coverage_counts'],{'file-size':1})
+                self.assertEqual(data['findings'][-1]['evidence']['coverage_counts'],{'window':1})
         self.assertEqual(p.safe_evidence('P2S-WS003',dict(coverage_counts={'PRIVATE_REASON':1})),{})
 
     def test_coverage_path_truncation_is_explicit_and_counters_remain_complete(self):

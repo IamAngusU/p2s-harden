@@ -6,16 +6,19 @@
   "archive_bytes": 70753300,
   "regular_files": 5320,
   "source_bytes": 167112154,
-  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
-  "scanner_version": "2.3.0-dev.3",
+  "engine_sha256": "fcaf4e435ba3cafe3257a985d97b95b728f29ccacdabc2572704e9eecf8b2a1b",
+  "scanner_version": "2.3.0-dev.4",
   "platform": "linux",
   "python": "3.10.12",
   "results": [
     {
       "settings": "defaults",
       "cli_overrides": [],
-      "elapsed_seconds": 9.689,
+      "elapsed_seconds": 11.798,
       "exit_code": 2,
+      "has_open": true,
+      "has_unknown": true,
+      "suppressed_open": 0,
       "counts": {
         "OK": 0,
         "OPEN": 1,
@@ -35,14 +38,12 @@
           "indicator_count": 4,
           "baseline_accepted_count": 0,
           "coverage_reasons": [
-            "expression",
-            "file-size",
-            "tokens"
+            "window"
           ],
+          "accepted_incomplete_files": 0,
+          "windowed_files": 3,
           "coverage_counts": {
-            "file-size": 1,
-            "tokens": 1,
-            "expression": 1
+            "window": 3
           },
           "omitted_coverage_paths": 0
         }
@@ -50,25 +51,33 @@
       "incomplete_paths": [
         {
           "path": "wp-includes/js/dist/script-modules/vips/worker.min.js",
-          "reason": "file-size"
+          "reason": "window",
+          "sha256": "7d4e0cf5fc2977a5bbf15c42af567fbb99e44053436834e8265423b672d7ec10",
+          "baseline_accepted": false
         },
         {
           "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
-          "reason": "tokens"
+          "reason": "window",
+          "sha256": "b9a8e5e213977665be2a56db66945a16c686da3d9861af1e7851322cf15495ea",
+          "baseline_accepted": false
         },
         {
           "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
-          "reason": "expression"
+          "reason": "window",
+          "sha256": "9ee35efa458e90e993897c32c5101bd9e0b14d6d40716798aa8ce426216e72a9",
+          "baseline_accepted": false
         }
       ],
       "indicators": [
         {
           "path": "wp-admin/update.php",
-          "rule_id": "P2S-WS001",
+          "rule_id": "P2S-WS007",
           "status": "OPEN",
+          "severity": "medium",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
-              "request-include"
+              "request-prefixed-include"
             ],
             "line": 101
           }
@@ -77,6 +86,8 @@
           "path": "wp-admin/includes/ajax-actions.php",
           "rule_id": "P2S-WS004",
           "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
               "registry-callable"
@@ -89,6 +100,8 @@
           "path": "wp-admin/admin.php",
           "rule_id": "P2S-WS004",
           "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
               "prefixed-include"
@@ -101,6 +114,8 @@
           "path": "wp-admin/admin.php",
           "rule_id": "P2S-WS004",
           "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
               "registry-callable"
@@ -123,8 +138,11 @@
         "--scan-file-seconds",
         "10"
       ],
-      "elapsed_seconds": 9.214,
+      "elapsed_seconds": 10.775,
       "exit_code": 2,
+      "has_open": true,
+      "has_unknown": true,
+      "suppressed_open": 0,
       "counts": {
         "OK": 0,
         "OPEN": 1,
@@ -144,12 +162,12 @@
           "indicator_count": 4,
           "baseline_accepted_count": 0,
           "coverage_reasons": [
-            "expression",
-            "tokens"
+            "window"
           ],
+          "accepted_incomplete_files": 0,
+          "windowed_files": 2,
           "coverage_counts": {
-            "tokens": 1,
-            "expression": 1
+            "window": 2
           },
           "omitted_coverage_paths": 0
         }
@@ -157,21 +175,27 @@
       "incomplete_paths": [
         {
           "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
-          "reason": "tokens"
+          "reason": "window",
+          "sha256": "b9a8e5e213977665be2a56db66945a16c686da3d9861af1e7851322cf15495ea",
+          "baseline_accepted": false
         },
         {
           "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
-          "reason": "expression"
+          "reason": "window",
+          "sha256": "9ee35efa458e90e993897c32c5101bd9e0b14d6d40716798aa8ce426216e72a9",
+          "baseline_accepted": false
         }
       ],
       "indicators": [
         {
           "path": "wp-admin/update.php",
-          "rule_id": "P2S-WS001",
+          "rule_id": "P2S-WS007",
           "status": "OPEN",
+          "severity": "medium",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
-              "request-include"
+              "request-prefixed-include"
             ],
             "line": 101
           }
@@ -180,6 +204,8 @@
           "path": "wp-admin/includes/ajax-actions.php",
           "rule_id": "P2S-WS004",
           "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
               "registry-callable"
@@ -192,6 +218,8 @@
           "path": "wp-admin/admin.php",
           "rule_id": "P2S-WS004",
           "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": false,
           "evidence": {
             "indicators": [
               "prefixed-include"
@@ -204,6 +232,124 @@
           "path": "wp-admin/admin.php",
           "rule_id": "P2S-WS004",
           "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": false,
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 373,
+            "review_required": true
+          }
+        }
+      ]
+    },
+    {
+      "settings": "reviewed-fixture-baseline",
+      "cli_overrides": [
+        "--baseline",
+        "<protected-reviewed-fixture.json>"
+      ],
+      "elapsed_seconds": 9.316,
+      "exit_code": 0,
+      "has_open": false,
+      "has_unknown": false,
+      "suppressed_open": 1,
+      "counts": {
+        "OK": 0,
+        "OPEN": 1,
+        "UNKNOWN": 0,
+        "INFO": 6
+      },
+      "scan_priority": {
+        "cpu_priority": "lowered",
+        "io_priority": "idle"
+      },
+      "has_review": false,
+      "coverage": [
+        {
+          "examined_files": 5317,
+          "attempted_files": 5320,
+          "incomplete_files": 3,
+          "indicator_count": 4,
+          "baseline_accepted_count": 4,
+          "coverage_reasons": [],
+          "accepted_incomplete_files": 3,
+          "windowed_files": 3,
+          "coverage_counts": {
+            "window": 3
+          },
+          "omitted_coverage_paths": 0
+        }
+      ],
+      "incomplete_paths": [
+        {
+          "path": "wp-includes/js/dist/script-modules/vips/worker.min.js",
+          "reason": "window",
+          "sha256": "7d4e0cf5fc2977a5bbf15c42af567fbb99e44053436834e8265423b672d7ec10",
+          "baseline_accepted": true
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
+          "reason": "window",
+          "sha256": "b9a8e5e213977665be2a56db66945a16c686da3d9861af1e7851322cf15495ea",
+          "baseline_accepted": true
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
+          "reason": "window",
+          "sha256": "9ee35efa458e90e993897c32c5101bd9e0b14d6d40716798aa8ce426216e72a9",
+          "baseline_accepted": true
+        }
+      ],
+      "indicators": [
+        {
+          "path": "wp-admin/update.php",
+          "rule_id": "P2S-WS007",
+          "status": "OPEN",
+          "severity": "medium",
+          "baseline_accepted": true,
+          "evidence": {
+            "indicators": [
+              "request-prefixed-include"
+            ],
+            "line": 101
+          }
+        },
+        {
+          "path": "wp-admin/includes/ajax-actions.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": true,
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 2433,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": true,
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 300,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "severity": "info",
+          "baseline_accepted": true,
           "evidence": {
             "indicators": [
               "registry-callable"

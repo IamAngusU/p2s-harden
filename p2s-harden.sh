@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.3.0-dev.3 — self-contained; engine is embedded below.
+# p2s-harden 2.3.0-dev.4 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.3.0-dev.3 — one file, automatic discovery
+p2s-harden 2.3.0-dev.4 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -75,7 +75,7 @@ HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.3.0-dev.3 — eine Datei, automatische Erkennung
+p2s-harden 2.3.0-dev.4 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -140,7 +140,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.3.0-dev.3'; exit 0 ;;
+    --version) echo 'p2s-harden 2.3.0-dev.4'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -197,7 +197,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.3.0-dev.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -226,7 +226,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -245,7 +245,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.3","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi
@@ -291,7 +291,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.3"
+VERSION = "2.3.0-dev.4"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -302,6 +302,17 @@ class CheckError(RuntimeError):
 
 class HttpBudgetExceeded(CheckError):
     pass
+
+
+def configure_output(as_json=False):
+    """ASCII JSON escapes preserve filesystem surrogates; terminals never fail."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            options = dict(errors="backslashreplace")
+            if as_json and stream is sys.stdout:
+                options["encoding"] = "utf-8"
+            reconfigure(**options)
 
 
 def install_hint(package):
@@ -433,22 +444,72 @@ def pool_values(text):
 def active_ini_lines(text, key):
     # Exclude both PHP comment syntaxes, retain only real assignments.
     pattern = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
-    return [i for i, line in enumerate(text.splitlines()) if pattern.match(line)]
+    return [i for i, line in enumerate(text.splitlines()) if pattern.match(line[1:] if i == 0 and line.startswith("\ufeff") else line)]
+
+
+def validate_ini_edit(text):
+    """Refuse multiline/unclosed quotes anywhere before a line-based edit."""
+    for line in text.splitlines():
+        quote, escaped = None, False
+        if line.lstrip("\ufeff \t").startswith((";", "#")):
+            continue
+        for char in line:
+            if escaped:
+                escaped = False
+            elif quote and char == "\\":
+                escaped = True
+            elif quote and char == quote:
+                quote = None
+            elif quote is None and char in ("'", '"'):
+                quote = char
+            elif quote is None and char in (";", "#"):
+                break
+        if quote:
+            raise CheckError("Multiline or unclosed INI quotes: automatic changes refused; review the file manually")
+
+
+def ini_snapshot(text):
+    """Hash only PHP's three-column INI tables, never its environment dump."""
+    values, table = {}, False
+    for line in text.splitlines():
+        if line.strip() == "Directive => Local Value => Master Value":
+            table = True
+            continue
+        if not line.strip():
+            table = False
+            continue
+        if not table:
+            continue
+        parts = line.split(" => ")
+        key = parts[0].strip()
+        if len(parts) != 3 or key in values or re.fullmatch(r"[A-Za-z_][A-Za-z_0-9.-]*", key) is None:
+            raise CheckError("PHP INI snapshot is ambiguous; automatic changes refused")
+        values[key] = digest(json.dumps(parts[1:], ensure_ascii=True).encode("ascii"))
+    if not {"disable_functions", "allow_url_include", "memory_limit"} <= values.keys():
+        raise CheckError("Cannot verify the complete PHP INI snapshot; automatic changes refused")
+    return values
 
 
 def set_ini(text, updates):
+    validate_ini_edit(text)
     if re.search(r"^\s*\[(?:PATH|HOST)\s*=", text, re.M | re.I):
         raise CheckError('Conditional PATH/HOST INI sections: automatic changes refused')
     lines = text.splitlines(keepends=True)
+    newline = next(iter(re.findall(r"\r\n|\n|\r", text)), "\n")
+    missing = []
     for key, value in updates.items():
         indices = active_ini_lines("".join(lines), key)
-        replacement = f"{key} = {value}\n"
         if indices:
-            lines[indices[-1]] = replacement
+            old = lines[indices[-1]]
+            ending = "\r\n" if old.endswith("\r\n") else "\n" if old.endswith("\n") else "\r" if old.endswith("\r") else newline
+            bom = "\ufeff" if indices[-1] == 0 and old.startswith("\ufeff") else ""
+            lines[indices[-1]] = bom + f"{key} = {value}" + ending
         else:
-            if lines and not lines[-1].endswith("\n"):
-                lines[-1] += "\n"
-            lines.extend(["\n[PHP]\n", replacement])
+            missing.append(f"{key} = {value}" + newline)
+    if missing:
+        if lines and not lines[-1].endswith(("\n", "\r")):
+            lines[-1] += newline
+        lines.extend([newline + "[PHP]" + newline, *missing])
     return "".join(lines)
 
 
@@ -2023,6 +2084,28 @@ _NEW_GERMAN.update({
 })
 _MESSAGE_TEMPLATES += (('CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; fehlende oder gesperrte Prioritätshelfer stoppen die Suche nicht; --no-nice deaktiviert dies'),)
 _EVIDENCE_GERMAN.update(lowered="abgesenkt", already_low="bereits niedrig", unavailable="nicht verfügbar", disabled="deaktiviert", idle="Leerlauf")
+_NEW_GERMAN.update({
+    "Multiline or unclosed INI quotes: automatic changes refused; review the file manually": "Mehrzeilige oder offene INI-Anführungszeichen: automatische Änderungen verweigert; Datei manuell prüfen",
+    "PHP INI snapshot is ambiguous; automatic changes refused": "Effektive PHP-INI-Werte nicht eindeutig lesbar; automatische Änderungen verweigert",
+    "Cannot verify the complete PHP INI snapshot; automatic changes refused": "Effektive PHP-INI-Werte nicht vollständig prüfbar; automatische Änderungen verweigert",
+    "Complete FPM instances are required for before/after INI verification": "Vollständige FPM-Zuordnung für den INI-Vorher-/Nachhervergleich erforderlich",
+    "Unrelated effective PHP INI settings changed; restoring the original configuration before reload": "Andere effektive PHP-INI-Werte wurden verändert; ursprüngliche Konfiguration wird vor dem Reload wiederhergestellt",
+    "Transaction lock and backup directories must have mode 0700 and be owned by root": "Transaktionssperr- und Backup-Verzeichnisse müssen root gehören und Modus 0700 haben",
+    "Another fix or rollback is running; wait for it to finish and rerun": "Ein anderer Fix oder Rollback läuft; Abschluss abwarten und erneut ausführen",
+    "Transaction lock directory changed while acquiring the lock": "Verzeichnis der Transaktionssperre wurde beim Sperren ausgetauscht",
+    "Reviewed coverage exceptions require an explicit schema 1 baseline": "Geprüfte Abdeckungsausnahmen benötigen eine explizite Schema-1-Baseline",
+    "Baseline requires files or explicit reviewed_files": "Baseline benötigt files oder ausdrücklich reviewed_files",
+    "Coverage exceptions require reviewed=true after trusted full-file comparison": "Abdeckungsausnahmen benötigen reviewed=true nach vertrauenswürdigem Vergleich der vollständigen Datei",
+    "Reviewed baseline loaded; exact path, full-file SHA256 and indicator/reviewed-coverage matches only": "Geprüfte Baseline geladen; nur exakter Pfad, vollständiger SHA256 und Indikator bzw. geprüfte Abdeckungsausnahme werden akzeptiert",
+    "Reviewed incomplete files": "Geprüfte unvollständige Dateien",
+    "Windowed files": "Dateien mit Fensteranalyse",
+    "Prefixed PHP include": "PHP-Include mit Präfix",
+    "Request-derived PHP include with a constant prefix; traversal requires review": "Request-basierter PHP-Include mit konstantem Präfix; Traversal muss geprüft werden",
+    "Review the request-derived include and its validation against trusted source. A constant directory prefix does not prevent path traversal; accept only a reviewed exact file hash and indicator.": "Request-basierten Include und Validierung mit vertrauenswürdigem Quellstand vergleichen. Ein konstantes Verzeichnispräfix verhindert keine Pfad-Traversal; nur geprüften exakten Dateihash und Indikator akzeptieren."
+})
+_MESSAGE_TEMPLATES = (('{files} files fully examined; {incomplete} incomplete files; {indicators} indicators; {message}; {accepted} incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server', '{files} files fully examined; {incomplete} incomplete files; {indicators} indicators; {message}; {accepted} incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server', '{files} Dateien vollständig untersucht; {incomplete} unvollständige Dateien; {indicators} Indikatoren; {message}; {accepted} unvollständige Dateien durch geprüften vollständigen Dateihash akzeptiert; fehlende Indikatoren belegen keinen sauberen Server'),) + _MESSAGE_TEMPLATES
+_EVIDENCE_GERMAN.update(window="Fensteranalyse")
+_NEW_GERMAN['Use a protected reviewed baseline. Indicator exceptions bind path, full-file SHA256 and indicator. Coverage exceptions additionally require explicit reviewed_files entries; unreadable, unstable, timed-out or unvisited content cannot be accepted.'] = 'Geschützte geprüfte Baseline verwenden. Indikator-Ausnahmen binden Pfad, vollständigen SHA256 und Indikator. Abdeckungsausnahmen benötigen zusätzlich ausdrückliche reviewed_files-Einträge; unlesbare, instabile, zeitlich abgebrochene oder unbesuchte Inhalte können nicht akzeptiert werden.'
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]
@@ -2103,8 +2186,9 @@ RULES = {
     "WS002": ("medium", "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically."),
     "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
     "WS004": ("info", "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous."),
-    "WS005": ("info", "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings."),
+    "WS005": ("info", "Use a protected reviewed baseline. Indicator exceptions bind path, full-file SHA256 and indicator. Coverage exceptions additionally require explicit reviewed_files entries; unreadable, unstable, timed-out or unvisited content cannot be accepted."),
     "WS006": ("info", "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit."),
+    "WS007": ("medium", "Review the request-derived include and its validation against trusted source. A constant directory prefix does not prevent path traversal; accept only a reviewed exact file hash and indicator."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -2138,11 +2222,13 @@ def safe_evidence(rule_id, evidence):
         "WS001": dict(indicators=names(*WEBSHELL_INDICATORS), line=count),
         "WS002": dict(indicators=names("startup-reference"), line=count),
         "WS003": dict(examined_files=count, attempted_files=count, incomplete_files=count, indicator_count=count,
-                      baseline_accepted_count=count, omitted_coverage_paths=count, coverage_reasons=names(*WEBSHELL_REASONS),
+                      baseline_accepted_count=count, accepted_incomplete_files=count, windowed_files=count,
+                      omitted_coverage_paths=count, coverage_reasons=names(*WEBSHELL_REASONS),
                       coverage_counts=lambda value: type(value) is dict and len(value) <= len(WEBSHELL_REASONS) and
                           all(type(k) is str and k in WEBSHELL_REASONS and count(v) for k,v in value.items())),
         "WS004": dict(indicators=names("prefixed-include", "registry-callable"), line=count, review_required=boolean),
         "WS005": dict(baseline_entries=count),
+        "WS007": dict(indicators=names("request-prefixed-include"), line=count),
         "WS006": dict(cpu_priority=choices("lowered", "already_low", "unavailable", "disabled"),
                       io_priority=choices("idle", "unavailable", "disabled")),
     }.get(rule_id[4:], {})
@@ -2155,7 +2241,7 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
               "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage",
-              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling"}
+              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling", "WS007": "Prefixed PHP include"}
 
 
 def evidence_summary(rule_id, evidence, lang="en"):
@@ -2172,7 +2258,7 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
                   incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
                   omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
-                  cpu_priority="CPU priority", io_priority="I/O priority")
+                  cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -2234,6 +2320,7 @@ class Report:
         return int(self.has("OPEN"))
 
     def show(self, as_json=False, verbose=False, lang="en", redact=False):
+        configure_output(as_json)
         rows = [dict(row, title=localize(row["title"], lang), detail=localize(row["detail"], lang),
                      remediation=localize(row["remediation"], lang)) for row in self.rows]
         discovery = localized_discovery(self.discovery, lang)
@@ -2267,13 +2354,14 @@ class Report:
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
-                                  exit_code=self.exit_code()), ensure_ascii=False, indent=2))
+                                  path_encoding="filesystem-surrogateescape",
+                                  exit_code=self.exit_code()), ensure_ascii=True, indent=2))
             return
         def emit(line):
             # Configured names/paths must not inject terminal escape sequences.
             print("".join(c if c.isprintable() else "?" for c in line))
         label = "Prerequisites" if discovery.get("doctor") else "Discovered inventory" if discovery.get("inventory_only") else "PHP webshell indicator scan" if self.discovery.get("webshell_scan") else "Configuration audit"
-        emit(f"p2s-harden {VERSION} – {localize(label, lang)}")
+        emit(f"p2s-harden {VERSION} - {localize(label, lang)}")
         cap = discovery.get("capabilities", {})
         missing_tools = [name for name, present in cap.get("tools", {}).items() if not present and name != "curl"]
         if missing_tools:
@@ -2482,6 +2570,7 @@ WEBSHELL_INDICATORS = {
     "request-execution": "Request data near a code/command execution sink",
     "encoded-execution": "Decoder output near a PHP code execution sink",
     "request-include": "Request data near a PHP include/require",
+    "request-prefixed-include": "Request-derived PHP include with a constant prefix; traversal requires review",
     "request-callable": "Request-selected dynamic function call",
     "network-shell": "Network connection and shell launch in one PHP file",
     "startup-reference": "PHP startup-file directive requires verification",
@@ -2489,7 +2578,8 @@ WEBSHELL_INDICATORS = {
     "registry-callable": "Request-selected registry callback requires review",
 }
 WEBSHELL_REASONS = ("access", "symlink", "mount", "special", "changed", "depth",
-                   "entries", "time", "file-time", "file-size", "total-bytes", "tokens", "expression", "findings", "config-syntax")
+                   "entries", "time", "file-time", "file-size", "total-bytes", "tokens", "expression", "findings", "config-syntax", "window")
+WEBSHELL_REVIEWABLE_REASONS = frozenset(("file-size", "tokens", "expression", "window"))
 _WS_SOURCE = frozenset(("$_GET", "$_POST", "$_REQUEST", "$_COOKIE", "$_SERVER", "$_FILES"))
 _WS_SINKS = REQUIRED | frozenset(("eval", "assert", "create_function"))
 _WS_DECODERS = frozenset(("base64_decode", "gzinflate", "gzuncompress", "gzdecode", "str_rot13", "hex2bin"))
@@ -2734,7 +2824,8 @@ def webshell_indicators(data, deadline=None, short_tags=True):
                 incomplete = incomplete or "expression"
             if request(tokens[index + 1:end]):
                 expression = tokens[index + 1:end]
-                add("prefixed-include" if prefixed(expression) and not direct_input(index + 1, end) else "request-include", offset)
+                indicator = ("request-prefixed-include" if direct_input(index + 1, end) else "prefixed-include") if prefixed(expression) else "request-include"
+                add(indicator, offset)
             if uncertain(tokens[index + 1:end]):
                 incomplete = incomplete or "expression"
         if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
@@ -2793,6 +2884,46 @@ def webshell_indicators(data, deadline=None, short_tags=True):
     return hits, incomplete
 
 
+# Source: src/webshell_windows.py
+"""Bounded leads from explicit PHP openers; windows never certify full coverage."""
+
+
+def webshell_collect_openers(probe, offset, preceding_lines, openers, maximum, complete=False):
+    if len(openers) >= maximum:
+        return
+    for match in _WS_EXPLICIT_OPEN.finditer(probe):
+        if not complete and match.start() >= len(probe)-8:
+            break
+        position = offset + match.start()
+        if not openers or position > openers[-1][0]:
+            openers.append((position, preceding_lines + probe.count("\n", 0, match.start()) + 1))
+            if len(openers) >= maximum:
+                break
+
+
+def webshell_window_indicators(fd, openers, deadline, budget, total_remaining):
+    """Read at most 64 KiB/opener and the parser budget in total, with full gaps."""
+    hits, consumed = {}, 0
+    for position, first_line in openers:
+        if time.monotonic() > deadline:
+            return hits, "time", consumed
+        if consumed >= budget:
+            break
+        if consumed >= total_remaining:
+            return hits, "total-bytes", consumed
+        length = min(65536, budget-consumed, total_remaining-consumed)
+        data = os.pread(fd, length, position)
+        consumed += len(data)
+        observed, partial = webshell_indicators(data, deadline, short_tags=False)
+        for indicator, line in observed.items():
+            hits[indicator] = min(hits.get(indicator, first_line+line-1), first_line+line-1)
+        if partial == "time":
+            return hits, "time", consumed
+    # A bounded window can omit aliases/control flow elsewhere in the file.
+    # Even apparently complete individual blocks cannot upgrade this to full.
+    return hits, "window", consumed
+
+
 # Source: src/webshell_scan.py
 """Read-only filesystem scan, finite coverage diagnostics and exact baselines."""
 
@@ -2825,7 +2956,10 @@ def webshell_baseline_entries(data):
     from pathlib import PurePosixPath
     if not isinstance(data, dict) or data.get("redacted"):
         raise CheckError("Baseline must be a local, nonredacted webshell report or schema 1 file list")
+    reviewed = []
     if data.get("schema_version") == 2 and isinstance(data.get("discovery"), dict) and data["discovery"].get("webshell_scan") is True:
+        if data.get("reviewed_files"):
+            raise CheckError("Reviewed coverage exceptions require an explicit schema 1 baseline")
         rows = data.get("findings")
         if not isinstance(rows, list) or len(rows) > 10000:
             raise CheckError("Baseline finding limit exceeded or invalid finding list")
@@ -2833,31 +2967,38 @@ def webshell_baseline_entries(data):
         for row in rows:
             if not isinstance(row, dict):
                 raise CheckError("Invalid baseline finding")
-            if row.get("rule_id") not in ("P2S-WS001", "P2S-WS002", "P2S-WS004"):
+            if row.get("rule_id") not in ("P2S-WS001", "P2S-WS002", "P2S-WS004", "P2S-WS007"):
                 continue
             resource = row.get("resource")
             if not isinstance(resource, dict):
                 raise CheckError("Invalid baseline resource")
             entries.append(dict(path=resource.get("path"), sha256=row.get("sha256"), indicators=[resource.get("indicator")]))
     elif data.get("schema_version") == 1:
-        entries = data.get("files")
+        entries = data.get("files", [])
+        reviewed = data.get("reviewed_files", [])
+        if "files" not in data and "reviewed_files" not in data:
+            raise CheckError("Baseline requires files or explicit reviewed_files")
     else:
         raise CheckError("Baseline must be a local, nonredacted webshell report or schema 1 file list")
-    if not isinstance(entries, list) or len(entries) > 10000:
+    if not isinstance(entries, list) or not isinstance(reviewed, list) or len(entries) + len(reviewed) > 10000:
         raise CheckError("Baseline entry limit exceeded or invalid file list")
     result = {}
-    for entry in entries:
+    for entry, coverage_entry in [(entry, False) for entry in entries] + [(entry, True) for entry in reviewed]:
         if not isinstance(entry, dict):
             raise CheckError("Invalid baseline entry")
-        path, fingerprint, indicators = entry.get("path"), entry.get("sha256"), entry.get("indicators")
+        path, fingerprint = entry.get("path"), entry.get("sha256")
+        indicators = entry.get("coverage_reasons" if coverage_entry else "indicators")
+        allowed = WEBSHELL_REVIEWABLE_REASONS if coverage_entry else WEBSHELL_INDICATORS
+        if coverage_entry and entry.get("reviewed") is not True:
+            raise CheckError("Coverage exceptions require reviewed=true after trusted full-file comparison")
         if (type(path) is not str or "\x00" in path or not PurePosixPath(path).is_absolute() or
                 str(PurePosixPath(path)) != path or ".." in PurePosixPath(path).parts or path.startswith("//") or
                 type(fingerprint) is not str or re.fullmatch(r"[a-f0-9]{64}", fingerprint) is None or
-                type(indicators) is not list or not indicators or len(indicators) > len(WEBSHELL_INDICATORS) or
-                any(type(value) is not str or value not in WEBSHELL_INDICATORS for value in indicators)):
+                type(indicators) is not list or not indicators or len(indicators) > len(allowed) or
+                any(type(value) is not str or value not in allowed for value in indicators)):
             raise CheckError("Baseline entries require an absolute canonical path, SHA256 and known indicator names")
         for indicator in indicators:
-            key = (path, indicator)
+            key = (path, "coverage:" + indicator if coverage_entry else indicator)
             if key in result and result[key] != fingerprint:
                 raise CheckError("Conflicting baseline entries")
             result[key] = fingerprint
@@ -3000,7 +3141,7 @@ def scan_webshells(args):
     if getattr(args, "baseline", None):
         try:
             baseline = read_webshell_baseline(args.baseline)
-            report.add("INFO", "Webshell baseline", "Reviewed baseline loaded; exact path, SHA256 and indicator matches only; coverage is never accepted",
+            report.add("INFO", "Webshell baseline", "Reviewed baseline loaded; exact path, full-file SHA256 and indicator/reviewed-coverage matches only",
                        rule_id="P2S-WS005", resource="baseline", evidence=dict(baseline_entries=len(baseline)))
         except (OSError, ValueError, RecursionError, CheckError) as exc:
             reason = str(exc) if isinstance(exc, CheckError) else "Baseline path is unreadable or unsafe" if isinstance(exc, OSError) else "Baseline JSON or encoding is invalid"
@@ -3010,17 +3151,26 @@ def scan_webshells(args):
     file_seconds = getattr(args, "scan_file_seconds", 2)
     for root in args.roots:
         reasons, seen, examined, attempted, read_bytes, findings, active, accepted = set(), 0, 0, 0, 0, 0, 0, 0
+        accepted_incomplete, windowed_files = 0, 0
         deadline = time.monotonic() + args.walk_seconds if args.walk_seconds else float("inf")
         frames = []
         coverage = dict(root=root, paths=[], issue_count=0, omitted_paths=0, reason_counts={})
         report.discovery["webshell_coverage"].append(coverage)
-        def record(path, reason):
-            reasons.add(reason)
+        def record(path, reason, fingerprint=None):
+            nonlocal accepted_incomplete
+            approved = fingerprint is not None and reason in WEBSHELL_REVIEWABLE_REASONS and baseline.get((path, "coverage:" + reason)) == fingerprint
+            if approved:
+                accepted_incomplete += 1
+            else:
+                reasons.add(reason)
             coverage["issue_count"] += 1
             counts = coverage["reason_counts"]
             counts[reason] = counts.get(reason, 0) + 1
             if len(coverage["paths"]) < 1000:
-                coverage["paths"].append(dict(path=path, reason=reason))
+                item = dict(path=path, reason=reason)
+                if fingerprint is not None:
+                    item.update(sha256=fingerprint, baseline_accepted=approved)
+                coverage["paths"].append(item)
             else:
                 coverage["omitted_paths"] += 1
         def open_root():
@@ -3091,7 +3241,8 @@ def scan_webshells(args):
                     # necessary. Large JS/assets without PHP openers do not
                     # consume the PHP materialization budget, but still consume
                     # the root byte/time budgets and receive the race checks.
-                    chunks, size, materialized, tail = [], 0, 0, b""
+                    chunks, size, materialized, tail, lines, openers = [], 0, 0, b"", 0, []
+                    max_openers = max(1, min(256, args.scan_file_bytes // 65536))
                     has_open, explicit_open, binary = False, False, False
                     fingerprint = hashlib.sha256()
                     while True:
@@ -3101,6 +3252,7 @@ def scan_webshells(args):
                         chunk = os.read(file_fd, min(65536, args.scan_total_bytes - read_bytes + 1))
                         if not chunk:
                             probe = tail.decode("latin-1")
+                            webshell_collect_openers(probe, size-len(tail), lines-tail.count(b"\n"), openers, max_openers, complete=True)
                             has_open = has_open or _WS_OPEN.search(probe) is not None
                             explicit_open = explicit_open or _WS_EXPLICIT_OPEN.search(probe) is not None
                             break
@@ -3111,6 +3263,7 @@ def scan_webshells(args):
                             break
                         fingerprint.update(chunk)
                         probe = (tail + chunk).decode("latin-1")
+                        webshell_collect_openers(probe, size-len(chunk)-len(tail), lines-tail.count(b"\n"), openers, max_openers)
                         opening = _WS_OPEN.search(probe)
                         explicit = _WS_EXPLICIT_OPEN.search(probe)
                         # Defer trailing starts until the next chunk/EOF, so
@@ -3118,6 +3271,7 @@ def scan_webshells(args):
                         has_open = has_open or opening is not None and opening.start() < len(probe) - 8
                         explicit_open = explicit_open or explicit is not None and explicit.start() < len(probe) - 8
                         binary = binary or re.search(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", chunk) is not None
+                        lines += chunk.count(b"\n")
                         tail = (tail + chunk)[-8:]
                         if materialized < args.scan_file_bytes:
                             part = chunk[:args.scan_file_bytes - materialized]
@@ -3133,27 +3287,48 @@ def scan_webshells(args):
                             break
                         continue
                     data = b"".join(chunks)
+                    fingerprint = fingerprint.hexdigest()
                     startup_file = entry.name.lower() in (".user.ini", ".htaccess", "php.ini")
                     parse_php = explicit_open or has_open and not binary
-                    if size > args.scan_file_bytes and (parse_php or startup_file):
-                        record(path, "file-size")
+                    if size > args.scan_file_bytes and (startup_file or parse_php and not openers):
+                        record(path, "file-size", fingerprint)
                         continue
-                    hits, partial = webshell_indicators(data, file_deadline, short_tags=not binary) if parse_php else ({}, None)
+                    used_windows = False
+                    if parse_php and size > args.scan_file_bytes:
+                        windowed_files += 1
+                        used_windows = True
+                        hits, partial, extra_bytes = webshell_window_indicators(file_fd, openers, file_deadline,
+                            args.scan_file_bytes, args.scan_total_bytes-read_bytes)
+                        read_bytes += extra_bytes
+                    else:
+                        hits, partial = webshell_indicators(data, file_deadline, short_tags=not binary) if parse_php else ({}, None)
+                        if binary and partial in ("tokens", "expression") and openers:
+                            used_windows = True
+                            windowed_files += 1
+                            extra_hits, partial, extra_bytes = webshell_window_indicators(file_fd, openers, file_deadline,
+                                args.scan_file_bytes, args.scan_total_bytes-read_bytes)
+                            read_bytes += extra_bytes
+                            for indicator, line in extra_hits.items():
+                                hits[indicator] = min(hits.get(indicator, line), line)
+                    if used_windows:
+                        latest = os.fstat(file_fd)
+                        if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (latest.st_size, latest.st_mtime_ns, latest.st_ctime_ns):
+                            record(path, "changed")
+                            continue
                     if startup_file:
                         startup, startup_partial = webshell_startup_lines(data, entry.name.lower(), file_deadline)
                         hits.update({key:value for key,value in startup.items() if key not in hits})
                         partial = partial or startup_partial
                     if partial:
-                        record(path, timeout_reason if partial == "time" else partial)
+                        record(path, timeout_reason if partial == "time" else partial, fingerprint)
                     else:
                         examined += 1
-                    fingerprint = fingerprint.hexdigest()
                     for indicator, line in sorted(hits.items()):
                         approved = baseline.get((path, indicator)) == fingerprint
                         if not approved and active >= 200:
                             break
                         review = indicator in ("prefixed-include", "registry-callable")
-                        rule = "P2S-WS004" if review else "P2S-WS002" if indicator == "startup-reference" else "P2S-WS001"
+                        rule = "P2S-WS004" if review else "P2S-WS007" if indicator == "request-prefixed-include" else "P2S-WS002" if indicator == "startup-reference" else "P2S-WS001"
                         row = report.add("INFO" if review else "OPEN", "PHP code review " + path if review else "PHP file indicator " + path,
                             "Line " + str(line) + ": " + WEBSHELL_INDICATORS[indicator] + "; SHA256 " + fingerprint,
                             rule_id=rule, resource=dict(path=path, indicator=indicator),
@@ -3165,6 +3340,8 @@ def scan_webshells(args):
                         active += int(not approved)
                     if active >= 200:
                         record(parent, "findings")
+                        break
+                    if partial == "total-bytes" or partial == "time" and timeout_reason == "time":
                         break
                 except OSError:
                     record(path, "access")
@@ -3179,11 +3356,12 @@ def scan_webshells(args):
                 os.close(fd)
         facts = dict(examined_files=examined, attempted_files=attempted, incomplete_files=attempted-examined,
                      indicator_count=findings, baseline_accepted_count=accepted, coverage_reasons=sorted(reasons),
+                     accepted_incomplete_files=accepted_incomplete, windowed_files=windowed_files,
                      coverage_counts=coverage["reason_counts"], omitted_coverage_paths=coverage["omitted_paths"])
         report.add("UNKNOWN" if reasons else "INFO", "Webshell scan coverage",
             str(examined) + " files fully examined; " + str(attempted-examined) + " incomplete files; " + str(findings) + " indicators; " +
             ("incomplete: " + ", ".join(sorted(reasons)) if reasons else "selected scan completed") +
-            "; absence of indicators does not establish a clean server",
+            "; " + str(accepted_incomplete) + " incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server",
             rule_id="P2S-WS003", resource=dict(root=root), evidence=facts)
     return report
 
@@ -3543,6 +3721,40 @@ def confirm_fix(args, ini_changes=False):
         raise CheckError("No controlling terminal; review --dry-run first, then use --fix --yes") from exc
 
 
+TRANSACTION_LOCK_ROOT = "/run/p2s-harden"
+
+
+@contextlib.contextmanager
+def transaction_directory_lock(path, create=False):
+    """Lock a protected directory inode without a replaceable lock file."""
+    import fcntl
+    path = Path(path)
+    if not path.is_absolute():
+        raise CheckError('Backup directory must be absolute')
+    trusted(path.parent)
+    if create:
+        try:
+            path.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+    trusted(path)
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        opened = os.fstat(fd)
+        if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
+            raise CheckError('Transaction lock and backup directories must have mode 0700 and be owned by root')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise CheckError('Another fix or rollback is running; wait for it to finish and rerun') from exc
+        current = path.lstat()
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+            raise CheckError('Transaction lock directory changed while acquiring the lock')
+        yield fd
+    finally:
+        os.close(fd)
+
+
 class Transaction:
     def __init__(self, backup_root):
         self.root = Path(backup_root)
@@ -3553,45 +3765,22 @@ class Transaction:
 
     @contextlib.contextmanager
     def locked(self, create=False):
-        """One writer per protected backup root; kernel releases locks on exit.
+        """One system-wide writer plus the legacy backup-root lock.
 
-        Lock the directory inode itself, so no replaceable lock file, stale PID
-        or symlink can split the lock. Reentrant only for this Transaction.
+        Both protected directory inodes are pinned; no configurable global
+        path, replaceable lock file or stale PID. Reentrant only for this object.
         """
         if self._lock_fd is not None:
             yield
             return
-        import fcntl
         if os.geteuid() != 0:
             raise CheckError('Changes and rollback require root')
-        if not self.root.is_absolute():
-            raise CheckError('Backup directory must be absolute')
-        trusted(self.root.parent)
-        if create:
-            try:
-                self.root.mkdir(mode=0o700)
-            except FileExistsError:
-                pass
-        trusted(self.root)
-        fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-        try:
-            opened = os.fstat(fd)
-            if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
-                raise CheckError('Backup directory must have mode 0700 and be owned by root')
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                raise CheckError('Another fix or rollback is using this backup root; wait for it to finish and rerun') from exc
-            current = self.root.lstat()
-            if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
-                raise CheckError('Backup directory changed while acquiring transaction lock')
+        with transaction_directory_lock(TRANSACTION_LOCK_ROOT, create=True) as fd, transaction_directory_lock(self.root, create=create):
             self._lock_fd = fd
             try:
                 yield
             finally:
                 self._lock_fd = None
-        finally:
-            os.close(fd)
 
     def begin(self):
         import time
@@ -3665,6 +3854,10 @@ class Transaction:
 
     def _apply(self, instances, users):
         try:
+            affected = [i for i in instances if i["pid"] in {r["pid"] for r in self.data["instances"]}]
+            if {i["pid"] for i in affected} != {i["pid"] for i in self.data["instances"]}:
+                raise CheckError("Complete FPM instances are required for before/after INI verification")
+            snapshots = {i["pid"]: ini_snapshot(command([i["binary"], "-i"], env=i["env"])[0]) for i in affected}
             for item in self.data["files"]:
                 path = trusted(item["path"])
                 original = path.read_bytes()
@@ -3702,10 +3895,14 @@ class Transaction:
                     output = as_user(user, [sys.executable, "-B", "-c", "import os,sys; print(int(os.access(sys.argv[1], os.W_OK)))", str(path)])
                     if output.strip() != "0":
                         raise CheckError(f'{path} remains writable by {user}')
-            affected = [i for i in instances if i["pid"] in {r["pid"] for r in self.data["instances"]}]
             for i in affected:
                 command([i["binary"], "-t", "-y", i["config"]], env=i["env"])
                 out, _ = command([i["binary"], "-i"], env=i["env"])
+                before_settings, after_settings = snapshots[i["pid"]], ini_snapshot(out)
+                allowed = {key for item in self.data["files"] if item["path"] in i["inis"] for key in item["values"]}
+                if ({key: value for key, value in before_settings.items() if key not in allowed} !=
+                        {key: value for key, value in after_settings.items() if key not in allowed}):
+                    raise CheckError("Unrelated effective PHP INI settings changed; restoring the original configuration before reload")
                 values = info_values(out)
                 if not REQUIRED <= functions(values.get("disable_functions", "")) or "allow_url_include" not in values or values["allow_url_include"].lower() not in ("off", "0", "no", "false", ""):
                     raise CheckError('Expected PHP settings did not take effect')
@@ -3891,6 +4088,7 @@ class Transaction:
 
 # Source: src/cli.py
 def main(argv=None):
+    configure_output()
     language = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     language.add_argument("--lang", choices=("en", "de"), default="en")
     selected, _ = language.parse_known_args(argv)

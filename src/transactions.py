@@ -138,6 +138,40 @@ def confirm_fix(args, ini_changes=False):
         raise CheckError("No controlling terminal; review --dry-run first, then use --fix --yes") from exc
 
 
+TRANSACTION_LOCK_ROOT = "/run/p2s-harden"
+
+
+@contextlib.contextmanager
+def transaction_directory_lock(path, create=False):
+    """Lock a protected directory inode without a replaceable lock file."""
+    import fcntl
+    path = Path(path)
+    if not path.is_absolute():
+        raise CheckError('Backup directory must be absolute')
+    trusted(path.parent)
+    if create:
+        try:
+            path.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+    trusted(path)
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        opened = os.fstat(fd)
+        if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
+            raise CheckError('Transaction lock and backup directories must have mode 0700 and be owned by root')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise CheckError('Another fix or rollback is running; wait for it to finish and rerun') from exc
+        current = path.lstat()
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+            raise CheckError('Transaction lock directory changed while acquiring the lock')
+        yield fd
+    finally:
+        os.close(fd)
+
+
 class Transaction:
     def __init__(self, backup_root):
         self.root = Path(backup_root)
@@ -148,45 +182,22 @@ class Transaction:
 
     @contextlib.contextmanager
     def locked(self, create=False):
-        """One writer per protected backup root; kernel releases locks on exit.
+        """One system-wide writer plus the legacy backup-root lock.
 
-        Lock the directory inode itself, so no replaceable lock file, stale PID
-        or symlink can split the lock. Reentrant only for this Transaction.
+        Both protected directory inodes are pinned; no configurable global
+        path, replaceable lock file or stale PID. Reentrant only for this object.
         """
         if self._lock_fd is not None:
             yield
             return
-        import fcntl
         if os.geteuid() != 0:
             raise CheckError('Changes and rollback require root')
-        if not self.root.is_absolute():
-            raise CheckError('Backup directory must be absolute')
-        trusted(self.root.parent)
-        if create:
-            try:
-                self.root.mkdir(mode=0o700)
-            except FileExistsError:
-                pass
-        trusted(self.root)
-        fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-        try:
-            opened = os.fstat(fd)
-            if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
-                raise CheckError('Backup directory must have mode 0700 and be owned by root')
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                raise CheckError('Another fix or rollback is using this backup root; wait for it to finish and rerun') from exc
-            current = self.root.lstat()
-            if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
-                raise CheckError('Backup directory changed while acquiring transaction lock')
+        with transaction_directory_lock(TRANSACTION_LOCK_ROOT, create=True) as fd, transaction_directory_lock(self.root, create=create):
             self._lock_fd = fd
             try:
                 yield
             finally:
                 self._lock_fd = None
-        finally:
-            os.close(fd)
 
     def begin(self):
         import time
@@ -260,6 +271,10 @@ class Transaction:
 
     def _apply(self, instances, users):
         try:
+            affected = [i for i in instances if i["pid"] in {r["pid"] for r in self.data["instances"]}]
+            if {i["pid"] for i in affected} != {i["pid"] for i in self.data["instances"]}:
+                raise CheckError("Complete FPM instances are required for before/after INI verification")
+            snapshots = {i["pid"]: ini_snapshot(command([i["binary"], "-i"], env=i["env"])[0]) for i in affected}
             for item in self.data["files"]:
                 path = trusted(item["path"])
                 original = path.read_bytes()
@@ -297,10 +312,14 @@ class Transaction:
                     output = as_user(user, [sys.executable, "-B", "-c", "import os,sys; print(int(os.access(sys.argv[1], os.W_OK)))", str(path)])
                     if output.strip() != "0":
                         raise CheckError(f'{path} remains writable by {user}')
-            affected = [i for i in instances if i["pid"] in {r["pid"] for r in self.data["instances"]}]
             for i in affected:
                 command([i["binary"], "-t", "-y", i["config"]], env=i["env"])
                 out, _ = command([i["binary"], "-i"], env=i["env"])
+                before_settings, after_settings = snapshots[i["pid"]], ini_snapshot(out)
+                allowed = {key for item in self.data["files"] if item["path"] in i["inis"] for key in item["values"]}
+                if ({key: value for key, value in before_settings.items() if key not in allowed} !=
+                        {key: value for key, value in after_settings.items() if key not in allowed}):
+                    raise CheckError("Unrelated effective PHP INI settings changed; restoring the original configuration before reload")
                 values = info_values(out)
                 if not REQUIRED <= functions(values.get("disable_functions", "")) or "allow_url_include" not in values or values["allow_url_include"].lower() not in ("off", "0", "no", "false", ""):
                     raise CheckError('Expected PHP settings did not take effect')

@@ -251,6 +251,12 @@ Neither function restrictions nor these checks establish a sandbox.
 Primary semantics: [PHP FPM configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
 and [PHP FFI configuration](https://www.php.net/manual/en/ffi.configuration.php).
 
+## P2S-WS007 — Constant-prefixed request include (dev.4 preview)
+
+MEDIUM/OPEN distinguishes a request-derived include with a constant directory prefix. Copies, casts and basename do not hide it as INFO. A prefix is not a traversal barrier; review actual validation against trusted source. Baselines bind the new indicator name, file path and full hash.
+
+Coverage rule WS003 now distinguishes fully examined files, incomplete files and explicitly reviewed full-hash exceptions. Only selected parse/window bounds can be acknowledged; access/identity/time/global-budget failures remain unacceptably UNKNOWN. Ordinary report imports never approve gaps. [Exact contract](WEBSHELLS.md#explicit-reviewed-coverage-exceptions).
+
 ## P2S-WS006 — Scan scheduling (development preview)
 
 INFO records lowered/already-low/unavailable/disabled CPU priority and idle/unavailable/disabled I/O priority. Missing or denied helpers do not stop independent checks. Use `--no-nice` to opt out; see [scan scheduling and budgets](WEBSHELLS.md).

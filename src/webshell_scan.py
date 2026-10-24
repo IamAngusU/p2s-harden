@@ -29,7 +29,10 @@ def webshell_baseline_entries(data):
     from pathlib import PurePosixPath
     if not isinstance(data, dict) or data.get("redacted"):
         raise CheckError("Baseline must be a local, nonredacted webshell report or schema 1 file list")
+    reviewed = []
     if data.get("schema_version") == 2 and isinstance(data.get("discovery"), dict) and data["discovery"].get("webshell_scan") is True:
+        if data.get("reviewed_files"):
+            raise CheckError("Reviewed coverage exceptions require an explicit schema 1 baseline")
         rows = data.get("findings")
         if not isinstance(rows, list) or len(rows) > 10000:
             raise CheckError("Baseline finding limit exceeded or invalid finding list")
@@ -37,31 +40,38 @@ def webshell_baseline_entries(data):
         for row in rows:
             if not isinstance(row, dict):
                 raise CheckError("Invalid baseline finding")
-            if row.get("rule_id") not in ("P2S-WS001", "P2S-WS002", "P2S-WS004"):
+            if row.get("rule_id") not in ("P2S-WS001", "P2S-WS002", "P2S-WS004", "P2S-WS007"):
                 continue
             resource = row.get("resource")
             if not isinstance(resource, dict):
                 raise CheckError("Invalid baseline resource")
             entries.append(dict(path=resource.get("path"), sha256=row.get("sha256"), indicators=[resource.get("indicator")]))
     elif data.get("schema_version") == 1:
-        entries = data.get("files")
+        entries = data.get("files", [])
+        reviewed = data.get("reviewed_files", [])
+        if "files" not in data and "reviewed_files" not in data:
+            raise CheckError("Baseline requires files or explicit reviewed_files")
     else:
         raise CheckError("Baseline must be a local, nonredacted webshell report or schema 1 file list")
-    if not isinstance(entries, list) or len(entries) > 10000:
+    if not isinstance(entries, list) or not isinstance(reviewed, list) or len(entries) + len(reviewed) > 10000:
         raise CheckError("Baseline entry limit exceeded or invalid file list")
     result = {}
-    for entry in entries:
+    for entry, coverage_entry in [(entry, False) for entry in entries] + [(entry, True) for entry in reviewed]:
         if not isinstance(entry, dict):
             raise CheckError("Invalid baseline entry")
-        path, fingerprint, indicators = entry.get("path"), entry.get("sha256"), entry.get("indicators")
+        path, fingerprint = entry.get("path"), entry.get("sha256")
+        indicators = entry.get("coverage_reasons" if coverage_entry else "indicators")
+        allowed = WEBSHELL_REVIEWABLE_REASONS if coverage_entry else WEBSHELL_INDICATORS
+        if coverage_entry and entry.get("reviewed") is not True:
+            raise CheckError("Coverage exceptions require reviewed=true after trusted full-file comparison")
         if (type(path) is not str or "\x00" in path or not PurePosixPath(path).is_absolute() or
                 str(PurePosixPath(path)) != path or ".." in PurePosixPath(path).parts or path.startswith("//") or
                 type(fingerprint) is not str or re.fullmatch(r"[a-f0-9]{64}", fingerprint) is None or
-                type(indicators) is not list or not indicators or len(indicators) > len(WEBSHELL_INDICATORS) or
-                any(type(value) is not str or value not in WEBSHELL_INDICATORS for value in indicators)):
+                type(indicators) is not list or not indicators or len(indicators) > len(allowed) or
+                any(type(value) is not str or value not in allowed for value in indicators)):
             raise CheckError("Baseline entries require an absolute canonical path, SHA256 and known indicator names")
         for indicator in indicators:
-            key = (path, indicator)
+            key = (path, "coverage:" + indicator if coverage_entry else indicator)
             if key in result and result[key] != fingerprint:
                 raise CheckError("Conflicting baseline entries")
             result[key] = fingerprint
@@ -204,7 +214,7 @@ def scan_webshells(args):
     if getattr(args, "baseline", None):
         try:
             baseline = read_webshell_baseline(args.baseline)
-            report.add("INFO", "Webshell baseline", "Reviewed baseline loaded; exact path, SHA256 and indicator matches only; coverage is never accepted",
+            report.add("INFO", "Webshell baseline", "Reviewed baseline loaded; exact path, full-file SHA256 and indicator/reviewed-coverage matches only",
                        rule_id="P2S-WS005", resource="baseline", evidence=dict(baseline_entries=len(baseline)))
         except (OSError, ValueError, RecursionError, CheckError) as exc:
             reason = str(exc) if isinstance(exc, CheckError) else "Baseline path is unreadable or unsafe" if isinstance(exc, OSError) else "Baseline JSON or encoding is invalid"
@@ -214,17 +224,26 @@ def scan_webshells(args):
     file_seconds = getattr(args, "scan_file_seconds", 2)
     for root in args.roots:
         reasons, seen, examined, attempted, read_bytes, findings, active, accepted = set(), 0, 0, 0, 0, 0, 0, 0
+        accepted_incomplete, windowed_files = 0, 0
         deadline = time.monotonic() + args.walk_seconds if args.walk_seconds else float("inf")
         frames = []
         coverage = dict(root=root, paths=[], issue_count=0, omitted_paths=0, reason_counts={})
         report.discovery["webshell_coverage"].append(coverage)
-        def record(path, reason):
-            reasons.add(reason)
+        def record(path, reason, fingerprint=None):
+            nonlocal accepted_incomplete
+            approved = fingerprint is not None and reason in WEBSHELL_REVIEWABLE_REASONS and baseline.get((path, "coverage:" + reason)) == fingerprint
+            if approved:
+                accepted_incomplete += 1
+            else:
+                reasons.add(reason)
             coverage["issue_count"] += 1
             counts = coverage["reason_counts"]
             counts[reason] = counts.get(reason, 0) + 1
             if len(coverage["paths"]) < 1000:
-                coverage["paths"].append(dict(path=path, reason=reason))
+                item = dict(path=path, reason=reason)
+                if fingerprint is not None:
+                    item.update(sha256=fingerprint, baseline_accepted=approved)
+                coverage["paths"].append(item)
             else:
                 coverage["omitted_paths"] += 1
         def open_root():
@@ -295,7 +314,8 @@ def scan_webshells(args):
                     # necessary. Large JS/assets without PHP openers do not
                     # consume the PHP materialization budget, but still consume
                     # the root byte/time budgets and receive the race checks.
-                    chunks, size, materialized, tail = [], 0, 0, b""
+                    chunks, size, materialized, tail, lines, openers = [], 0, 0, b"", 0, []
+                    max_openers = max(1, min(256, args.scan_file_bytes // 65536))
                     has_open, explicit_open, binary = False, False, False
                     fingerprint = hashlib.sha256()
                     while True:
@@ -305,6 +325,7 @@ def scan_webshells(args):
                         chunk = os.read(file_fd, min(65536, args.scan_total_bytes - read_bytes + 1))
                         if not chunk:
                             probe = tail.decode("latin-1")
+                            webshell_collect_openers(probe, size-len(tail), lines-tail.count(b"\n"), openers, max_openers, complete=True)
                             has_open = has_open or _WS_OPEN.search(probe) is not None
                             explicit_open = explicit_open or _WS_EXPLICIT_OPEN.search(probe) is not None
                             break
@@ -315,6 +336,7 @@ def scan_webshells(args):
                             break
                         fingerprint.update(chunk)
                         probe = (tail + chunk).decode("latin-1")
+                        webshell_collect_openers(probe, size-len(chunk)-len(tail), lines-tail.count(b"\n"), openers, max_openers)
                         opening = _WS_OPEN.search(probe)
                         explicit = _WS_EXPLICIT_OPEN.search(probe)
                         # Defer trailing starts until the next chunk/EOF, so
@@ -322,6 +344,7 @@ def scan_webshells(args):
                         has_open = has_open or opening is not None and opening.start() < len(probe) - 8
                         explicit_open = explicit_open or explicit is not None and explicit.start() < len(probe) - 8
                         binary = binary or re.search(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", chunk) is not None
+                        lines += chunk.count(b"\n")
                         tail = (tail + chunk)[-8:]
                         if materialized < args.scan_file_bytes:
                             part = chunk[:args.scan_file_bytes - materialized]
@@ -337,27 +360,48 @@ def scan_webshells(args):
                             break
                         continue
                     data = b"".join(chunks)
+                    fingerprint = fingerprint.hexdigest()
                     startup_file = entry.name.lower() in (".user.ini", ".htaccess", "php.ini")
                     parse_php = explicit_open or has_open and not binary
-                    if size > args.scan_file_bytes and (parse_php or startup_file):
-                        record(path, "file-size")
+                    if size > args.scan_file_bytes and (startup_file or parse_php and not openers):
+                        record(path, "file-size", fingerprint)
                         continue
-                    hits, partial = webshell_indicators(data, file_deadline, short_tags=not binary) if parse_php else ({}, None)
+                    used_windows = False
+                    if parse_php and size > args.scan_file_bytes:
+                        windowed_files += 1
+                        used_windows = True
+                        hits, partial, extra_bytes = webshell_window_indicators(file_fd, openers, file_deadline,
+                            args.scan_file_bytes, args.scan_total_bytes-read_bytes)
+                        read_bytes += extra_bytes
+                    else:
+                        hits, partial = webshell_indicators(data, file_deadline, short_tags=not binary) if parse_php else ({}, None)
+                        if binary and partial in ("tokens", "expression") and openers:
+                            used_windows = True
+                            windowed_files += 1
+                            extra_hits, partial, extra_bytes = webshell_window_indicators(file_fd, openers, file_deadline,
+                                args.scan_file_bytes, args.scan_total_bytes-read_bytes)
+                            read_bytes += extra_bytes
+                            for indicator, line in extra_hits.items():
+                                hits[indicator] = min(hits.get(indicator, line), line)
+                    if used_windows:
+                        latest = os.fstat(file_fd)
+                        if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (latest.st_size, latest.st_mtime_ns, latest.st_ctime_ns):
+                            record(path, "changed")
+                            continue
                     if startup_file:
                         startup, startup_partial = webshell_startup_lines(data, entry.name.lower(), file_deadline)
                         hits.update({key:value for key,value in startup.items() if key not in hits})
                         partial = partial or startup_partial
                     if partial:
-                        record(path, timeout_reason if partial == "time" else partial)
+                        record(path, timeout_reason if partial == "time" else partial, fingerprint)
                     else:
                         examined += 1
-                    fingerprint = fingerprint.hexdigest()
                     for indicator, line in sorted(hits.items()):
                         approved = baseline.get((path, indicator)) == fingerprint
                         if not approved and active >= 200:
                             break
                         review = indicator in ("prefixed-include", "registry-callable")
-                        rule = "P2S-WS004" if review else "P2S-WS002" if indicator == "startup-reference" else "P2S-WS001"
+                        rule = "P2S-WS004" if review else "P2S-WS007" if indicator == "request-prefixed-include" else "P2S-WS002" if indicator == "startup-reference" else "P2S-WS001"
                         row = report.add("INFO" if review else "OPEN", "PHP code review " + path if review else "PHP file indicator " + path,
                             "Line " + str(line) + ": " + WEBSHELL_INDICATORS[indicator] + "; SHA256 " + fingerprint,
                             rule_id=rule, resource=dict(path=path, indicator=indicator),
@@ -369,6 +413,8 @@ def scan_webshells(args):
                         active += int(not approved)
                     if active >= 200:
                         record(parent, "findings")
+                        break
+                    if partial == "total-bytes" or partial == "time" and timeout_reason == "time":
                         break
                 except OSError:
                     record(path, "access")
@@ -383,10 +429,11 @@ def scan_webshells(args):
                 os.close(fd)
         facts = dict(examined_files=examined, attempted_files=attempted, incomplete_files=attempted-examined,
                      indicator_count=findings, baseline_accepted_count=accepted, coverage_reasons=sorted(reasons),
+                     accepted_incomplete_files=accepted_incomplete, windowed_files=windowed_files,
                      coverage_counts=coverage["reason_counts"], omitted_coverage_paths=coverage["omitted_paths"])
         report.add("UNKNOWN" if reasons else "INFO", "Webshell scan coverage",
             str(examined) + " files fully examined; " + str(attempted-examined) + " incomplete files; " + str(findings) + " indicators; " +
             ("incomplete: " + ", ".join(sorted(reasons)) if reasons else "selected scan completed") +
-            "; absence of indicators does not establish a clean server",
+            "; " + str(accepted_incomplete) + " incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server",
             rule_id="P2S-WS003", resource=dict(root=root), evidence=facts)
     return report

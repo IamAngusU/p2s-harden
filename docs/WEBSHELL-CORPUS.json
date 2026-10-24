@@ -30,8 +30,8 @@
   },
   "selected_php_files": 25,
   "selected_bytes": 2666825,
-  "scanner_version": "2.3.0-dev.3",
-  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+  "scanner_version": "2.3.0-dev.4",
+  "engine_sha256": "fcaf4e435ba3cafe3257a985d97b95b728f29ccacdabc2572704e9eecf8b2a1b",
   "limits": {
     "max_paths": 250000,
     "walk_seconds": 120,
@@ -53,6 +53,8 @@
       "indicator_count": 2,
       "baseline_accepted_count": 0,
       "coverage_reasons": [],
+      "accepted_incomplete_files": 0,
+      "windowed_files": 0,
       "coverage_counts": {},
       "omitted_coverage_paths": 0
     }
