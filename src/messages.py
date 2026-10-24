@@ -784,6 +784,39 @@ _POOL_TEMPLATES = {
     "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
 }
 _WS_GERMAN = {
+    "Seconds per walk: audit 10, webshell scan 120; scan only: 0 disables root time limit": "Sekunden je Suchlauf: Audit 10, Webshell-Suche 120; nur Suche: 0 hebt Wurzel-Zeitlimit auf",
+    "Webshell time budget per file (default 2 seconds; maximum 30)": "Webshell-Zeitlimit je Datei (Standard 2 Sekunden; höchstens 30)",
+    "Reviewed webshell JSON baseline; exact path, SHA256 and indicator matches only": "Geprüfte Webshell-JSON-Baseline; nur identischer Pfad, SHA256 und Indikator",
+    "Webshell scan byte limit per root (default 268435456)": "Webshell-Datenlimit je Wurzel (Standard 268435456)",
+    "Webshell --walk-seconds must be 0 or between 0.05 and 86400": "Webshell --walk-seconds muss 0 sein oder zwischen 0.05 und 86400 liegen",
+    "--scan-file-seconds must be between 0.05 and 30": "--scan-file-seconds muss zwischen 0.05 und 30 liegen",
+    "--baseline supports --scan-webshells only": "--baseline unterstützt nur --scan-webshells",
+    "PHP code review": "PHP-Code prüfen",
+    "Webshell baseline": "Webshell-Baseline",
+    "Indirect input in a constant-prefixed PHP include requires review": "Indirekte Eingabe in PHP-Include mit konstantem Präfix muss geprüft werden",
+    "Request-selected registry callback requires review": "Durch Request gewählter Registry-Callback muss geprüft werden",
+    "Attempted files": "Berücksichtigte Dateien", "Incomplete files": "Unvollständige Dateien",
+    "Baseline accepted": "Durch Baseline akzeptiert", "Baseline entries": "Baseline-Einträge",
+    "Omitted coverage paths": "Nicht aufgelistete Abdeckungspfade", "Coverage counts": "Abdeckungszähler", "Review required": "Prüfung erforderlich",
+    "Incomplete path ({reason}): {path}": "Unvollständiger Pfad ({reason}): {path}",
+    "More incomplete paths: use --verbose or --json": "Weitere unvollständige Pfade: --verbose oder --json verwenden",
+    "Coverage path list truncated at 1000 entries per root; narrow --root to resolve remaining paths": "Abdeckungsliste auf 1000 Einträge je Wurzel begrenzt; --root zur Aufklärung restlicher Pfade eingrenzen",
+    "Baseline accepted: {count} unchanged indicator rows; --verbose or --json retains them": "Baseline akzeptiert: {count} unveränderte Indikatorzeilen; --verbose oder --json zeigt sie weiter",
+    "Reviewed baseline loaded; exact path, SHA256 and indicator matches only; coverage is never accepted": "Geprüfte Baseline geladen; nur identischer Pfad, SHA256 und Indikator; Prüflücken werden nie akzeptiert",
+    "Baseline must be a local, nonredacted webshell report or schema 1 file list": "Baseline muss lokaler unmaskierter Webshell-Bericht oder Schema-1-Dateiliste sein",
+    "Baseline finding limit exceeded or invalid finding list": "Baseline-Befundlimit überschritten oder ungültige Befundliste",
+    "Invalid baseline finding": "Ungültiger Baseline-Befund", "Invalid baseline resource": "Ungültige Baseline-Ressource",
+    "Invalid baseline entry": "Ungültiger Baseline-Eintrag", "Conflicting baseline entries": "Widersprüchliche Baseline-Einträge",
+    "Baseline entry limit exceeded or invalid file list": "Baseline-Eintragslimit überschritten oder ungültige Dateiliste",
+    "Baseline entries require an absolute canonical path, SHA256 and known indicator names": "Baseline-Einträge erfordern absoluten kanonischen Pfad, SHA256 und bekannte Indikatoren",
+    "Baseline and ancestors must be owned by root/current user without group/other write access": "Baseline und Elternpfade müssen root/aktuellem Benutzer gehören und dürfen für Gruppe/andere nicht schreibbar sein",
+    "Baseline must be a regular file": "Baseline muss reguläre Datei sein",
+    "Baseline must be a regular JSON file no larger than 2 MiB": "Baseline muss reguläre JSON-Datei mit höchstens 2 MiB sein",
+    "Baseline changed while reading": "Baseline wurde beim Lesen geändert",
+    "Baseline path is unreadable or unsafe": "Baseline-Pfad ist unlesbar oder unsicher",
+    "Baseline JSON or encoding is invalid": "Baseline-JSON oder Zeichenkodierung ist ungültig",
+    "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous.": "Include/Callback im Anwendungskontext und anhand vertrauenswürdiger Quellen prüfen. Konstanter Präfix oder Registry-Zugriff belegt keine Sicherheit; Traversal oder eine angreiferkontrollierte Registry kann gefährlich bleiben.",
+    "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings.": "Nur geprüfte geschützte lokale Baseline verwenden. Nur identischer Pfad, SHA256 und Indikator werden akzeptiert; geänderte Dateien und Prüflücken bleiben Befunde.",
     "PHP webshell indicator scan": "PHP-Webshell-Indikatorprüfung",
     "--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction": "--redact unterstützt --check, --doctor, --discover und --scan-webshells; Änderungsvorschauen lokal ohne Maskierung prüfen",
     "Read-only PHP webshell indicator scan; no FPM service required": "PHP-Webshell-Indikatoren lesend prüfen; kein FPM-Dienst erforderlich",
@@ -809,6 +842,9 @@ _WS_GERMAN = {
     "--scan-total-bytes must be between 1024 and 1073741824": "--scan-total-bytes muss zwischen 1024 und 1073741824 liegen",
 }
 _POOL_TEMPLATES.update({
+    "PHP code review {path}": "PHP-Code prüfen {path}",
+    "Baseline could not be validated; no baseline entries accepted; scan continues; {message}": "Baseline nicht validierbar; keine Einträge akzeptiert; Suche läuft weiter; {message}",
+    "{files} files fully examined; {incomplete} incomplete files; {indicators} indicators; {message}; absence of indicators does not establish a clean server": "{files} Dateien vollständig untersucht; {incomplete} unvollständige Dateien; {indicators} Indikatoren; {message}; fehlende Indikatoren belegen keinen sauberen Server",
     "PHP file indicator {path}": "PHP-Datei-Indikator {path}",
     "Line {line}: {message}; SHA256 {sha256}": "Zeile {line}: {message}; SHA256 {sha256}",
     "{files} files examined; {indicators} indicators; {message}; absence of indicators does not establish a clean server": "{files} Dateien untersucht; {indicators} Indikatoren; {message}; fehlende Indikatoren belegen keinen sauberen Server",
@@ -817,7 +853,7 @@ _POOL_TEMPLATES.update({
 _NEW_GERMAN.update(_WS_GERMAN)
 _EVIDENCE_GERMAN.update(access="Zugriff", symlink="Symlink", mount="Dateisystemgrenze", special="Spezialdatei",
     changed="Datei geändert", depth="Verzeichnistiefe", entries="Eintragslimit", time="Zeitlimit",
-    **{"file-size":"Dateigröße", "total-bytes":"Gesamtdatenlimit", "tokens":"Tokenlimit", "expression":"Ausdruckslimit", "findings":"Befundlimit"})
+    **{"file-size":"Dateigröße", "file-time":"Datei-Zeitlimit", "total-bytes":"Gesamtdatenlimit", "tokens":"Tokenlimit", "expression":"Ausdruckslimit", "findings":"Befundlimit", "config-syntax":"Konfigurationssyntax"})
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)

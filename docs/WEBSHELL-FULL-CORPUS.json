@@ -1,0 +1,459 @@
+{
+  "source": "WordPress/WordPress",
+  "source_commit": "c9675182926de3c788cd7c594705111a920403d3",
+  "source_scope": "all regular files in pinned GitHub source ZIP",
+  "archive_sha256": "5e7ce33dbc03c915059c3c14f60697f42ef52f910a1445c4ce57ba3e73769036",
+  "archive_bytes": 70753300,
+  "regular_files": 5320,
+  "source_bytes": 167112154,
+  "engine_sha256": "9118a1f8f5648124332473894fbb98329fec1ca6ea302994ed5863cc8d33086c",
+  "scanner_version": "2.3.0-dev.2",
+  "platform": "linux",
+  "python": "3.10.12",
+  "results": [
+    {
+      "settings": "defaults",
+      "cli_overrides": [],
+      "elapsed_seconds": 18.911,
+      "exit_code": 2,
+      "counts": {
+        "OK": 0,
+        "OPEN": 0,
+        "UNKNOWN": 1,
+        "INFO": 4
+      },
+      "coverage": [
+        {
+          "examined_files": 5282,
+          "attempted_files": 5320,
+          "incomplete_files": 38,
+          "indicator_count": 4,
+          "baseline_accepted_count": 0,
+          "coverage_reasons": [
+            "expression",
+            "file-size",
+            "tokens"
+          ],
+          "coverage_counts": {
+            "file-size": 9,
+            "expression": 27,
+            "tokens": 2
+          },
+          "omitted_coverage_paths": 0
+        }
+      ],
+      "incomplete_paths": [
+        {
+          "path": "wp-includes/js/dist/block-editor.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/editor.min.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/media-utils.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/block-editor.min.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/components.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/block-library.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/edit-site.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/script-modules/vips/worker.min.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-includes/js/dist/editor.js",
+          "reason": "file-size"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyone/assets/images/self-portrait-1885.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyone/assets/images/in-the-bois-de-boulogne.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentythirteen/images/block-patterns/bernal-cutaway.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfourteen/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfourteen/images/clouds.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfourteen/images/bridge.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/ipsum/assets/fonts/inter/inter-var-normal.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfifteen/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfifteen/assets/pier-seagulls.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfifteen/assets/fonts/noto-sans/noto-sans-all-700-italic.woff",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfour/assets/images/green-staircase.webp",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfour/assets/fonts/cardo/cardo_normal_400.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyeleven/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwelve/fonts/open-sans/open-sans-latin-400-italic.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/assets/fonts/beiruti/Beiruti-VariableFont_wght.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/assets/fonts/fira-sans/FiraSans-ThinItalic.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/assets/fonts/literata/Literata72pt-MediumItalic.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
+          "reason": "tokens"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/ibm-plex-mono/IBMPlexMono-Regular.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyseventeen/assets/images/stripes.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyseventeen/assets/images/white-border.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyseventeen/assets/images/direct-light.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/videos/birds.mp4",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/images/ducks.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/SourceSerif4Variable-Roman.otf.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
+          "reason": "tokens"
+        }
+      ],
+      "indicators": [
+        {
+          "path": "wp-admin/update.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 101,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/includes/ajax-actions.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 2433,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 300,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 373,
+            "review_required": true
+          }
+        }
+      ]
+    },
+    {
+      "settings": "expanded",
+      "cli_overrides": [
+        "--walk-seconds",
+        "0",
+        "--scan-file-bytes",
+        "16777216",
+        "--scan-total-bytes",
+        "1073741824",
+        "--scan-file-seconds",
+        "10"
+      ],
+      "elapsed_seconds": 18.038,
+      "exit_code": 2,
+      "counts": {
+        "OK": 0,
+        "OPEN": 0,
+        "UNKNOWN": 1,
+        "INFO": 4
+      },
+      "coverage": [
+        {
+          "examined_files": 5291,
+          "attempted_files": 5320,
+          "incomplete_files": 29,
+          "indicator_count": 4,
+          "baseline_accepted_count": 0,
+          "coverage_reasons": [
+            "expression",
+            "tokens"
+          ],
+          "coverage_counts": {
+            "expression": 27,
+            "tokens": 2
+          },
+          "omitted_coverage_paths": 0
+        }
+      ],
+      "incomplete_paths": [
+        {
+          "path": "wp-content/themes/twentytwentyone/assets/images/self-portrait-1885.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyone/assets/images/in-the-bois-de-boulogne.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentythirteen/images/block-patterns/bernal-cutaway.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfourteen/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfourteen/images/clouds.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfourteen/images/bridge.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/ipsum/assets/fonts/inter/inter-var-normal.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfifteen/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfifteen/assets/pier-seagulls.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyfifteen/assets/fonts/noto-sans/noto-sans-all-700-italic.woff",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfour/assets/images/green-staircase.webp",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfour/assets/fonts/cardo/cardo_normal_400.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyeleven/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwelve/fonts/open-sans/open-sans-latin-400-italic.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/screenshot.png",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/assets/fonts/beiruti/Beiruti-VariableFont_wght.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/assets/fonts/fira-sans/FiraSans-ThinItalic.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentyfive/assets/fonts/literata/Literata72pt-MediumItalic.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
+          "reason": "tokens"
+        },
+        {
+          "path": "wp-content/themes/twentytwentythree/assets/fonts/ibm-plex-mono/IBMPlexMono-Regular.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyseventeen/assets/images/stripes.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyseventeen/assets/images/white-border.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentyseventeen/assets/images/direct-light.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/videos/birds.mp4",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/images/ducks.jpg",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/SourceSerif4Variable-Roman.otf.woff2",
+          "reason": "expression"
+        },
+        {
+          "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
+          "reason": "tokens"
+        }
+      ],
+      "indicators": [
+        {
+          "path": "wp-admin/update.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 101,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/includes/ajax-actions.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 2433,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "prefixed-include"
+            ],
+            "line": 300,
+            "review_required": true
+          }
+        },
+        {
+          "path": "wp-admin/admin.php",
+          "rule_id": "P2S-WS004",
+          "status": "INFO",
+          "evidence": {
+            "indicators": [
+              "registry-callable"
+            ],
+            "line": 373,
+            "review_required": true
+          }
+        }
+      ]
+    }
+  ],
+  "interpretation": "Known benign source calibration only; review indicators and incomplete content remain visible. No general detection-rate or false-positive-rate claim."
+}

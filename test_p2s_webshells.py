@@ -96,6 +96,68 @@ class WebshellIndicators(unittest.TestCase):
         self.assertEqual(p.webshell_indicators(large + b"$copy=$map; eval($copy);")[1], 'expression')
         self.assertEqual(p.webshell_indicators(large + b"$map='constant'; eval($map);")[1], None)
 
+    def test_comment_heavy_file_is_linear_and_reaches_the_final_indicator(self):
+        source = b'<?php\n' + b'//x\n' * 450000 + b"eval($_POST['x']);"
+        started = time.monotonic()
+        hits, partial = p.webshell_indicators(source, started + 2)
+        self.assertIsNone(partial)
+        self.assertEqual(hits, {'request-execution': 450002})
+        self.assertLess(time.monotonic()-started, 2)
+
+    def test_prefixed_indirect_include_is_review_but_direct_input_stays_high_priority(self):
+        self.assertIn('prefixed-include', self.indicators("<?php $page=$_GET['page']; include WP_PLUGIN_DIR . '/' . $page;"))
+        self.assertIn('prefixed-include', self.indicators("<?php $page=$_GET['page']; include '/plugins/' . $page;"))
+        self.assertIn('request-include', self.indicators("<?php include '/plugins/' . $_GET['page'];"))
+        self.assertIn('request-include', self.indicators("<?php $page=$_GET['page']; include $page;"))
+
+    def test_registry_lookup_is_review_but_request_supplied_registry_and_fallback_stay_high(self):
+        for sample in ("call_user_func($registry[$_GET['key']][2]);", "$key=$_GET['key']; $registry[$key]();",
+                       "$key=$_POST['key']; $form=$registry[$key]; call_user_func_array($form['callback'],$form['params']);",
+                       "$key=$_POST['key']; $form=$registry[$key]; $callback=$form['callback']; call_user_func($callback);",
+                       "$key=$_POST['key']; $callback=$registry[$key]; $callback();"):
+            self.assertIn('registry-callable', self.indicators('<?php '+sample))
+        for sample in ("$registry=$_POST; call_user_func($registry['f']);", "call_user_func($registry[$key] ?? $_POST['f']);",
+                       "$key=$_POST['key']; $form=$registry[$key]; $form=$_POST['form']; call_user_func($form['callback']);"):
+            self.assertIn('request-callable', self.indicators('<?php '+sample))
+
+    def test_startup_parser_obeys_apache_and_ini_comment_rules_without_printing_values(self):
+        for sample in (b'php_value auto_prepend_file ;payload.php', b'php_value auto_prepend_file ";payload.php"', b'php_value auto_prepend_file \\none'):
+            self.assertEqual(p.webshell_startup_lines(sample, '.htaccess', time.monotonic()+2), ({'startup-reference':1}, None))
+        self.assertEqual(p.webshell_startup_lines(b'auto_prepend_file=;comment', '.user.ini', time.monotonic()+2), ({}, None))
+        self.assertEqual(p.webshell_startup_lines(b'auto_prepend_file="a;name.php";comment', '.user.ini', time.monotonic()+2), ({'startup-reference':1}, None))
+        self.assertEqual(p.webshell_startup_lines(b'php_value auto_prepend_file "unclosed', '.htaccess', time.monotonic()+2)[1], 'config-syntax')
+        self.assertEqual(p.webshell_startup_lines(b'php_value auto_prepend_file value # invalid-inline-comment', '.htaccess', time.monotonic()+2)[1], 'config-syntax')
+        self.assertEqual(p.webshell_startup_lines(b'# continued comment \\\nphp_value auto_prepend_file hidden.php', '.htaccess', time.monotonic()+2), ({}, None))
+        self.assertEqual(p.webshell_startup_lines(b'php_value auto_prepend_file \\\n";payload.php"', '.htaccess', time.monotonic()+2), ({'startup-reference':1}, None))
+
+
+class WebshellBaselineContracts(unittest.TestCase):
+    def entry(self, **changes):
+        result = dict(path='/srv/site/index.php', sha256='a'*64, indicators=['request-execution'])
+        result.update(changes)
+        return result
+
+    def test_manual_and_own_report_baselines_bind_path_hash_and_indicator(self):
+        expected = {('/srv/site/index.php','request-execution'):'a'*64}
+        self.assertEqual(p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry()])),expected)
+        report = dict(schema_version=2,redacted=False,discovery=dict(webshell_scan=True),findings=[
+            dict(rule_id='P2S-WS001',resource=dict(path='/srv/site/index.php',indicator='request-execution'),sha256='a'*64),
+            dict(rule_id='P2S-WS003',status='UNKNOWN')])
+        self.assertEqual(p.webshell_baseline_entries(report),expected)
+        report['redacted']=True
+        with self.assertRaises(p.CheckError):
+            p.webshell_baseline_entries(report)
+
+    def test_malformed_ambiguous_and_noncanonical_baselines_are_rejected(self):
+        for entry in (self.entry(path='relative.php'), self.entry(path='/srv/../file.php'), self.entry(path='/srv//file.php'),
+                      self.entry(sha256='z'*64), self.entry(indicators=['private value']), self.entry(indicators=[])):
+            with self.subTest(entry=entry), self.assertRaises(p.CheckError):
+                p.webshell_baseline_entries(dict(schema_version=1,files=[entry]))
+        with self.assertRaisesRegex(p.CheckError,'Conflicting'):
+            p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry(),self.entry(sha256='b'*64)]))
+        with self.assertRaises(p.CheckError):
+            p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry()]*10001))
+
 
 @unittest.skipUnless(sys.platform == "linux", "Linux no-follow descriptor traversal")
 class WebshellFilesystem(unittest.TestCase):
@@ -289,6 +351,171 @@ class WebshellFilesystem(unittest.TestCase):
         self.assertTrue(data['has_open'])
         self.assertFalse(data['has_unknown'])
         self.assertNotIn(str(root), result.stdout)
+
+    def test_file_timeout_continues_and_partial_files_are_not_fully_examined(self):
+        slow = self.root / 'slow.php'
+        slow.write_bytes(b'costly')
+        (self.root / 'found.php').write_text("<?php eval($_POST['x']);")
+        self.args.walk_seconds = 0
+        original = p.webshell_indicators
+        def inspect(data, deadline):
+            return ({}, 'time') if data == b'costly' else original(data,deadline)
+        with patch.object(p,'webshell_indicators',side_effect=inspect):
+            report=self.scan()
+        self.assertTrue(report.has('OPEN'))
+        self.assertTrue(report.has('UNKNOWN'))
+        facts=report.rows[-1]['evidence']
+        self.assertEqual(facts['attempted_files'],2)
+        self.assertEqual(facts['examined_files'],1)
+        self.assertEqual(facts['incomplete_files'],1)
+        self.assertEqual(facts['coverage_counts'],{'file-time':1})
+        self.assertEqual(report.discovery['webshell_coverage'][0]['paths'],[dict(path=str(slow),reason='file-time')])
+
+    def test_comment_stress_file_does_not_hide_later_shells(self):
+        (self.root/'comment-heavy.php').write_bytes(b'<?php\n'+b'//x\n'*450000)
+        for number in range(300):
+            (self.root/('shell-'+str(number)+'.php')).write_text("<?php eval($_POST['x']);")
+        self.args.walk_seconds=120
+        report=self.scan()
+        self.assertEqual(len([r for r in report.rows if r['status']=='OPEN']),200)
+        self.assertIn('findings',report.rows[-1]['evidence']['coverage_reasons'])
+        self.assertNotIn('time',report.rows[-1]['evidence']['coverage_reasons'])
+
+    def test_coverage_paths_are_actionable_locally_and_only_counts_survive_redaction(self):
+        file=self.root/'PRIVATE_OVERSIZED.bin'
+        file.write_bytes(b'x'*2048)
+        self.args.scan_file_bytes=1024
+        report=self.scan()
+        self.assertEqual(report.rows[-1]['evidence']['examined_files'],0)
+        for as_json in (False,True):
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output): report.show(as_json)
+            self.assertIn(str(file),output.getvalue())
+            self.assertIn('file-size',output.getvalue())
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output): report.show(as_json,redact=True)
+            self.assertNotIn('PRIVATE_OVERSIZED',output.getvalue())
+            self.assertNotIn(str(self.root),output.getvalue())
+            if as_json:
+                data=json.loads(output.getvalue())
+                self.assertEqual(data['findings'][-1]['evidence']['coverage_counts'],{'file-size':1})
+        self.assertEqual(p.safe_evidence('P2S-WS003',dict(coverage_counts={'PRIVATE_REASON':1})),{})
+
+    def test_coverage_path_truncation_is_explicit_and_counters_remain_complete(self):
+        for number in range(1002):
+            (self.root/str(number)).symlink_to('/absent')
+        report=self.scan()
+        coverage=report.discovery['webshell_coverage'][0]
+        self.assertEqual(len(coverage['paths']),1000)
+        self.assertEqual(coverage['issue_count'],1002)
+        self.assertEqual(coverage['omitted_paths'],2)
+        self.assertEqual(report.rows[-1]['evidence']['coverage_counts'],{'symlink':1002})
+
+    def test_review_indicators_are_visible_without_high_open_exit(self):
+        (self.root/'plugin.php').write_text("<?php $plugin=$_GET['p']; include WP_PLUGIN_DIR . '/' . $plugin; call_user_func($registry[$plugin][2]);")
+        report=self.scan()
+        self.assertEqual(report.exit_code(),0)
+        reviews=[r for r in report.rows if r['rule_id']=='P2S-WS004']
+        self.assertEqual(len(reviews),2)
+        self.assertTrue(all(r['status']=='INFO' and r['evidence']['review_required'] for r in reviews))
+
+    def test_exact_baseline_acceptance_is_visible_and_never_accepts_changes_or_coverage(self):
+        file=self.root/'index.php'
+        file.write_bytes(b"<?php eval($_POST['x']);")
+        self.args.baseline='protected-fixture'
+        entries={(str(file),'request-execution'):p.digest(file.read_bytes())}
+        with patch.object(p,'read_webshell_baseline',return_value=entries):
+            report=self.scan()
+            report.configure()
+            self.assertEqual(report.exit_code(),0)
+            accepted=[r for r in report.rows if r.get('baseline_accepted')]
+            self.assertEqual(len(accepted),1)
+            self.assertTrue(accepted[0]['suppressed'])
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output): report.show(True,redact=True)
+            self.assertTrue(any(r.get('baseline_accepted') for r in json.loads(output.getvalue())['findings']))
+            self.assertNotIn(str(file),output.getvalue())
+            self.assertNotIn(entries[(str(file),'request-execution')],output.getvalue())
+            (self.root/'unknown').symlink_to('/absent')
+            self.assertEqual(self.scan().exit_code(),2)
+            (self.root/'unknown').unlink()
+            file.write_bytes(file.read_bytes()+b' /* changed */')
+            self.assertEqual(self.scan().exit_code(),1)
+            file.write_bytes(b"<?php system($_POST['x']);")
+            # Same bytes at another path are not accepted by the original entry.
+            file.rename(self.root/'other.php')
+            self.assertEqual(self.scan().exit_code(),1)
+
+    def test_baseline_accepted_rows_do_not_exhaust_the_active_finding_budget(self):
+        entries={}
+        for number in range(205):
+            file=self.root/str(number)
+            file.write_bytes(b"<?php eval($_POST['x']);")
+            if number<10: entries[(str(file),'request-execution')]=p.digest(file.read_bytes())
+        self.args.baseline='protected-fixture'
+        with patch.object(p,'read_webshell_baseline',return_value=entries): report=self.scan()
+        self.assertFalse(report.has('UNKNOWN'))
+        self.assertEqual(report.rows[-1]['evidence']['indicator_count'],205)
+        self.assertEqual(report.rows[-1]['evidence']['baseline_accepted_count'],10)
+
+    def test_missing_baseline_is_unknown_but_independent_scan_continues(self):
+        (self.root/'index.php').write_text("<?php eval($_POST['x']);")
+        self.args.baseline=str(self.root/'absent.json')
+        report=self.scan()
+        self.assertTrue(report.has('OPEN'))
+        self.assertTrue(report.has('UNKNOWN'))
+        self.assertEqual(report.rows[0]['rule_id'],'P2S-WS005')
+
+    def test_mode_specific_time_defaults_and_validation(self):
+        for options,expected in (([],120),(['--walk-seconds','0'],0),(['--walk-seconds','600'],600)):
+            captured=[]
+            def scan(args):
+                captured.append(args)
+                return p.Report()
+            with patch.object(p,'scan_webshells',side_effect=scan),contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(p.main(['--scan-webshells','--root',str(self.root),'--json',*options]),0)
+            self.assertEqual(captured[0].walk_seconds,expected)
+            self.assertEqual(captured[0].scan_file_seconds,2)
+            self.assertEqual(captured[0].scan_total_bytes,268435456)
+        for flag,value in (('--walk-seconds','nan'),('--walk-seconds','inf'),('--walk-seconds','86401'),('--scan-file-seconds','0')):
+            with patch.object(p,'scan_webshells') as scanner,contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(p.main(['--scan-webshells','--root',str(self.root),'--json',flag,value]),2)
+                scanner.assert_not_called()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(p.main(['--check','--root',str(self.root),'--json','--walk-seconds','0']),2)
+
+
+@unittest.skipUnless(sys.platform=='linux' and os.geteuid()==0,'Protected Linux root baseline fixtures')
+class ProtectedWebshellBaselines(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory(dir=Path.cwd(),prefix='p2s-test-baseline-')
+        self.root=Path(self.tmp.name)
+        self.file=self.root/'reviewed.json'
+        self.value=dict(schema_version=1,files=[dict(path='/srv/site/a.php',sha256='a'*64,indicators=['request-execution'])])
+        self.file.write_text(json.dumps(self.value))
+
+    def tearDown(self): self.tmp.cleanup()
+
+    def test_protected_regular_baseline_loads_but_writable_and_symlink_inputs_do_not(self):
+        self.assertEqual(len(p.read_webshell_baseline(str(self.file))),1)
+        self.file.chmod(0o666)
+        with self.assertRaises(p.CheckError): p.read_webshell_baseline(str(self.file))
+        self.file.chmod(0o600)
+        link=self.root/'link.json'
+        link.symlink_to(self.file)
+        with self.assertRaises(OSError): p.read_webshell_baseline(str(link))
+        self.root.chmod(0o777)
+        with self.assertRaises(p.CheckError): p.read_webshell_baseline(str(self.file))
+        self.root.chmod(0o700)
+
+    def test_malformed_oversized_and_nonregular_baselines_fail_without_opening_payloads(self):
+        self.file.write_bytes(b'not json')
+        with self.assertRaises(ValueError): p.read_webshell_baseline(str(self.file))
+        self.file.write_bytes(b'x'*(2*1024*1024+1))
+        with self.assertRaises(p.CheckError): p.read_webshell_baseline(str(self.file))
+        self.file.unlink()
+        os.mkfifo(str(self.file))
+        with self.assertRaises(p.CheckError): p.read_webshell_baseline(str(self.file))
 
 
 if __name__ == '__main__':

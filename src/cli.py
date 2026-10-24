@@ -27,9 +27,11 @@ def main(argv=None):
     parser.add_argument("--no-auto", action="store_true", help=text('Disable automatic document-root/domain discovery'))
     parser.add_argument("--max-sites", type=int, default=32, help=text('Maximum automatic HTTP mappings (default 32)'))
     parser.add_argument("--max-paths", type=int, default=250000, help=text("Maximum entries per filesystem walk (default 250000)"))
-    parser.add_argument("--walk-seconds", type=float, default=10, help=text("Seconds per filesystem walk (default 10)"))
+    parser.add_argument("--walk-seconds", type=float, help=text("Seconds per walk: audit 10, webshell scan 120; scan only: 0 disables root time limit"))
+    parser.add_argument("--scan-file-seconds", type=float, default=2, help=text("Webshell time budget per file (default 2 seconds; maximum 30)"))
+    parser.add_argument("--baseline", help=text("Reviewed webshell JSON baseline; exact path, SHA256 and indicator matches only"))
     parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("Webshell scan byte limit per file (default 2097152)"))
-    parser.add_argument("--scan-total-bytes", type=int, default=128 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 134217728)"))
+    parser.add_argument("--scan-total-bytes", type=int, default=256 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 268435456)"))
     parser.add_argument("--max-http-probes", type=int, default=128, help=text("Total HTTP request budget (default 128)"))
     parser.add_argument("--runtime-dir", action="append", default=[], help=text("Declare writable runtime storage inside selected roots; repeatable"))
     parser.add_argument("--protect-dir", action="append", default=[], help=text('Transfer explicit directory ownership to root; non-recursive'))
@@ -45,6 +47,8 @@ def main(argv=None):
     parser.add_argument("--progress", action="store_true", help=text('Write progress to stderr even without a TTY'))
     parser.add_argument("--version", action="version", version=VERSION)
     args = parser.parse_args(argv)
+    if args.walk_seconds is None:
+        args.walk_seconds = 120 if args.mode == "scan-webshells" else 10
     report, tx = None, None
     def show_report():
         report.configure(args.fail_on, args.ignore)
@@ -68,6 +72,8 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
+        if args.baseline and args.mode != "scan-webshells":
+            raise CheckError("--baseline supports --scan-webshells only")
         if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
             raise CheckError("--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
@@ -88,8 +94,13 @@ def main(argv=None):
             raise CheckError('--max-sites must be between 1 and 512')
         if not 1 <= args.max_paths <= 1000000:
             raise CheckError("--max-paths must be between 1 and 1000000")
-        if not 0.05 <= args.walk_seconds <= 120:
+        if args.mode == "scan-webshells":
+            if not (args.walk_seconds == 0 or 0.05 <= args.walk_seconds <= 86400):
+                raise CheckError("Webshell --walk-seconds must be 0 or between 0.05 and 86400")
+        elif not 0.05 <= args.walk_seconds <= 120:
             raise CheckError("--walk-seconds must be between 0.05 and 120")
+        if not 0.05 <= args.scan_file_seconds <= 30:
+            raise CheckError("--scan-file-seconds must be between 0.05 and 30")
         if not 1 <= args.max_http_probes <= 4096:
             raise CheckError("--max-http-probes must be between 1 and 4096")
         if not 1024 <= args.scan_file_bytes <= 16 * 1024 * 1024:

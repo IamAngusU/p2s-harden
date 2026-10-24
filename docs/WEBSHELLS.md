@@ -1,4 +1,4 @@
-# PHP webshell indicator triage (2.3.0 development preview)
+# PHP webshell indicator triage (2.3.0-dev.2 preview)
 
 `--scan-webshells` is a separate read-only mode. It supplies local leads for
 investigation, not a malware verdict, an application vulnerability assessment
@@ -22,7 +22,7 @@ sudo bash p2s-harden.sh --scan-webshells --root /srv/site --redact --json > shar
 Exit policy is unchanged: default UNKNOWN=2 before OPEN=1, otherwise 0. With
 `--fail-on open`, a found OPEN takes precedence; unknown coverage stays visible.
 A zero exit means no unsuppressed selected indicators and no reported coverage
-failure, never a clean-server certificate. `--ignore` retains the row and changes
+failure; review-only INFO can remain. It is never a clean-server certificate. `--ignore` retains the row and changes
 its exit impact only. The mode cannot be combined with `--fix` or `--rollback`.
 
 ## Rules and evidence
@@ -48,7 +48,16 @@ its exit impact only. The mode cannot be combined with `--fix` or `--rollback`.
   coverage reason codes. A complete bounded pass is INFO, never a malware-free OK.
   Reason codes map to access failures, skipped symlinks/mounts/special files,
   changed files, depth/entry/time/byte/token/expression/finding limits. Access
-  failures continue with independent entries; global budgets stop that root.
+  failures and per-file timeouts continue with independent entries; global budgets stop that root.
+- **P2S-WS004 (INFO, review required):** `prefixed-include` and `registry-callable`.
+  An indirectly request-derived value in a constant-prefixed include, or selection
+  from a registry array (including simple registry-result aliases), remains visible
+  for manual review without a HIGH/OPEN verdict. Direct request expressions in
+  includes and a request-supplied callback/registry remain WS001. This is triage
+  priority, not proof of safety: a prefix does not stop traversal and a registry
+  can be attacker-controlled. No framework/filename whitelist exempts the file.
+- **P2S-WS005 (INFO or UNKNOWN):** reviewed baseline loading. Invalid, unsafe or
+  unreadable baselines yield UNKNOWN and the independent file scan continues.
 
 Local JSON adds a `sha256` to each indicator row. The hash covers the bytes read
 for that file and supports comparison; it is not checked against a reputation
@@ -57,6 +66,23 @@ string payload or startup target is printed. Redaction omits file hashes and
 paths/IDs, retaining only validated indicator enums, line numbers and counts.
 Reads can update filesystem access times. Scanner/report code writes no target
 files; a shell report redirection is an explicit operator action.
+
+`examined_files` counts only stable, fully read files whose selected analysis
+completed. `attempted_files` also includes incomplete regular files;
+`incomplete_files` is their difference. Local JSON lists skipped/incomplete paths
+and reason codes in `discovery.webshell_coverage`; text shows the first 20 and
+`--verbose` shows the retained list. At most 1000 diagnostic path records per root
+are retained; omitted-path and per-reason counters stay visible. Narrow the root
+when the list is truncated. A global budget marks the current subtree; remaining
+unvisited entries are not enumerated. Redacted output contains only validated
+coverage counters/reasons, never that path list.
+
+Startup files have separate syntax handling: INI semicolons start comments only
+outside quotes; in `.htaccess` a semicolon is an ordinary argument byte. Apache
+whole-line comments, continuation and argument escapes are handled separately;
+invalid selected directives stay UNKNOWN. This is not a complete Apache/INI
+configuration validator. [Apache syntax](https://httpd.apache.org/docs/2.4/configuring.html#syntax),
+[PHP INI syntax](https://www.php.net/manual/en/configuration.file.php#configuration.file.syntax).
 
 ## Scope and budgets
 
@@ -67,29 +93,77 @@ reads, checks filesystem boundaries, and checks opened identity and post-read
 size/mtime/ctime. This limits traversal races; it does not provide a consistent
 snapshot of a live tree or defeat an attacker who already controls the host/kernel.
 
-Defaults **per root**: 250000 entries, 10 seconds, 2 MiB per regular file,
-128 MiB total bytes and 200 indicator rows. Files over the file limit remain
+Defaults **per root**: 250000 entries, **120 seconds**, 2 MiB per regular file,
+**256 MiB** total bytes and 200 unaccepted indicator rows. Each file has an
+independent **2-second** budget; an expensive file becomes `file-time` UNKNOWN
+and later files continue. Baseline-accepted rows do not exhaust the active
+finding budget. Files over the byte limit remain
 unexamined and make coverage UNKNOWN even if their suffix looks harmless.
 The traversal depth is 64; per-file lexical analysis is capped at 100000 tokens,
 128 nested parentheses/brackets and 512 tokens per inspected expression.
-The monotonic time budget is checked during traversal, chunk reads and analysis;
+Root and file time budgets are checked during traversal, chunk reads and analysis;
 it cannot interrupt a blocked kernel/filesystem operation. Use local filesystems
 or a local snapshot when storage can stall.
 
 Raise `--scan-file-bytes` (1024–16777216), `--scan-total-bytes`
-(1024–1073741824), `--max-paths` (1–1000000) or `--walk-seconds` (0.05–120)
-when justified, or split the roots. These are bounded reads, not archive extraction
+(1024–1073741824), `--max-paths` (1–1000000) or webshell `--walk-seconds`
+(0.05–86400) when justified, or split the roots. `--walk-seconds 0` disables only
+the webshell root clock, leaving all other limits active. `--scan-file-seconds`
+can increase an individual file's allowance (0.05–30). Ordinary configuration
+audits retain their 10-second default and 0.05–120 range; 0 is rejected there.
+These are bounded reads, not archive extraction
 or recursive decoder execution. Reports never silently certify skipped content.
 
 This is not a full PHP parser/taint engine: cross-function/file flows, indirect
 aliases, complex expressions, wrappers, escaped/interpolated constructs and
 version-dependent behavior may be missed. There is no signature database,
-reputation service, baseline of a trusted deployment, archive/PHAR parser,
+reputation service, automatic trusted-source baseline, archive/PHAR parser,
 recursive payload decoding, external scanner or OS persistence analysis.
 Non-PHP backdoors, cron/SSH users/keys, native modules, OPcache-only/in-memory
 payloads, remote startup targets, and files outside the selected roots need
 separate investigation. Legitimate test fixtures and encoded commercial code
 can produce indicators. Rewriting a sample can evade these rules.
+
+## Reviewed baselines
+
+An operator can explicitly accept selected, unchanged indicators with `--baseline`.
+This is an acknowledgement, not a malware-clean result. First export a local
+nonredacted webshell JSON report; keep it outside the audited webroot:
+
+```bash
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --json > candidates.json
+```
+
+Inspect the actual source and compare with a trusted deployment before promoting
+any entry. A report generated by a possibly compromised host is not a trust source
+by itself. For root scans, install only reviewed entries in a protected location:
+
+```bash
+sudo install -m 600 candidates.json /root/p2s-reviewed.json
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --baseline /root/p2s-reviewed.json
+```
+
+Alternatively maintain a minimal allowlist, using lowercase SHA-256 and canonical
+absolute Linux paths:
+
+```json
+{"schema_version":1,"files":[{"path":"/srv/site/file.php","sha256":"REPLACE_WITH_REVIEWED_64_HEX_HASH","indicators":["registry-callable"]}]}
+```
+
+Only the identical **path + file bytes' SHA-256 + indicator name** match. A new
+path, changed file or new indicator needs review again. Accepted rows remain in
+JSON/`--verbose`, marked `baseline_accepted`; accepted OPEN rows are also visibly
+suppressed. Default text hides accepted rows and prints their count. UNKNOWN
+coverage cannot be accepted. After package/application updates, review changes
+before replacing the baseline. The target reads this file locally; SSH does not
+upload a client-side baseline.
+
+The file and ancestors must be owned by root/the current scanner UID without
+group/other write access and without symlinks. Root therefore does not accept an
+ordinary user's writable home baseline directly. The loader accepts only a
+regular, stable JSON file up to 2 MiB and 10000 path/indicator entries. Redacted
+or unrelated reports, conflicts, invalid paths/hashes and unsafe files are refused;
+other scan checks continue without baseline acceptance.
 
 ## Validation and benign-source calibration
 
@@ -105,16 +179,27 @@ access/race/limit behavior, report privacy and actual Bash transport. These are
 regressions for the documented rules, not an independently measured malware
 detection rate. The normal suite also tests native PowerShell option forwarding.
 
-A separate calibration used **25 unchanged WordPress PHP files** (2666825 bytes)
+A focused calibration uses **25 unchanged WordPress PHP files** (2666825 bytes)
 at commit `c9675182926de3c788cd7c594705111a920403d3`, including authentication,
 plugin/import dispatch, HTTP, database, formatting and KSES code. The exact
 selection, SHA-256s, scanner hash, budgets and results are recorded in
-[WEBSHELL-CORPUS.json](WEBSHELL-CORPUS.json). It produced **two expected review
+[WEBSHELL-CORPUS.json](WEBSHELL-CORPUS.json). It produces **two expected review
 indicators** in legitimate `wp-admin/admin.php` (plugin include and importer
 callback), with no incomplete coverage under the recorded expanded budgets.
 The guards and application context explain those uses; the scanner deliberately
 does not treat a filename/framework name as an exemption. This small chosen
 sample does not establish a general false-positive rate or certify WordPress.
+
+The same pinned commit is also tested as a **complete 5320-file source archive**
+(167112154 uncompressed bytes), including media and fonts. Default and expanded
+runs record fully examined/incomplete counts and **every retained incomplete
+relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). Binary
+assets can contain PHP-like short-tag byte sequences; large files and parser
+limits remain UNKNOWN even in known benign source. The tool does not silently
+skip those files or claim that the whole tree passed. Timing is a measurement
+on the recorded run, not a performance guarantee. The regression suite also
+includes 450000 line comments followed by an indicator and a 300-file indicator
+tree that still reaches the active 200-finding cap.
 
 ## What to do with a finding
 

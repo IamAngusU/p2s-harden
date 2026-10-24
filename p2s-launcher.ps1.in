@@ -72,14 +72,16 @@ p2s-harden 2.2.1 - Windows -> Linux, directly over OpenSSH
   --runtime-dir /path          Review a known upload/cache directory separately
   --max-sites COUNT            Limit automatic HTTP mappings
   --max-paths COUNT            Limit filesystem traversal
-  --walk-seconds SECONDS       Limit filesystem traversal time
+  --walk-seconds SECONDS       Audit: 10s; webshell scan: 120s; scan-only 0 disables root timer
+  --scan-file-seconds N        Independent webshell file timer (default 2s)
+  --baseline FILE             Reviewed JSON: exact path/hash/indicator acceptance
   --max-http-probes COUNT      Limit HTTP requests
   --protect-dir /path          Protect one directory; non-recursive
   --rollback [--backup-id ID]  Restore a transaction
   --json --verbose --no-auto --no-progress      Same options as the Bash CLI
   --redact                    Omit host details from a read-only shareable report
   --scan-file-bytes N          Webshell scan: per-file byte limit (2097152)
-  --scan-total-bytes N         Webshell scan: bytes per root (134217728)
+  --scan-total-bytes N         Webshell scan: bytes per root (268435456)
   --yes --fail-on complete|open --ignore ID     Approval and automation policy
 
 The Linux target requires Python 3.8+. Missing helpers are explained individually.
@@ -105,14 +107,16 @@ p2s-harden 2.2.1 - Windows -> Linux, direkt per OpenSSH
   --runtime-dir /pfad          Bekanntes Upload-/Cache-Verzeichnis gesondert bewerten
   --max-sites ANZAHL           Automatische HTTP-Zuordnungen begrenzen
   --max-paths ANZAHL           Dateisystem-Suchlauf begrenzen
-  --walk-seconds SEKUNDEN      Dauer des Dateisystem-Suchlaufs begrenzen
+  --walk-seconds SEKUNDEN      Audit: 10s; Webshell-Suche: 120s; nur Suche: 0 ohne Wurzeltimer
+  --scan-file-seconds N        Eigenes Webshell-Zeitlimit je Datei (Standard 2s)
+  --baseline DATEI            Geprüfte JSON: exakter Pfad/Hash/Indikator
   --max-http-probes ANZAHL     HTTP-Anfragen begrenzen
   --protect-dir /pfad          Ein Verzeichnis schützen; nicht rekursiv
   --rollback [--backup-id ID]  Eine Transaktion zurücknehmen
   --json --verbose --no-auto --no-progress      Wie bei der Bash-Datei
   --redact                    Teilbarer Prüfbericht ohne private Hostdetails
   --scan-file-bytes N          Webshell-Suche: Dateilimit in Bytes (2097152)
-  --scan-total-bytes N         Webshell-Suche: Bytes je Wurzel (134217728)
+  --scan-total-bytes N         Webshell-Suche: Bytes je Wurzel (268435456)
   --yes --fail-on complete|open --ignore ID     Freigabe und Automatisierungsregeln
 
 Das Linux-Ziel braucht Python 3.8+. Fehlende Helfer werden einzeln erklärt.

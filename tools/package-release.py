@@ -20,6 +20,7 @@ names = [
     'README.md', 'README.de.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
     '.gitattributes', '.gitignore', '.github/workflows/ci.yml', '.github/workflows/public-proof-badge.yml', '.github/ISSUE_TEMPLATE/audit-feedback.yml',
     'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/DETAILS.md', 'docs/FINDINGS.md', 'docs/CI.md', 'docs/WEBSHELLS.md', 'docs/WEBSHELL-CORPUS.json',
+    'docs/WEBSHELL-FULL-CORPUS.json', 'docs/WEBSHELL-REVIEW-STRESS.json', 'docs/REVIEW-WEBSHELLS.md',
     'docs/REVIEW-FOLLOWUP.md', 'docs/REVIEW-rc3.md', 'docs/FPM-RUNTIME.json', 'docs/PRODUCTION.md', 'docs/PROVENANCE.md', 'docs/REVIEW-2.2.1.md',
     'tools/test-linux.sh', 'tools/package-release.py', 'tools/render-public-proof-badge.py', 'tools/test_public_proof.py',
     'tools/test_fpm_runtime.py', 'tools/test_fpm_runtime_protocol.py',

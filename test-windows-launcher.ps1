@@ -113,10 +113,10 @@ public class FakeSSH {
         if (-not $argv[-1].Contains("'--redact'")) { throw 'Redaction flag was dropped in SSH transport.' }
         if ([IO.File]::ReadAllText($env:P2S_PAYLOAD) -cne [IO.File]::ReadAllText((Join-Path $base 'p2s_harden.py'))) { throw 'Localized transport altered the embedded UTF-8 engine.' }
     }
-    $scan = Invoke-Launcher @('--ssh', 'tester@[::1]', '--scan-webshells', '--root', $root, '--scan-file-bytes', '4096', '--scan-total-bytes', '8192', '--redact', '--json')
+    $scan = Invoke-Launcher @('--ssh', 'tester@[::1]', '--scan-webshells', '--root', $root, '--scan-file-bytes', '4096', '--scan-total-bytes', '8192', '--scan-file-seconds', '1', '--walk-seconds', '0', '--baseline', '/root/reviewed baseline.json', '--redact', '--json')
     if ($scan.ExitCode -ne 17) { throw 'Webshell scan transport changed the SSH exit code.' }
     $argv = [IO.File]::ReadAllText($env:P2S_ARGUMENTS).Split([char]0)
-    if (-not $argv[-1].Contains("'--scan-webshells' '--root' $quotedRoot '--scan-file-bytes' '4096' '--scan-total-bytes' '8192' '--redact' '--json'")) { throw 'Webshell scan mode/limits were changed in SSH transport.' }
+    if (-not $argv[-1].Contains("'--scan-webshells' '--root' $quotedRoot '--scan-file-bytes' '4096' '--scan-total-bytes' '8192' '--scan-file-seconds' '1' '--walk-seconds' '0' '--baseline' '/root/reviewed baseline.json' '--redact' '--json'")) { throw 'Webshell scan mode/limits/baseline were changed in SSH transport.' }
     $env:P2S_EXIT_CODE = '255'
     $unreachable = Invoke-Launcher @('--ssh', 'tester@[::1]', '--lang', 'de', '--json')
     if ($unreachable.ExitCode -ne 2) { throw 'Unavailable SSH did not become an incomplete check.' }

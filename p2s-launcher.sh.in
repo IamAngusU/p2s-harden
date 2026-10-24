@@ -49,7 +49,9 @@ Options (override automatically discovered values):
   --no-auto                   Use explicit mappings only
   --max-sites 32              Limit automatic HTTP mappings
   --max-paths COUNT           Limit filesystem traversal
-  --walk-seconds SECONDS      Limit filesystem traversal time
+  --walk-seconds SECONDS      Audit: 10s; webshell scan: 120s; scan-only 0 disables root timer
+  --scan-file-seconds N       Independent webshell file timer (default 2s)
+  --baseline FILE             Reviewed JSON: exact path/hash/indicator acceptance
   --max-http-probes COUNT     Limit HTTP requests
   --runtime-dir /path          Review a known upload/cache directory separately
   --protect-dir /path          Protect an explicit directory; non-recursive
@@ -58,7 +60,7 @@ Options (override automatically discovered values):
   --json                      Machine-readable output
   --redact                    Shareable read-only report without host details
   --scan-file-bytes N          Webshell scan: per-file byte limit (2097152)
-  --scan-total-bytes N         Webshell scan: bytes per root (134217728)
+  --scan-total-bytes N         Webshell scan: bytes per root (268435456)
   --yes, -y                   Approve the fix without an interactive prompt
   --fail-on complete|open     Exit precedence; UNKNOWN never passes
   --ignore ID                 Keep a finding visible but suppress its OPEN exit
@@ -96,7 +98,9 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --no-auto                    Nur explizite Zuordnungen verwenden
   --max-sites 32               Limit automatischer HTTP-Zuordnungen
   --max-paths ANZAHL           Dateisystem-Suchlauf begrenzen
-  --walk-seconds SEKUNDEN      Dauer des Dateisystem-Suchlaufs begrenzen
+  --walk-seconds SEKUNDEN      Audit: 10s; Webshell-Suche: 120s; nur Suche: 0 ohne Wurzeltimer
+  --scan-file-seconds N        Eigenes Webshell-Zeitlimit je Datei (Standard 2s)
+  --baseline DATEI            Geprüfte JSON: exakter Pfad/Hash/Indikator
   --max-http-probes ANZAHL     HTTP-Anfragen begrenzen
   --runtime-dir /pfad           Bekanntes Upload-/Cache-Verzeichnis gesondert bewerten
   --protect-dir /pfad           Nur explizites Verzeichnis schützen; kein Rekurs
@@ -105,7 +109,7 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --json                       Maschinenlesbare Ausgabe
   --redact                     Teilbarer Prüfbericht ohne private Hostdetails
   --scan-file-bytes N           Webshell-Suche: Dateilimit in Bytes (2097152)
-  --scan-total-bytes N          Webshell-Suche: Bytes je Wurzel (134217728)
+  --scan-total-bytes N          Webshell-Suche: Bytes je Wurzel (268435456)
   --yes, -y                    Fix ohne interaktive Rückfrage freigeben
   --fail-on complete|open      Exit-Vorrang; UNKNOWN besteht niemals
   --ignore ID                  Befund sichtbar lassen, seine OPEN-Exitwirkung ausnehmen

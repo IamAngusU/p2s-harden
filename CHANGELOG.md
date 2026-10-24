@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Update the preview to 2.3.0-dev.2: linear comment lexing, independent file timeouts, actionable local coverage paths/counters, 120-second root defaults and explicit root-clock override, review-only registry/prefixed-include context, protected exact-hash baselines and correct Apache/INI comment handling. Confirm pure JSON fix output in the real distro VM harness.
 - Add a separate bounded `--scan-webshells` read-only triage mode, local line/hash evidence, startup-reference review, redaction, Linux traversal safeguards and inert-sample regressions. Version the preview as 2.3.0-dev; stable 2.2.1 assets remain unchanged.
 - Render redacted terminal details as readable EN/DE summaries while preserving structured JSON evidence and privacy filtering.
 - Show the existing-INI package-upgrade notice before interactive approval, in human previews and with `--fix --yes`.

@@ -7,9 +7,11 @@ WEBSHELL_INDICATORS = {
     "request-callable": "Request-selected dynamic function call",
     "network-shell": "Network connection and shell launch in one PHP file",
     "startup-reference": "PHP startup-file directive requires verification",
+    "prefixed-include": "Indirect input in a constant-prefixed PHP include requires review",
+    "registry-callable": "Request-selected registry callback requires review",
 }
 WEBSHELL_REASONS = ("access", "symlink", "mount", "special", "changed", "depth",
-                   "entries", "time", "file-size", "total-bytes", "tokens", "expression", "findings")
+                   "entries", "time", "file-time", "file-size", "total-bytes", "tokens", "expression", "findings", "config-syntax")
 _WS_SOURCE = frozenset(("$_GET", "$_POST", "$_REQUEST", "$_COOKIE", "$_SERVER", "$_FILES"))
 _WS_SINKS = REQUIRED | frozenset(("eval", "assert", "create_function"))
 _WS_DECODERS = frozenset(("base64_decode", "gzinflate", "gzuncompress", "gzdecode", "str_rot13", "hex2bin"))
@@ -19,6 +21,8 @@ _WS_CALLS = _WS_SINKS | _WS_NETWORK | _WS_CALLBACKS
 _WS_TOKEN = re.compile(r"\$[A-Za-z_][A-Za-z_0-9]*|\\?[A-Za-z_][A-Za-z_0-9\\]*|->|\?->|::|==|=>|!=|<=|>=|\?\?|&&|\|\||[^\s]", re.ASCII)
 _WS_OPEN = re.compile(r"<\?(?:php\b|=|(?!xml\b))", re.I | re.ASCII)
 _WS_HEREDOC = re.compile(r"<<<[ \t]*(?:'([A-Za-z_][A-Za-z_0-9]{0,127})'|\"([A-Za-z_][A-Za-z_0-9]{0,127})\"|([A-Za-z_][A-Za-z_0-9]{0,127}))[ \t]*\r?\n")
+_WS_LINE_END = re.compile(r"\n|\?>")
+_WS_WHITESPACE = re.compile(r"\s+")
 
 
 def webshell_tokens(source, deadline):
@@ -39,22 +43,25 @@ def webshell_tokens(source, deadline):
             pos, active = pos + 2, False
             continue
         if source[pos].isspace():
-            pos += 1
+            pos = _WS_WHITESPACE.match(source, pos).end()
             continue
         if source.startswith("/*", pos):
             end = source.find("*/", pos + 2)
             pos = len(source) if end < 0 else end + 2
             continue
         if source.startswith("//", pos) or source[pos] == "#" and not source.startswith("#[", pos):
-            end = source.find("\n", pos)
-            close = source.find("?>", pos)
-            pos = min(end if end >= 0 else len(source), close if close >= 0 else len(source))
+            # Search only as far as this line's end. Repeated suffix searches
+            # for a nonexistent closing tag made comment-heavy input quadratic.
+            end = _WS_LINE_END.search(source, pos)
+            pos = (end.start() if end[0] == "?>" else end.end()) if end else len(source)
             continue
         start = pos
         quote = source[pos]
         if quote in ("'", '"', "`"):
             pos += 1
             while pos < len(source):
+                if pos % 4096 == 0 and time.monotonic() > deadline:
+                    return tokens, "time"
                 if source[pos] == "\\":
                     pos += 2
                 elif source[pos] == quote:
@@ -94,8 +101,10 @@ def webshell_indicators(data, deadline=None):
     source = data.decode("latin-1")
     deadline = deadline if deadline is not None else time.monotonic() + 10
     tokens, incomplete = webshell_tokens(source, deadline)
-    hits, aliases, decoded, complex_values, constants, pairs, stack = {}, set(), set(), set(), {}, {}, []
+    hits, aliases, registry_aliases, decoded, complex_values, constants, pairs, stack = {}, set(), set(), set(), set(), {}, {}, []
     for index, token in enumerate(tokens):
+        if index % 1024 == 0 and time.monotonic() > deadline:
+            return {}, "time"
         if token[0] != "code":
             continue
         if token[1] in ("(", "["):
@@ -108,12 +117,12 @@ def webshell_indicators(data, deadline=None):
             if (tokens[opening][1], token[1]) in (("(", ")"), ("[", "]")):
                 pairs[opening] = index
     closing = {end: begin for begin, end in pairs.items()}
-    def request(items):
+    def request(items, with_aliases=True):
         for kind, value, _ in items:
-            if kind == "variable" and (value in _WS_SOURCE or value in aliases):
+            if kind == "variable" and (value in _WS_SOURCE or with_aliases and value in aliases):
                 return True
             if kind in ("interpolated", "backtick"):
-                if any(m[0] in _WS_SOURCE or m[0] in aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
+                if any(m[0] in _WS_SOURCE or with_aliases and m[0] in aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
                     return True
         return any(kind == "code" and value.lower().lstrip("\\") in ("filter_input", "file_get_contents")
                    and j + 1 < len(items) and items[j + 1][1] == "("
@@ -130,7 +139,35 @@ def webshell_indicators(data, deadline=None):
                    for kind, value, _ in items)
     def add(indicator, offset):
         # One row per rule/file, earliest line; no attacker-controlled excerpt.
-        hits.setdefault(indicator, source.count("\n", 0, offset) + 1)
+        if indicator not in hits:
+            hits[indicator] = source.count("\n", 0, offset) + 1
+    def registry(items):
+        if len(items) == 1 and items[0][0] == "variable":
+            return items[0][1] in registry_aliases
+        if (len(items) <= 3 or items[0][0] != "variable" or items[0][1] in _WS_SOURCE or
+                items[0][1] in aliases and items[0][1] not in registry_aliases):
+            return False
+        position = 1
+        while position < len(items):
+            if items[position][:2] != ("code", "["):
+                return False
+            nesting = 1
+            position += 1
+            while position < len(items) and nesting:
+                if items[position][0] == "code":
+                    nesting += int(items[position][1] == "[") - int(items[position][1] == "]")
+                position += 1
+            if nesting:
+                return False
+        return True
+    def prefixed(items):
+        # This changes triage priority only, never asserts that a prefix stops
+        # traversal. Direct request expressions retain the higher-priority rule.
+        if items and items[0][:2] == ("code", "("):
+            items = items[1:]
+        return (len(items) > 2 and items[1][:2] == ("code", ".") and
+                (items[0][0] == "string" and items[0][1].endswith("/") or
+                 items[0][0] == "code" and re.fullmatch(r"[A-Z_][A-Z_0-9]*", items[0][1]) is not None))
     depth, pending_function, scopes = 0, False, []
     network_offset, shell_offset = None, None
     for index, (kind, value, offset) in enumerate(tokens):
@@ -142,11 +179,11 @@ def webshell_indicators(data, deadline=None):
         if kind == "code" and value == "{":
             depth += 1
             if pending_function:
-                scopes.append((depth, aliases, decoded, complex_values, constants))
-                aliases, decoded, complex_values, constants, pending_function = set(), set(), set(), {}, False
+                scopes.append((depth, aliases, registry_aliases, decoded, complex_values, constants))
+                aliases, registry_aliases, decoded, complex_values, constants, pending_function = set(), set(), set(), set(), {}, False
         if kind == "code" and value == "}":
             if scopes and scopes[-1][0] == depth:
-                _, aliases, decoded, complex_values, constants = scopes.pop()
+                _, aliases, registry_aliases, decoded, complex_values, constants = scopes.pop()
             depth = max(0, depth - 1)
         if kind == "variable" and index + 1 < len(tokens) and tokens[index + 1][1] == "=":
             end = index + 2
@@ -154,14 +191,18 @@ def webshell_indicators(data, deadline=None):
                 end += 1
             expression = tokens[index + 2:end]
             tainted = request(expression)
+            from_registry = registry(expression) or len(expression) == 1 and expression[0][0] == "variable" and expression[0][1] in registry_aliases
             packed = encoded(expression)
             complex_value = end == index + 514 or uncertain(expression)
             aliases.discard(value)
+            registry_aliases.discard(value)
             decoded.discard(value)
             complex_values.discard(value)
             constants.pop(value, None)
             if tainted:
                 aliases.add(value)
+            if from_registry:
+                registry_aliases.add(value)
             if packed:
                 decoded.add(value)
             if complex_value:
@@ -185,7 +226,8 @@ def webshell_indicators(data, deadline=None):
             if end == index + 513:
                 incomplete = incomplete or "expression"
             if request(tokens[index + 1:end]):
-                add("request-include", offset)
+                expression = tokens[index + 1:end]
+                add("prefixed-include" if prefixed(expression) and not request(expression, False) else "request-include", offset)
             if uncertain(tokens[index + 1:end]):
                 incomplete = incomplete or "expression"
         if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
@@ -208,7 +250,7 @@ def webshell_indicators(data, deadline=None):
                     if "/dev/tcp/" in arg_value:
                         network_offset = offset if network_offset is None else network_offset
         if kind == "variable" and value in aliases:
-            add("request-callable", offset)
+            add("registry-callable" if value in registry_aliases else "request-callable", offset)
         if name in _WS_CALLBACKS:
             # Inspect the first callback argument, without conflating request
             # data passed as a later argument with a request-selected function.
@@ -224,13 +266,16 @@ def webshell_indicators(data, deadline=None):
             else:
                 argument_end = len(arguments)
             if request(arguments[:argument_end]):
-                add("request-callable", offset)
+                add("registry-callable" if registry(arguments[:argument_end]) else "request-callable", offset)
             if uncertain(arguments[:argument_end]):
                 incomplete = incomplete or "expression"
         if value == "]" and index in closing:
             begin = closing[index]
-            if begin and request(tokens[begin - 1:index + 1]):
-                add("request-callable", offset)
+            base = begin - 1
+            while base in closing and tokens[base][1] == "]":
+                base = closing[base] - 1
+            if base >= 0 and request(tokens[base:index + 1]):
+                add("registry-callable" if registry(tokens[base:index + 1]) else "request-callable", offset)
         if name in _WS_SINKS and request(arguments):
             add("request-execution", offset)
         if name in ("eval", "assert", "create_function"):
@@ -239,145 +284,3 @@ def webshell_indicators(data, deadline=None):
     if network_offset is not None and shell_offset is not None:
         add("network-shell", min(network_offset, shell_offset))
     return hits, incomplete
-
-
-def scan_webshells(args):
-    """Pin every traversed directory with dirfd; refuse symlinks and devices."""
-    report = Report()
-    report.discovery = dict(getattr(args, "discovery", {}), webshell_scan=True)
-    for issue in report.discovery.get("issues", []):
-        report.add("UNKNOWN", "Automatic discovery", issue, rule_id="P2S-DISC001", resource=issue)
-    stage(args, "Scanning local files for PHP webshell indicators")
-    for root in args.roots:
-        reasons, seen, examined, read_bytes, findings = set(), 0, 0, 0, 0
-        deadline = time.monotonic() + args.walk_seconds
-        frames = []
-        def open_root():
-            fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                for part in Path(root).parts[1:]:
-                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
-                    os.close(fd)
-                    fd = child
-                return fd
-            except BaseException:
-                os.close(fd)
-                raise
-        try:
-            fd = open_root()
-            try:
-                device = os.fstat(fd).st_dev
-                entries = os.scandir(fd)
-            except BaseException:
-                os.close(fd)
-                raise
-            frames.append((fd, entries, root))
-            while frames:
-                if time.monotonic() > deadline:
-                    reasons.add("time")
-                    break
-                parent_fd, entries, parent = frames[-1]
-                entry = next(entries, None)
-                if entry is None:
-                    entries.close()
-                    os.close(parent_fd)
-                    frames.pop()
-                    continue
-                seen += 1
-                if seen > args.max_paths:
-                    reasons.add("entries")
-                    break
-                path = os.path.join(parent, entry.name)
-                file_fd = None
-                try:
-                    before = entry.stat(follow_symlinks=False)
-                    if stat.S_ISLNK(before.st_mode):
-                        reasons.add("symlink")
-                        continue
-                    if before.st_dev != device:
-                        reasons.add("mount")
-                        continue
-                    if not stat.S_ISREG(before.st_mode) and not stat.S_ISDIR(before.st_mode):
-                        reasons.add("special")
-                        continue
-                    file_fd = os.open(entry.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
-                    opened = os.fstat(file_fd)
-                    if (opened.st_dev, opened.st_ino, stat.S_IFMT(opened.st_mode)) != (before.st_dev, before.st_ino, stat.S_IFMT(before.st_mode)):
-                        reasons.add("changed")
-                        continue
-                    if stat.S_ISDIR(opened.st_mode):
-                        if len(frames) >= 64:
-                            reasons.add("depth")
-                            continue
-                        frames.append((file_fd, os.scandir(file_fd), path))
-                        file_fd = None
-                        continue
-                    if opened.st_size > args.scan_file_bytes:
-                        reasons.add("file-size")
-                        continue
-                    chunks, size = [], 0
-                    while True:
-                        if time.monotonic() > deadline:
-                            reasons.add("time")
-                            break
-                        chunk = os.read(file_fd, min(65536, args.scan_file_bytes - size + 1, args.scan_total_bytes - read_bytes + 1))
-                        if not chunk:
-                            break
-                        size += len(chunk)
-                        read_bytes += len(chunk)
-                        if size > args.scan_file_bytes or read_bytes > args.scan_total_bytes:
-                            reasons.add("file-size" if size > args.scan_file_bytes else "total-bytes")
-                            break
-                        chunks.append(chunk)
-                    after = os.fstat(file_fd)
-                    if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
-                        reasons.add("changed")
-                        continue
-                    if size > args.scan_file_bytes or read_bytes > args.scan_total_bytes or "time" in reasons:
-                        if "total-bytes" in reasons or "time" in reasons:
-                            break
-                        continue
-                    data = b"".join(chunks)
-                    examined += 1
-                    hits, partial = webshell_indicators(data, deadline)
-                    if partial:
-                        reasons.add(partial)
-                    # These directives can be legitimate. Report the location,
-                    # never their target value or any adjacent credentials.
-                    if entry.name.lower() in (".user.ini", ".htaccess", "php.ini"):
-                        for line, text in enumerate(data.decode("latin-1").splitlines(), 1):
-                            directive = re.match(r"\s*(?:(?:php_value|php_admin_value)\s+)?auto_(?:prepend|append)_file\b\s*(?:=|\s)\s*(.*)", text, re.I)
-                            if directive and directive[1].split(";", 1)[0].strip().strip("\"'").lower() not in ("", "none", "off"):
-                                hits.setdefault("startup-reference", line)
-                    fingerprint = digest(data)
-                    for indicator, line in sorted(hits.items()):
-                        if findings >= 200:
-                            break
-                        rule = "P2S-WS002" if indicator == "startup-reference" else "P2S-WS001"
-                        row = report.add("OPEN", "PHP file indicator " + path,
-                            "Line " + str(line) + ": " + WEBSHELL_INDICATORS[indicator] + "; SHA256 " + fingerprint,
-                            rule_id=rule, resource=dict(path=path, indicator=indicator),
-                            evidence=dict(indicators=[indicator], line=line))
-                        row["sha256"] = fingerprint
-                        findings += 1
-                    if findings >= 200:
-                        reasons.add("findings")
-                        break
-                except OSError:
-                    reasons.add("access")
-                finally:
-                    if file_fd is not None:
-                        os.close(file_fd)
-        except OSError:
-            reasons.add("access")
-        finally:
-            for fd, entries, _ in frames:
-                entries.close()
-                os.close(fd)
-        facts = dict(examined_files=examined, indicator_count=findings, coverage_reasons=sorted(reasons))
-        report.add("UNKNOWN" if reasons else "INFO", "Webshell scan coverage",
-            str(examined) + " files examined; " + str(findings) + " indicators; " +
-            ("incomplete: " + ", ".join(sorted(reasons)) if reasons else "selected scan completed") +
-            "; absence of indicators does not establish a clean server",
-            rule_id="P2S-WS003", resource=dict(root=root), evidence=facts)
-    return report

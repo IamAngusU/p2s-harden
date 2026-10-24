@@ -28,7 +28,7 @@
 
 ## Start here
 
-**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev**.
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.2**.
 Published **2.2.1 downloads below do not include that mode**. Use the generated
 launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
 [PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
@@ -152,12 +152,22 @@ locally; no sample is executed, unpacked, uploaded, deleted or quarantined.
   Reports contain no source excerpts or directive target values. `--redact`
   removes paths, file hashes and original IDs while retaining validated reasons,
   line numbers and coverage counts.
-- Default limits per root: 250000 entries, 10 seconds, 2 MiB per file and
-  128 MiB read in total, with at most 200 finding rows. Symlinks, mount boundaries,
+- Default limits per root: 250000 entries, **120 seconds**, 2 MiB per file and
+  **256 MiB** read in total, with at most 200 unaccepted finding rows. Each file
+  has an independent **2-second** budget; a timed-out file does not stop later
+  files. `--walk-seconds 0` disables only the root clock; `--scan-file-seconds`
+  adjusts the file budget. Symlinks, mount boundaries,
   special/unreadable/changed files, excessive depth and exhausted budgets produce
   `UNKNOWN`; other accessible files continue where possible. Increase
   `--max-paths`, `--walk-seconds`, `--scan-file-bytes` or `--scan-total-bytes`,
   or split the scope. Nothing is silently accepted as clean.
+- Local text/JSON identifies incomplete paths and reasons; redaction keeps only
+  validated counters/reasons. Fully examined and incomplete files are counted
+  separately. Indirect constant-prefixed includes and registry callbacks are
+  visible **INFO review items**; a prefix/registry is not a safety guarantee.
+  An optional **reviewed `--baseline`** accepts identical path/hash/indicator
+  matches, keeps accepted rows in JSON and never accepts UNKNOWN coverage.
+  [Safe baseline workflow and limits](docs/WEBSHELLS.md#reviewed-baselines).
 
 **An indicator requires review; absence of indicators does not establish a clean
 server.** This is a small static triage aid, without a malware signature database,
@@ -189,7 +199,7 @@ redaction. Report stdout is covered; SSH/system stderr may identify the host.
 - **TCP localhost:** its current host resolution is checked with a two-second deadline. Outside-loopback answers are OPEN; failed resolution and other hostnames remain UNKNOWN. This does not attest an existing listener or container service.
 
 - **Expected uploads/cache:** repeat `--runtime-dir /srv/site/uploads`. Writable directories there become INFO; writable PHP files and incomplete coverage remain findings. Verify execution restrictions separately.
-- **A larger application:** the default budget is **250000 entries and 10 seconds per walk**. Use `--max-paths`, `--walk-seconds` or a narrower `--root` when needed. Dependencies are not silently excluded. HTTP defaults to 128 total requests and 32 automatic mappings (`--max-http-probes`, `--max-sites`). Limits remain UNKNOWN.
+- **A larger application:** the configuration audit budget is **250000 entries and 10 seconds per walk**. Use `--max-paths`, `--walk-seconds` or a narrower `--root` when needed. Dependencies are not silently excluded. HTTP defaults to 128 total requests and 32 automatic mappings (`--max-http-probes`, `--max-sites`). The separate webshell mode defaults to 120 seconds per root and 2 seconds per file. Limits remain UNKNOWN.
 - **HTTP redirects to HTTPS:** select `--site https://example.org=/srv/site`. Redirects remain UNKNOWN until the target is checked; a redirect alone is not evidence of protection. Automatic mappings prefer HTTPS.
 - **Different layout:** supply `--nginx-config /path/nginx.conf`, or `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. Users and sites are repeatable.
 - **Automation:** schema 2 JSON includes `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` and `transaction`. Text/paths are not an API identifier. `--verbose` shows every row.

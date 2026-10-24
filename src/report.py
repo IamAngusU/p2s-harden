@@ -35,6 +35,8 @@ RULES = {
     "WS001": ("high", "Preserve the file and relevant logs; compare with a trusted deployment and review the reported line. An indicator is not a malware verdict. If compromise is confirmed, isolate and rebuild from trusted sources, close the entry point and rotate exposed credentials."),
     "WS002": ("medium", "Verify the startup directive against trusted application configuration and inspect its target separately. A legitimate preload is possible; no file is changed automatically."),
     "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
+    "WS004": ("info", "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous."),
+    "WS005": ("info", "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -67,7 +69,12 @@ def safe_evidence(rule_id, evidence):
         "SYS001": dict(ptrace_scope=lambda value: type(value) is int and 0 <= value <= 3),
         "WS001": dict(indicators=names(*WEBSHELL_INDICATORS), line=count),
         "WS002": dict(indicators=names("startup-reference"), line=count),
-        "WS003": dict(examined_files=count, indicator_count=count, coverage_reasons=names(*WEBSHELL_REASONS)),
+        "WS003": dict(examined_files=count, attempted_files=count, incomplete_files=count, indicator_count=count,
+                      baseline_accepted_count=count, omitted_coverage_paths=count, coverage_reasons=names(*WEBSHELL_REASONS),
+                      coverage_counts=lambda value: type(value) is dict and len(value) <= len(WEBSHELL_REASONS) and
+                          all(type(k) is str and k in WEBSHELL_REASONS and count(v) for k,v in value.items())),
+        "WS004": dict(indicators=names("prefixed-include", "registry-callable"), line=count, review_required=boolean),
+        "WS005": dict(baseline_entries=count),
     }.get(rule_id[4:], {})
     return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
 
@@ -77,7 +84,8 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
-              "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage"}
+              "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage",
+              "WS004": "PHP code review", "WS005": "Webshell baseline"}
 
 
 def evidence_summary(rule_id, evidence, lang="en"):
@@ -91,13 +99,17 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   writable_files="Writable PHP files", writable_directories="Writable directories",
                   runtime_directories="Runtime directories", http_status="HTTP status", ptrace_scope="ptrace_scope",
                   indicators="Indicators", line="Line", examined_files="Examined files",
-                  indicator_count="Indicator count", coverage_reasons="Coverage reasons")
+                  indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
+                  incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
+                  omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
             continue
         if isinstance(value, list):
             value = ", ".join(localize(WEBSHELL_INDICATORS[item], lang) if key == "indicators" else say(item) for item in value) or say("none")
+        elif isinstance(value, dict):
+            value = ", ".join(say(reason) + ": " + str(number) for reason, number in sorted(value.items())) or say("none")
         elif type(value) is bool:
             value = say("yes" if value else "no")
         elif type(value) is str and key != "socket_mode":
@@ -130,7 +142,7 @@ class Report:
     def configure(self, fail_on="complete", ignore=()):
         self.fail_on = fail_on
         for row in self.rows:
-            row["suppressed"] = row["status"] == "OPEN" and (row["id"] in ignore or row["rule_id"] in ignore)
+            row["suppressed"] = row["status"] == "OPEN" and (row.get("baseline_accepted") is True or row["id"] in ignore or row["rule_id"] in ignore)
 
     def has(self, status):
         return any(r["status"] == status and not r["suppressed"] for r in self.rows)
@@ -161,7 +173,8 @@ class Report:
                             title=localize(RULE_NAMES.get(row["rule_id"][4:], row["rule_id"]), lang),
                             detail=detail,
                             severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
-                            evidence=evidence, suppressed=row["suppressed"])
+                            evidence=evidence, suppressed=row["suppressed"],
+                            **({"baseline_accepted":row["baseline_accepted"] is True} if "baseline_accepted" in row else {}))
             rows = [project(index, row) for index, row in enumerate(self.rows)]
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
@@ -203,15 +216,25 @@ class Report:
                              f": {pool['user']} | Listener: {pool['listen']}")
                 for site in self.discovery.get("selected_sites", []):
                     emit("SITE    " + site)
-        shown = rows if verbose or self.discovery.get("doctor") else [r for r in rows if r["status"] != "OK"]
+        if not redact:
+            coverage_paths = [item for root in self.discovery.get("webshell_coverage", []) for item in root["paths"]]
+            for item in coverage_paths if verbose else coverage_paths[:20]:
+                reason = _EVIDENCE_GERMAN.get(item["reason"], item["reason"]) if lang == "de" else item["reason"]
+                emit(localize("Incomplete path ({reason}): {path}", lang).format(reason=reason, path=item["path"]))
+            if not verbose and len(coverage_paths) > 20:
+                emit(localize("More incomplete paths: use --verbose or --json", lang))
+            if any(root["omitted_paths"] for root in self.discovery.get("webshell_coverage", [])):
+                emit(localize("Coverage path list truncated at 1000 entries per root; narrow --root to resolve remaining paths", lang))
+        shown = rows if verbose or self.discovery.get("doctor") else [r for r in rows if r["status"] != "OK" and not r.get("baseline_accepted")]
         if self.discovery.get("webshell_scan"):
             # Coverage remains visible even when a noisy tree hits the human
             # output limit. Full finding details stay in --verbose/--json.
             shown.sort(key=lambda row: row["rule_id"] != "P2S-WS003")
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
-            if row["status"] in ("OPEN", "UNKNOWN"):
-                emit("        " + row["id"] + (" [ignored OPEN]" if row["suppressed"] else ""))
+            if row["status"] in ("OPEN", "UNKNOWN") or row["rule_id"] == "P2S-WS004":
+                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored OPEN]" if row["suppressed"] else ""
+                emit("        " + row["id"] + marker)
                 if row.get("affected_pools"):
                     count = len(row["affected_pools"])
                     emit(f"        Unverändert für {count} Pools; --json nennt die zugehörigen Pools." if lang == "de" else
@@ -222,6 +245,9 @@ class Report:
                  f"{len(shown) - 40} more findings: --verbose or --json shows all details.")
         counts = {s: sum(r["status"] == s for r in self.rows) for s in ("OK", "OPEN", "UNKNOWN", "INFO", "N/A")}
         print("\n" + "   ".join(f"{s}: {n}" for s, n in counts.items()))
+        accepted = sum(r.get("baseline_accepted") is True for r in self.rows)
+        if accepted:
+            emit(localize("Baseline accepted: {count} unchanged indicator rows; --verbose or --json retains them", lang).format(count=accepted))
         emit("Nur die ausgewiesenen Host-Pfade/Instanzen wurden geprüft; keine Sicherheitszertifizierung." if lang == "de" else
              "Only the reported host paths and instances were checked; this is not a security certification.")
         if self.discovery.get("assessment"):

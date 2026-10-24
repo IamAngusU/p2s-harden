@@ -14,6 +14,10 @@ Fixes only support the documented INI/directory subset; HTTP, process isolation 
   configuration and inspect targets separately; their values are not reported.
 - `P2S-WS003`: scan summary (INFO) or incomplete coverage (UNKNOWN). A zero exit
   never certifies absence of compromise. [Rules, limits and response](WEBSHELLS.md).
+- `P2S-WS004`: review-only INFO for indirect constant-prefixed includes and registry
+  callbacks. Context still needs review; this is not proof of a safe data flow.
+- `P2S-WS005`: protected reviewed baseline status. Exact path/hash/indicator
+  acceptance never suppresses coverage gaps; invalid input leaves UNKNOWN.
 
 None of these rules adds an automatic fix, deletion or quarantine action.
 

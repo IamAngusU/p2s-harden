@@ -30,34 +30,39 @@
   },
   "selected_php_files": 25,
   "selected_bytes": 2666825,
-  "scanner_version": "2.3.0-dev",
-  "engine_sha256": "3954cdf587977ac8343144b79663d626af2cdb92b72879eb20f12a55d5fbdac9",
+  "scanner_version": "2.3.0-dev.2",
+  "engine_sha256": "9118a1f8f5648124332473894fbb98329fec1ca6ea302994ed5863cc8d33086c",
   "limits": {
     "max_paths": 250000,
     "walk_seconds": 120,
     "scan_file_bytes": 16777216,
     "scan_total_bytes": 134217728
   },
-  "exit_code": 1,
+  "exit_code": 0,
   "counts": {
     "OK": 0,
-    "OPEN": 2,
+    "OPEN": 0,
     "UNKNOWN": 0,
-    "INFO": 1
+    "INFO": 3
   },
   "coverage": [
     {
       "examined_files": 25,
+      "attempted_files": 25,
+      "incomplete_files": 0,
       "indicator_count": 2,
-      "coverage_reasons": []
+      "baseline_accepted_count": 0,
+      "coverage_reasons": [],
+      "coverage_counts": {},
+      "omitted_coverage_paths": 0
     }
   ],
   "indicators": [
     {
       "path": "wp-admin/admin.php",
       "indicators": {
-        "request-include": 300,
-        "request-callable": 373
+        "prefixed-include": 300,
+        "registry-callable": 373
       },
       "incomplete": null
     }

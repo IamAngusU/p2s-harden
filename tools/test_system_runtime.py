@@ -99,6 +99,8 @@ def main(argv=None):
                 '--backup-root','/root/p2s-system-test-backups','--protect-dir',str(root),'--json',*options],
                 capture_output=True,text=True,timeout=120)
             report=json.loads(result.stdout)
+            assert engine.INI_UPGRADE_NOTICE not in result.stdout
+            assert engine.localize(engine.INI_UPGRADE_NOTICE,'de') not in result.stdout
             assert result.returncode==report['exit_code'] and result.returncode in (0,1,2)
             return report
         discovered=cli('--discover')
@@ -137,7 +139,8 @@ def main(argv=None):
         assert all(row['status']=='OK' for row in fixed['findings'] if row['rule_id'] in ('P2S-PHP001','P2S-PHP002','P2S-FS001','P2S-FS002'))
         after=observed()
         assert after['system'] is False and after['include'].lower() in ('','0','off'),after
-        evidence['cases'].append(dict(name='actual-fix-systemd-reload-and-worker-values',status='PASS'))
+        evidence['cases'].append(dict(name='actual-fix-systemd-reload-and-worker-values',status='PASS',
+            json_stdout_validated=True,ini_upgrade_notice_in_stdout=False))
         restored=cli('--rollback','--backup-id',fixed['transaction']['id'])
         assert restored['transaction']['status']=='rolled_back'
         assert ini.read_bytes()==baseline and ini.stat().st_mtime_ns==before.st_mtime_ns

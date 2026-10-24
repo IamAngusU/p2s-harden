@@ -28,7 +28,7 @@
 
 ## Direkt starten
 
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev**.
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.2**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
 Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
@@ -144,7 +144,7 @@ Die Änderung bestehender INIs kann eine paketverwaltete `php.ini` betreffen. Ä
 - **TCP localhost:** Die aktuelle Host-Auflösung hat ein Zwei-Sekunden-Limit. Adressen außerhalb Loopback sind OPEN; fehlgeschlagene Auflösung und andere Hostnamen bleiben UNKNOWN. Das attestiert keinen bestehenden Listener oder Containerdienst.
 
 - **Uploads/Cache:** `--runtime-dir /srv/site/uploads` wiederholen. Schreibbare Verzeichnisse dort werden INFO; schreibbare PHP-Dateien und fehlende Abdeckung bleiben sichtbar. Ausführungssperren separat prüfen.
-- **Größere Anwendung:** Standard **250000 Einträge und 10 Sekunden je Suchlauf**. `--max-paths`, `--walk-seconds` oder `--root` anpassen. Abhängigkeiten werden nicht still ausgelassen. HTTP: 128 Anfragen insgesamt, 32 automatische Zuordnungen (`--max-http-probes`, `--max-sites`). Erreichte Limits bleiben UNKNOWN.
+- **Größere Anwendung:** Das Konfigurationsaudit hat **250000 Einträge und 10 Sekunden je Suchlauf** als Standard. `--max-paths`, `--walk-seconds` oder `--root` anpassen. Abhängigkeiten werden nicht still ausgelassen. HTTP: 128 Anfragen insgesamt, 32 automatische Zuordnungen (`--max-http-probes`, `--max-sites`). Der separate Webshell-Modus nutzt 120 Sekunden je Wurzel und 2 Sekunden je Datei. Erreichte Limits bleiben UNKNOWN.
 - **HTTP leitet zu HTTPS weiter:** `--site https://example.org=/srv/site` wählen. Ein Redirect bleibt unbekannt, bis das Ziel geprüft ist; er belegt keinen Zugriffsschutz. Automatische Zuordnungen bevorzugen HTTPS.
 - **Abweichendes Layout:** `--nginx-config /pfad/nginx.conf` oder `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. Benutzer und Sites sind wiederholbar.
 - **Automatisierung:** Schema 2 enthält `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` und `transaction`. Übersetzte Texte sind keine API-Kennung. `--verbose` zeigt alle Zeilen.
@@ -213,12 +213,22 @@ HTTP-Zugriff. Die Suche liest lokal; sie führt keinen Fund aus und entpackt,
   Schritte. Quelltext und Zielwerte von Startdirektiven stehen nicht im Report.
   `--redact` entfernt zusätzlich Pfade, Datei-Hashes und ursprüngliche IDs;
   geprüfte Gründe, Zeilennummern und Zähler bleiben erhalten.
-- Pro Wurzel gelten zunächst 250000 Einträge, 10 Sekunden, 2 MiB je Datei,
-  128 MiB insgesamt und höchstens 200 Befundzeilen. Symlinks, Dateisystemgrenzen,
+- Pro Wurzel gelten zunächst 250000 Einträge, **120 Sekunden**, 2 MiB je Datei,
+  **256 MiB** insgesamt und höchstens 200 nicht durch Baseline akzeptierte Befundzeilen.
+  Jede Datei hat ein eigenes **2-Sekunden-Limit**; danach geht die Suche weiter.
+  `--walk-seconds 0` hebt nur den Wurzeltimer auf; `--scan-file-seconds` passt
+  das Dateilimit an. Symlinks, Dateisystemgrenzen,
   Spezialdateien, Lesefehler, während des Lesens geänderte Dateien und erreichte
   Limits bleiben `UNKNOWN`. Andere zugängliche Dateien werden nach Möglichkeit
   weiter geprüft. Bei Bedarf mit `--max-paths`, `--walk-seconds`,
   `--scan-file-bytes` und `--scan-total-bytes` erweitern oder kleinere Wurzeln wählen.
+- Lokale Berichte nennen unvollständig geprüfte Pfade mit Grund; redigiert bleiben
+  nur geprüfte Zähler und Grund-Codes. Vollständig untersuchte und unvollständige
+  Dateien werden getrennt gezählt. Indirekte Includes mit konstantem Präfix und
+  Registry-Callbacks bleiben als **INFO-Prüfpunkte** sichtbar; das belegt keine
+  Sicherheit. Eine ausdrücklich geprüfte **`--baseline`** akzeptiert nur denselben
+  Pfad, Hash und Indikator und blendet keine UNKNOWN-Prüflücken aus.
+  [Sichere Baseline-Nutzung und Grenzen](docs/WEBSHELLS.md#reviewed-baselines).
 
 **Ein Indikator braucht Prüfung; keine Treffer belegen keinen sauberen Server.**
 Die Suche hat keine Malware-Signaturdatenbank und keine vollständige PHP-Datenflussanalyse.
