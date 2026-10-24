@@ -13,7 +13,7 @@ import p2s_harden as p
 
 
 class OutputEncoding(unittest.TestCase):
-    def test_json_is_valid_utf8_ascii_and_preserves_filesystem_surrogates(self):
+    def test_json_is_unicode_interoperable_and_preserves_filesystem_bytes(self):
         path='/srv/invalid_\udcff\udcfe.php'
         report=p.Report()
         report.add('OPEN','PHP '+path,'Private details',resource=dict(path=path))
@@ -24,9 +24,13 @@ class OutputEncoding(unittest.TestCase):
         data=raw.getvalue()
         data.decode('ascii')
         restored=json.loads(data.decode('utf-8'))
-        self.assertEqual(restored['findings'][0]['resource']['path'],path)
-        self.assertEqual(restored['path_encoding'],'filesystem-surrogateescape')
-        self.assertIn(b'\\udcff\\udcfe',data)
+        resource=restored['findings'][0]['resource']
+        self.assertEqual(resource['path'],'/srv/invalid_\ufffd\ufffd.php')
+        self.assertEqual(bytes.fromhex(resource['path_bytes_hex']),path.encode('utf-8','surrogateescape'))
+        self.assertEqual(p.baseline_path(resource),path)
+        self.assertEqual(restored['path_encoding'],p.PATH_ENCODING)
+        self.assertNotIn(b'\\udcff',data)
+        json.dumps(restored,ensure_ascii=False).encode('utf-8','strict')
         output.detach()
 
     def test_human_output_cannot_crash_on_ascii_or_latin1_terminals(self):
@@ -59,8 +63,27 @@ class OutputEncoding(unittest.TestCase):
             self.assertEqual(run.returncode,1,run.stderr)
             data=json.loads(run.stdout.decode('utf-8'))
             row=next(row for row in data['findings'] if row['rule_id']=='P2S-WS001')
-            self.assertEqual(os.fsencode(row['resource']['path']),name)
+            self.assertEqual(bytes.fromhex(row['resource']['path_bytes_hex']),name)
+            self.assertEqual(os.fsencode(p.baseline_path(row['resource'])),name)
             self.assertEqual(row['sha256'],p.digest(Path(os.fsdecode(name)).read_bytes()))
+
+    def test_redaction_strips_byte_metadata_and_internal_identity_is_unchanged(self):
+        path='/PRIVATE/invalid_\udcff.php'
+        report=p.Report()
+        row=report.add('OPEN','PHP '+path,path,resource=dict(path=path))
+        original_id=row['id']
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output):report.show(True,redact=True)
+        self.assertNotIn('path_bytes_hex',output.getvalue())
+        self.assertNotIn(path.encode('utf-8','surrogateescape').hex(),output.getvalue())
+        self.assertEqual(row['resource']['path'],path)
+        self.assertEqual(row['id'],original_id)
+
+    def test_hex_display_mismatch_and_ambiguous_byte_encodings_are_rejected(self):
+        good=p.json_paths(dict(path='/srv/x\udcff.php'))
+        for change in (dict(path='/srv/other.php'),dict(path_bytes_hex='ff0'),dict(path_bytes_hex='FF'),
+                       dict(path_encoding='unknown'),dict(path_bytes_hex='00'),dict(path_bytes_hex=False)):
+            with self.subTest(change=change),self.assertRaises(p.CheckError):p.baseline_path(dict(good,**change))
 
 
 if __name__=='__main__':unittest.main()

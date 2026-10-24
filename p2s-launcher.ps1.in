@@ -1,4 +1,4 @@
-# p2s-harden 2.3.0-dev.4. Self-contained Windows -> Linux SSH launcher.
+# p2s-harden 2.3.0-dev.5. Self-contained Windows -> Linux SSH launcher.
 # No PowerShell modules, Bash, Python or installation needed on the client.
 $ErrorActionPreference = 'Stop'
 $target = $null
@@ -18,7 +18,7 @@ function Write-Failure([string]$Title, [string]$Detail) {
         $Detail = Message 'Host details omitted; rerun locally without --redact' 'Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen'
     }
     if ($script:jsonMode) {
-        @{ schema_version = 2; version = '2.3.0-dev.4'; language = $script:lang; redacted = $script:redactMode; exit_code = 2;
+        @{ schema_version = 2; version = '2.3.0-dev.5'; language = $script:lang; redacted = $script:redactMode; exit_code = 2;
            has_open = $false; has_unknown = $true;
            findings = @(@{ id = 'P2S-EXEC001-9773e1e8b98e2493'; rule_id = 'P2S-EXEC001'; resource = 'ssh_transport'; severity = 'unknown';
                            suppressed = $false; remediation = $Detail; status = 'UNKNOWN'; title = $Title; detail = $Detail }); discovery = @{} } | ConvertTo-Json -Depth 5
@@ -55,7 +55,7 @@ try {
             '--help' {
                 if ($lang -eq 'en') {
                     @'
-p2s-harden 2.3.0-dev.4 - Windows -> Linux, directly over OpenSSH
+p2s-harden 2.3.0-dev.5 - Windows -> Linux, directly over OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Discover and audit
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Explain prerequisites
@@ -76,6 +76,7 @@ p2s-harden 2.3.0-dev.4 - Windows -> Linux, directly over OpenSSH
   --scan-file-seconds N        Independent webshell file timer (default 2s)
   --no-nice                  Skip lowering scan CPU/I/O priority
   --baseline FILE             Reviewed JSON: exact path/hash/indicator acceptance
+  --write-baseline-draft FILE  Create a new private draft; no entries approved
   --max-http-probes COUNT      Limit HTTP requests
   --protect-dir /path          Protect one directory; non-recursive
   --rollback [--backup-id ID]  Restore a transaction
@@ -91,7 +92,7 @@ The default mode is read-only. No installer or configuration file is needed.
                     exit 0
                 }
                 @'
-p2s-harden 2.3.0-dev.4 - Windows -> Linux, direkt per OpenSSH
+p2s-harden 2.3.0-dev.5 - Windows -> Linux, direkt per OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Erkennen und prüfen
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Voraussetzungen erklären
@@ -112,6 +113,7 @@ p2s-harden 2.3.0-dev.4 - Windows -> Linux, direkt per OpenSSH
   --scan-file-seconds N        Eigenes Webshell-Zeitlimit je Datei (Standard 2s)
   --no-nice                  Scan-Priorität nicht absenken
   --baseline DATEI            Geprüfte JSON: exakter Pfad/Hash/Indikator
+  --write-baseline-draft DATEI  Privaten Entwurf erstellen; keine Freigaben
   --max-http-probes ANZAHL     HTTP-Anfragen begrenzen
   --protect-dir /pfad          Ein Verzeichnis schützen; nicht rekursiv
   --rollback [--backup-id ID]  Eine Transaktion zurücknehmen
@@ -126,7 +128,7 @@ Standard ist eine Prüfung. Kein Installer und keine Konfigurationsdatei.
 '@
                 exit 0
             }
-            '--version' { 'p2s-harden 2.3.0-dev.4'; exit 0 }
+            '--version' { 'p2s-harden 2.3.0-dev.5'; exit 0 }
             default { $cliArguments.Add($argument) }
         }
     }

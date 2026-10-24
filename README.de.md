@@ -28,13 +28,13 @@
 
 ## Direkt starten
 
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.4**.
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.5**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
 Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
 Die Vorschau hat Commit-genaue CI-Nachweise und ist von den Stable-Release-Dateien getrennt.
 
-**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.4-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Dev.4 verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
+**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.5-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
 [Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
 
 Lade **eine Datei** für deinen Startrechner:
@@ -230,6 +230,11 @@ HTTP-Zugriff. Die Suche liest lokal; sie führt keinen Fund aus und entpackt,
   Registry-Callbacks bleiben als **INFO-Prüfpunkte** sichtbar; das belegt keine
   Sicherheit. Eine ausdrücklich geprüfte **`--baseline`** akzeptiert nur denselben
   Pfad, Hash und Indikator. Ausdrückliche `reviewed_files`-Einträge können nach vertrauenswürdigem Quellvergleich bestimmte Parser-/Fensterlimits bei vollständig gehashten Dateien anerkennen. Unlesbare, instabile, zeitlich abgebrochene oder unbesuchte Inhalte bleiben UNKNOWN; akzeptierte unvollständige Dateien werden getrennt gezählt.
+  Mit `--write-baseline-draft /root/p2s-draft.json` entsteht ein privater Entwurf
+  (0600), der nichts überschreibt und ausschließlich `reviewed: false` enthält.
+  Erst nach Vergleich jeder vollständigen Datei mit vertrauenswürdigem Quellstand
+  gezielt auf `true` setzen. Mit SSH liegt die Datei auf dem Zielserver;
+  `--redact` ist damit nicht kombinierbar.
   [Sichere Baseline-Nutzung und Grenzen](docs/WEBSHELLS.md#reviewed-baselines).
 
 **Ein Indikator braucht Prüfung; keine Treffer belegen keinen sauberen Server.**

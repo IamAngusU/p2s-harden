@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.3.0-dev.4 — self-contained; engine is embedded below.
+# p2s-harden 2.3.0-dev.5 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.3.0-dev.4 — one file, automatic discovery
+p2s-harden 2.3.0-dev.5 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -53,6 +53,7 @@ Options (override automatically discovered values):
   --scan-file-seconds N       Independent webshell file timer (default 2s)
   --no-nice                  Skip lowering scan CPU/I/O priority
   --baseline FILE             Reviewed JSON: exact path/hash/indicator acceptance
+  --write-baseline-draft FILE  Create a new private draft; no entries approved
   --max-http-probes COUNT     Limit HTTP requests
   --runtime-dir /path          Review a known upload/cache directory separately
   --protect-dir /path          Protect an explicit directory; non-recursive
@@ -75,7 +76,7 @@ HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.3.0-dev.4 — eine Datei, automatische Erkennung
+p2s-harden 2.3.0-dev.5 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -103,6 +104,7 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --scan-file-seconds N        Eigenes Webshell-Zeitlimit je Datei (Standard 2s)
   --no-nice                  Scan-Priorität nicht absenken
   --baseline DATEI            Geprüfte JSON: exakter Pfad/Hash/Indikator
+  --write-baseline-draft DATEI  Privaten Entwurf erstellen; keine Freigaben
   --max-http-probes ANZAHL     HTTP-Anfragen begrenzen
   --runtime-dir /pfad           Bekanntes Upload-/Cache-Verzeichnis gesondert bewerten
   --protect-dir /pfad           Nur explizites Verzeichnis schützen; kein Rekurs
@@ -140,7 +142,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.3.0-dev.4'; exit 0 ;;
+    --version) echo 'p2s-harden 2.3.0-dev.5'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -197,7 +199,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.3.0-dev.5","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -226,7 +228,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.5","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -245,7 +247,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.4","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.5","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi
@@ -291,7 +293,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.4"
+VERSION = "2.3.0-dev.5"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -305,7 +307,7 @@ class HttpBudgetExceeded(CheckError):
 
 
 def configure_output(as_json=False):
-    """ASCII JSON escapes preserve filesystem surrogates; terminals never fail."""
+    """Use safe terminal encodings; JSON projection supplies Unicode path displays."""
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
@@ -1658,6 +1660,21 @@ _MESSAGES = {'Invalid backup manifest: {name}': ('Invalid backup manifest: {name
                                                            '--ignore erfordert eine Befund-id oder rule_id aus '
                                                            '--json')}
 
+_MESSAGES.update({
+    'Baseline requires_review marker must be true': ('Baseline requires_review marker must be true', 'Baseline-Markierung requires_review muss true sein'),
+    'Write a new private baseline draft; every entry is unreviewed and accepts nothing': ('Write a new private baseline draft; every entry is unreviewed and accepts nothing', 'Neue private Baseline-Vorlage schreiben; alle Einträge sind ungeprüft und geben nichts frei'),
+    '--write-baseline-draft supports --scan-webshells only': ('--write-baseline-draft supports --scan-webshells only', '--write-baseline-draft unterstützt nur --scan-webshells'),
+    '--write-baseline-draft contains local paths and hashes; use it locally without --redact': ('--write-baseline-draft contains local paths and hashes; use it locally without --redact', '--write-baseline-draft enthält lokale Pfade und Hashes; lokal ohne --redact verwenden'),
+    'Unreviewed baseline draft written; compare complete files with trusted source before setting reviewed=true; existing files are never overwritten': ('Unreviewed baseline draft written; compare complete files with trusted source before setting reviewed=true; existing files are never overwritten', 'Ungeprüfter Baseline-Entwurf geschrieben; vollständige Dateien vor reviewed=true mit vertrauenswürdigem Quellstand vergleichen; vorhandene Dateien werden nie überschrieben'),
+    'Baseline draft was not written; Draft destination exists, is unsafe or is not writable': ('Baseline draft was not written; Draft destination exists, is unsafe or is not writable', 'Baseline-Entwurf nicht geschrieben; Ziel existiert bereits, ist unsicher oder nicht beschreibbar'),
+    'Unreviewed baseline draft: compare complete files with trusted source and set reviewed=true explicitly': ('Unreviewed baseline draft: compare complete files with trusted source and set reviewed=true explicitly', 'Ungeprüfter Baseline-Entwurf: vollständige Dateien mit vertrauenswürdigem Quellstand vergleichen und reviewed=true ausdrücklich setzen'),
+    'Baseline path encoding requires matching path_bytes_hex': ('Baseline path encoding requires matching path_bytes_hex', 'Baseline-Pfadkodierung benötigt passende path_bytes_hex'),
+    'Invalid baseline path byte encoding': ('Invalid baseline path byte encoding', 'Ungültige Byte-Kodierung des Baseline-Pfads'),
+    'Baseline display path does not match its exact bytes': ('Baseline display path does not match its exact bytes', 'Angezeigter Baseline-Pfad passt nicht zu seinen exakten Bytes'),
+    'Baseline draft entry limit exceeded; narrow the scan scope': ('Baseline draft entry limit exceeded; narrow the scan scope', 'Eintragslimit des Baseline-Entwurfs überschritten; Prüfbereich einschränken'),
+    'Baseline draft exceeds 2 MiB; narrow the scan scope': ('Baseline draft exceeds 2 MiB; narrow the scan scope', 'Baseline-Entwurf überschreitet 2 MiB; Prüfbereich einschränken'),
+    'Baseline draft requires a new file path': ('Baseline draft requires a new file path', 'Baseline-Entwurf benötigt einen neuen Dateipfad'),
+})
 _MESSAGE_TEMPLATES = (('Additional skipped paths: {count}', 'Additional skipped paths: {count}', 'Weitere ausgelassene Pfade: {count}'),
  ('HTTP request failed: {kind}', 'HTTP request failed: {kind}', 'HTTP-Anfrage fehlgeschlagen: {kind}'),
  ('{code}; unexpected HTTP status', '{code}; unexpected HTTP status', '{code}; unerwarteter HTTP-Status'),
@@ -2147,6 +2164,53 @@ def localized_discovery(discovery, lang="en"):
     return result
 
 
+# Source: src/report_paths.py
+"""Interoperable Unicode display with lossless Linux filesystem byte metadata."""
+
+
+PATH_ENCODING = "utf-8-replacement+bytes-hex"
+
+
+def unicode_display(value):
+    return re.sub(r"[\ud800-\udfff]", "\ufffd", value)
+
+
+def json_paths(value):
+    """Project output only; identities and filesystem operations keep raw paths."""
+    if isinstance(value, str):
+        return unicode_display(value)
+    if isinstance(value, (list, tuple)):
+        return [json_paths(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    # Escaped key spellings avoid collapsing distinct byte-valued map keys.
+    result = {re.sub(r"[\ud800-\udfff]", lambda match: "\\u%04x" % ord(match[0]), key) if isinstance(key, str) else key: json_paths(item)
+              for key, item in value.items()}
+    for key in ("path", "root"):
+        path = value.get(key)
+        if isinstance(path, str) and re.search(r"[\udc80-\udcff]", path):
+            result[key + "_bytes_hex"] = path.encode("utf-8", "surrogateescape").hex()
+            result[key + "_encoding"] = PATH_ENCODING
+    return result
+
+
+def baseline_path(entry):
+    """Decode exact bytes only if the display spelling and encoding agree."""
+    path = entry.get("path")
+    if "path_bytes_hex" not in entry:
+        if "path_encoding" in entry:
+            raise CheckError("Baseline path encoding requires matching path_bytes_hex")
+        return path  # Legacy local reports/baselines remain readable.
+    raw = entry["path_bytes_hex"]
+    if (type(raw) is not str or not 2 <= len(raw) <= 65536 or len(raw) % 2 or
+            re.fullmatch(r"[a-f0-9]+", raw) is None or entry.get("path_encoding") != PATH_ENCODING):
+        raise CheckError("Invalid baseline path byte encoding")
+    decoded = bytes.fromhex(raw).decode("utf-8", "surrogateescape")
+    if type(path) is not str or path != unicode_display(decoded):
+        raise CheckError("Baseline display path does not match its exact bytes")
+    return decoded
+
+
 # Source: src/report.py
 RULES = {
     "ENV001": ("info", "Run on a Linux target with readable /proc; use --ssh from other systems."),
@@ -2345,7 +2409,7 @@ class Report:
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
-            print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
+            print(json.dumps(json_paths(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
                                   suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
@@ -2354,8 +2418,8 @@ class Report:
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
-                                  path_encoding="filesystem-surrogateescape",
-                                  exit_code=self.exit_code()), ensure_ascii=True, indent=2))
+                                  path_encoding=PATH_ENCODING,
+                                  exit_code=self.exit_code())), ensure_ascii=True, indent=2))
             return
         def emit(line):
             # Configured names/paths must not inject terminal escape sequences.
@@ -2956,6 +3020,8 @@ def webshell_baseline_entries(data):
     from pathlib import PurePosixPath
     if not isinstance(data, dict) or data.get("redacted"):
         raise CheckError("Baseline must be a local, nonredacted webshell report or schema 1 file list")
+    if "requires_review" in data and data["requires_review"] is not True:
+        raise CheckError("Baseline requires_review marker must be true")
     reviewed = []
     if data.get("schema_version") == 2 and isinstance(data.get("discovery"), dict) and data["discovery"].get("webshell_scan") is True:
         if data.get("reviewed_files"):
@@ -2972,7 +3038,7 @@ def webshell_baseline_entries(data):
             resource = row.get("resource")
             if not isinstance(resource, dict):
                 raise CheckError("Invalid baseline resource")
-            entries.append(dict(path=resource.get("path"), sha256=row.get("sha256"), indicators=[resource.get("indicator")]))
+            entries.append(dict(resource, sha256=row.get("sha256"), indicators=[resource.get("indicator")]))
     elif data.get("schema_version") == 1:
         entries = data.get("files", [])
         reviewed = data.get("reviewed_files", [])
@@ -2986,9 +3052,11 @@ def webshell_baseline_entries(data):
     for entry, coverage_entry in [(entry, False) for entry in entries] + [(entry, True) for entry in reviewed]:
         if not isinstance(entry, dict):
             raise CheckError("Invalid baseline entry")
-        path, fingerprint = entry.get("path"), entry.get("sha256")
+        path, fingerprint = baseline_path(entry), entry.get("sha256")
         indicators = entry.get("coverage_reasons" if coverage_entry else "indicators")
         allowed = WEBSHELL_REVIEWABLE_REASONS if coverage_entry else WEBSHELL_INDICATORS
+        if (data.get("requires_review") is True or "reviewed" in entry) and entry.get("reviewed") is not True:
+            raise CheckError("Unreviewed baseline draft: compare complete files with trusted source and set reviewed=true explicitly")
         if coverage_entry and entry.get("reviewed") is not True:
             raise CheckError("Coverage exceptions require reviewed=true after trusted full-file comparison")
         if (type(path) is not str or "\x00" in path or not PurePosixPath(path).is_absolute() or
@@ -3364,6 +3432,84 @@ def scan_webshells(args):
             "; " + str(accepted_incomplete) + " incomplete files accepted by reviewed full-file hash; absence of indicators does not establish a clean server",
             rule_id="P2S-WS003", resource=dict(root=root), evidence=facts)
     return report
+
+
+# Source: src/webshell_baseline.py
+"""Explicit, unreviewed baseline drafts; no approval or target-file changes."""
+
+
+def webshell_baseline_draft(report):
+    indicators, coverage = {}, {}
+    for row in report.rows:
+        if row["rule_id"] not in ("P2S-WS001", "P2S-WS002", "P2S-WS004", "P2S-WS007"):
+            continue
+        resource, fingerprint = row.get("resource"), row.get("sha256")
+        if not isinstance(resource, dict) or not isinstance(fingerprint, str) or re.fullmatch(r"[a-f0-9]{64}", fingerprint) is None:
+            continue
+        path, indicator = resource.get("path"), resource.get("indicator")
+        if isinstance(path, str) and indicator in WEBSHELL_INDICATORS:
+            indicators.setdefault((path, fingerprint), set()).add(indicator)
+    omitted, unreviewable = 0, 0
+    for root in report.discovery.get("webshell_coverage", []):
+        omitted += root.get("omitted_paths", 0)
+        for item in root.get("paths", []):
+            fingerprint, reason = item.get("sha256"), item.get("reason")
+            if (reason in WEBSHELL_REVIEWABLE_REASONS and isinstance(fingerprint, str) and
+                    re.fullmatch(r"[a-f0-9]{64}", fingerprint) and isinstance(item.get("path"), str)):
+                coverage.setdefault((item["path"], fingerprint), set()).add(reason)
+            else:
+                unreviewable += 1
+    draft = dict(schema_version=1, requires_review=True,
+        instructions="Compare every complete file with trusted source before setting reviewed=true. Remove entries you cannot approve. This draft never proves a clean server.",
+        source=dict(version=VERSION, has_unknown=report.has("UNKNOWN"), omitted_coverage_paths=omitted,
+                    unreviewable_coverage_paths=unreviewable),
+        files=[dict(path=path, sha256=fingerprint, indicators=sorted(values), reviewed=False)
+               for (path, fingerprint), values in sorted(indicators.items())],
+        reviewed_files=[dict(path=path, sha256=fingerprint, coverage_reasons=sorted(values), reviewed=False)
+                        for (path, fingerprint), values in sorted(coverage.items())])
+    if len(draft["files"]) + len(draft["reviewed_files"]) > 10000:
+        raise CheckError("Baseline draft entry limit exceeded; narrow the scan scope")
+    return json_paths(draft)
+
+
+def write_baseline_draft(name, report):
+    """Create mode 0600 exclusively through pinned, non-symlink directories."""
+    draft = webshell_baseline_draft(report)
+    data = (json.dumps(draft, ensure_ascii=True, indent=2) + "\n").encode("ascii")
+    if len(data) > 2 * 1024 * 1024:
+        raise CheckError("Baseline draft exceeds 2 MiB; narrow the scan scope")
+    path = Path(os.path.abspath(name))
+    if path == Path("/"):
+        raise CheckError("Baseline draft requires a new file path")
+    parent = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+    file_fd, identity = None, None
+    try:
+        for part in path.parts[1:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        file_fd = os.open(path.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=parent)
+        identity = os.fstat(file_fd)
+        os.fchmod(file_fd, 0o600)
+        pending = memoryview(data)
+        while pending:
+            count = os.write(file_fd, pending)
+            if count <= 0:
+                raise OSError("Baseline draft write made no progress")
+            pending = pending[count:]
+        os.fsync(file_fd)
+        os.fsync(parent)
+    except BaseException:
+        if identity is not None:
+            current = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            if (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
+                os.unlink(path.name, dir_fd=parent)
+        raise
+    finally:
+        if file_fd is not None:
+            os.close(file_fd)
+        os.close(parent)
+    return dict(path=str(path), indicator_files=len(draft["files"]), coverage_files=len(draft["reviewed_files"]))
 
 
 # Source: src/audit.py
@@ -4120,6 +4266,7 @@ def main(argv=None):
     parser.add_argument("--walk-seconds", type=float, help=text("Seconds per walk: audit 10, webshell scan 120; scan only: 0 disables root time limit"))
     parser.add_argument("--scan-file-seconds", type=float, default=2, help=text("Webshell time budget per file (default 2 seconds; maximum 30)"))
     parser.add_argument("--baseline", help=text("Reviewed webshell JSON baseline; exact path, SHA256 and indicator matches only"))
+    parser.add_argument("--write-baseline-draft", metavar="FILE", help=text("Write a new private baseline draft; every entry is unreviewed and accepts nothing"))
     parser.add_argument("--no-nice", action="store_true", help=text("Skip lowering CPU/I/O priority for the webshell scan"))
     parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("PHP parsing byte limit per file; opener search streams larger files (default 2097152)"))
     parser.add_argument("--scan-total-bytes", type=int, default=256 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 268435456)"))
@@ -4165,6 +4312,10 @@ def main(argv=None):
     try:
         if args.baseline and args.mode != "scan-webshells":
             raise CheckError("--baseline supports --scan-webshells only")
+        if args.write_baseline_draft and args.mode != "scan-webshells":
+            raise CheckError("--write-baseline-draft supports --scan-webshells only")
+        if args.write_baseline_draft and args.redact:
+            raise CheckError("--write-baseline-draft contains local paths and hashes; use it locally without --redact")
         if args.no_nice and args.mode != "scan-webshells":
             raise CheckError("--no-nice supports --scan-webshells only")
         if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
@@ -4221,6 +4372,16 @@ def main(argv=None):
             report.add("INFO", "Scan scheduling", "CPU: " + priority["cpu_priority"] + "; I/O: " + priority["io_priority"] +
                        "; missing or denied priority helpers do not stop the scan; --no-nice opts out",
                        rule_id="P2S-WS006", resource="scheduling", evidence=priority)
+            if args.write_baseline_draft:
+                try:
+                    report.baseline_draft = write_baseline_draft(args.write_baseline_draft, report)
+                    report.add("INFO", "Webshell baseline", "Unreviewed baseline draft written; compare complete files with trusted source before setting reviewed=true; existing files are never overwritten",
+                               rule_id="P2S-WS005", resource=dict(path=report.baseline_draft["path"]),
+                               evidence=dict(baseline_entries=report.baseline_draft["indicator_files"] + report.baseline_draft["coverage_files"]))
+                except (OSError, ValueError, CheckError) as exc:
+                    reason = str(exc) if isinstance(exc, CheckError) else "Draft destination exists, is unsafe or is not writable"
+                    report.add("UNKNOWN", "Webshell baseline", "Baseline draft was not written; " + reason,
+                               rule_id="P2S-WS005", resource=dict(path=os.path.abspath(args.write_baseline_draft)))
             show_report()
             return report.exit_code()
         prepare_runtime_dirs(args)

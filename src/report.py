@@ -195,7 +195,7 @@ class Report:
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
-            print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
+            print(json.dumps(json_paths(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
                                   suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
@@ -204,8 +204,8 @@ class Report:
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
-                                  path_encoding="filesystem-surrogateescape",
-                                  exit_code=self.exit_code()), ensure_ascii=True, indent=2))
+                                  path_encoding=PATH_ENCODING,
+                                  exit_code=self.exit_code())), ensure_ascii=True, indent=2))
             return
         def emit(line):
             # Configured names/paths must not inject terminal escape sequences.
