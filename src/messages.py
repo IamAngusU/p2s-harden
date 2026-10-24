@@ -855,6 +855,24 @@ _EVIDENCE_GERMAN.update(access="Zugriff", symlink="Symlink", mount="Dateisystemg
     changed="Datei geändert", depth="Verzeichnistiefe", entries="Eintragslimit", time="Zeitlimit",
     **{"file-size":"Dateigröße", "file-time":"Datei-Zeitlimit", "total-bytes":"Gesamtdatenlimit", "tokens":"Tokenlimit", "expression":"Ausdruckslimit", "findings":"Befundlimit", "config-syntax":"Konfigurationssyntax"})
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
+
+_NEW_GERMAN.update({
+    "Skip lowering CPU/I/O priority for the webshell scan": "CPU-/I/O-Priorität für Webshell-Suche nicht absenken",
+    "--no-nice supports --scan-webshells only": "--no-nice unterstützt nur --scan-webshells",
+    "PHP parsing byte limit per file; opener search streams larger files (default 2097152)": "PHP-Parserlimit je Datei; größere Dateien werden nach Tags durchsucht (Standard 2097152)",
+    "Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst), open (OPEN zuerst), review (OPEN oder Code-Review zuerst); unbekannte Ergebnisse bestehen nie",
+    "Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable": "OPEN- oder Review-Exitwirkung eines Befunds/einer Regel ausnehmen; bleibt sichtbar; wiederholbar",
+    "Another fix or rollback is using this backup root; wait for it to finish and rerun": "Ein anderer Fix oder Rollback verwendet dieses Backup-Verzeichnis; Abschluss abwarten und erneut ausführen",
+    "Backup directory must have mode 0700 and be owned by root": "Backup-Verzeichnis muss root gehören und Modus 0700 haben",
+    "Backup directory changed while acquiring transaction lock": "Backup-Verzeichnis wurde beim Erwerb der Transaktionssperre ausgetauscht",
+    "Scan scheduling": "Scan-Priorität",
+    "CPU priority": "CPU-Priorität",
+    "I/O priority": "I/O-Priorität",
+    "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit.": "Scans senken CPU-Priorität auf mindestens nice 10 und fordern Idle-I/O mit optionalem ionice an. Fehlende/gesperrte Helfer stoppen keine Prüfungen; --no-nice deaktiviert dies. Prioritäten sind kein festes Ressourcenlimit.",
+    "CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out": "CPU: {cpu}; I/O: {io}; fehlende oder gesperrte Prioritätshelfer stoppen die Suche nicht; --no-nice deaktiviert dies"
+})
+_MESSAGE_TEMPLATES += (('CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; fehlende oder gesperrte Prioritätshelfer stoppen die Suche nicht; --no-nice deaktiviert dies'),)
+_EVIDENCE_GERMAN.update(lowered="abgesenkt", already_low="bereits niedrig", unavailable="nicht verfügbar", disabled="deaktiviert", idle="Leerlauf")
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]

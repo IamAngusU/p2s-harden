@@ -1,4 +1,4 @@
-# PHP webshell indicator triage (2.3.0-dev.2 preview)
+# PHP webshell indicator triage (2.3.0-dev.3 preview)
 
 `--scan-webshells` is a separate read-only mode. It supplies local leads for
 investigation, not a malware verdict, an application vulnerability assessment
@@ -19,8 +19,9 @@ sudo bash p2s-harden.sh --scan-webshells --root /srv/site --json > local-indicat
 sudo bash p2s-harden.sh --scan-webshells --root /srv/site --redact --json > shareable-indicators.json
 ```
 
-Exit policy is unchanged: default UNKNOWN=2 before OPEN=1, otherwise 0. With
+Exit policies: default UNKNOWN=2 before OPEN=1, otherwise 0. With
 `--fail-on open`, a found OPEN takes precedence; unknown coverage stays visible.
+`--fail-on review` returns 1 for any unaccepted WS004 review or OPEN before considering UNKNOWN; absent those, UNKNOWN still returns 2. Ordinary INFO never triggers it. Review rows accepted by an exact baseline or `--ignore` retain their status/evidence and lose exit impact. JSON adds `has_review` and `suppressed_review`; `suppressed_open` still counts only OPEN rows.
 A zero exit means no unsuppressed selected indicators and no reported coverage
 failure; review-only INFO can remain. It is never a clean-server certificate. `--ignore` retains the row and changes
 its exit impact only. The mode cannot be combined with `--fix` or `--rollback`.
@@ -50,14 +51,15 @@ its exit impact only. The mode cannot be combined with `--fix` or `--rollback`.
   changed files, depth/entry/time/byte/token/expression/finding limits. Access
   failures and per-file timeouts continue with independent entries; global budgets stop that root.
 - **P2S-WS004 (INFO, review required):** `prefixed-include` and `registry-callable`.
-  An indirectly request-derived value in a constant-prefixed include, or selection
+  An unknown-helper-derived request value in a constant-prefixed include, or selection
   from a registry array (including simple registry-result aliases), remains visible
   for manual review without a HIGH/OPEN verdict. Direct request expressions in
-  includes and a request-supplied callback/registry remain WS001. This is triage
+  includes, plain copy/cast chains, known transforms such as `basename()`/`trim()`, and a request-supplied callback/registry remain WS001. A helper of unknown semantics can only lower triage priority to visible review, never establish safety. Reassignments and function-local scopes are tracked conservatively within the documented small heuristic. This is triage
   priority, not proof of safety: a prefix does not stop traversal and a registry
   can be attacker-controlled. No framework/filename whitelist exempts the file.
 - **P2S-WS005 (INFO or UNKNOWN):** reviewed baseline loading. Invalid, unsafe or
   unreadable baselines yield UNKNOWN and the independent file scan continues.
+- **P2S-WS006 (INFO):** scan scheduling. The engine lowers its own CPU priority to nice 10 using the standard OS API, preserving an already lower priority, and invokes optional trusted `ionice -c 3 -p PID` with a two-second timeout. Missing/denied capabilities are reported independently; no package is installed and the scan continues. `--no-nice` skips both adjustments, without raising inherited priorities. The SSH payload is not restarted, and the caller/parent process is unaffected. Scheduling is not a hard resource cap.
 
 Local JSON adds a `sha256` to each indicator row. The hash covers the bytes read
 for that file and supports comparison; it is not checked against a reputation
@@ -93,12 +95,13 @@ reads, checks filesystem boundaries, and checks opened identity and post-read
 size/mtime/ctime. This limits traversal races; it does not provide a consistent
 snapshot of a live tree or defeat an attacker who already controls the host/kernel.
 
-Defaults **per root**: 250000 entries, **120 seconds**, 2 MiB per regular file,
+Defaults **per root**: 250000 entries, **120 seconds**, 2 MiB PHP materialization/parse budget per file,
 **256 MiB** total bytes and 200 unaccepted indicator rows. Each file has an
 independent **2-second** budget; an expensive file becomes `file-time` UNKNOWN
 and later files continue. Baseline-accepted rows do not exhaust the active
-finding budget. Files over the byte limit remain
-unexamined and make coverage UNKNOWN even if their suffix looks harmless.
+finding budget. Files are fully streamed for PHP openers (including across read boundaries) before applying the parse-size cap. A stable file with no applicable opener and no selected startup configuration is fully examined even when larger than that cap. Every byte still consumes root byte/time and per-file time budgets. An oversized file containing an applicable PHP opener or selected startup configuration remains `file-size` UNKNOWN.
+
+Binary-like means any NUL or ASCII control byte except tab/LF/CR appears anywhere in the file. These files require explicit `<?php` or `<?=` tags; text also accepts generic `<?` short tags except XML declarations. This content heuristic avoids random generic-tag bytes in assets without exempting any suffix. It deliberately misses generic short-tag PHP in binary-like content, including deliberately constructed polyglots with control bytes. Explicit tags can also occur randomly or in benign embedded examples; they still trigger analysis and limits, not a safety exemption. No PHP interpreter settings or runtime execution are inferred.
 The traversal depth is 64; per-file lexical analysis is capped at 100000 tokens,
 128 nested parentheses/brackets and 512 tokens per inspected expression.
 Root and file time budgets are checked during traversal, chunk reads and analysis;
@@ -193,13 +196,12 @@ sample does not establish a general false-positive rate or certify WordPress.
 The same pinned commit is also tested as a **complete 5320-file source archive**
 (167112154 uncompressed bytes), including media and fonts. Default and expanded
 runs record fully examined/incomplete counts and **every retained incomplete
-relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). Binary
-assets can contain PHP-like short-tag byte sequences; large files and parser
-limits remain UNKNOWN even in known benign source. The tool does not silently
-skip those files or claim that the whole tree passed. Timing is a measurement
+relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). The dev.3 default run fully examines 5317 files with 3 explicit incomplete files (a large JS file containing PHP-like text and two fonts containing explicit PHP-like tags); the expanded run has 2 incomplete fonts. Three review rows and one OPEN include remain. The legitimate WordPress `wp-admin/update.php` include at line 101 is OPEN because copies/`basename()` cannot prove path safety; inspect its actual guards before explicitly baselining it. There is no framework exemption. The residual explicit-tag/parser gaps stay UNKNOWN; the report does not claim the whole tree passed. Timing is a measurement
 on the recorded run, not a performance guarantee. The regression suite also
 includes 450000 line comments followed by an indicator and a 300-file indicator
 tree that still reaches the active 200-finding cap.
+
+[Actual SSH launcher evidence](WEBSHELL-SSH.json) records eight cases using Bash and native Windows PowerShell against a protected disposable fixture: review exit 1, exact-baseline exit 0, redacted reports without paths/hashes, and changed hashes requiring review again. This is transport/baseline evidence, not production compromise recovery.
 
 ## What to do with a finding
 

@@ -251,6 +251,10 @@ Neither function restrictions nor these checks establish a sandbox.
 Primary semantics: [PHP FPM configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
 and [PHP FFI configuration](https://www.php.net/manual/en/ffi.configuration.php).
 
+## P2S-WS006 — Scan scheduling (development preview)
+
+INFO records lowered/already-low/unavailable/disabled CPU priority and idle/unavailable/disabled I/O priority. Missing or denied helpers do not stop independent checks. Use `--no-nice` to opt out; see [scan scheduling and budgets](WEBSHELLS.md).
+
 ## Aggregated scope and safe facts (2.2.1)
 
 Unchanged function/include pool results share the global finding. The normal

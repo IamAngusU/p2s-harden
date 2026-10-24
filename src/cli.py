@@ -30,7 +30,8 @@ def main(argv=None):
     parser.add_argument("--walk-seconds", type=float, help=text("Seconds per walk: audit 10, webshell scan 120; scan only: 0 disables root time limit"))
     parser.add_argument("--scan-file-seconds", type=float, default=2, help=text("Webshell time budget per file (default 2 seconds; maximum 30)"))
     parser.add_argument("--baseline", help=text("Reviewed webshell JSON baseline; exact path, SHA256 and indicator matches only"))
-    parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("Webshell scan byte limit per file (default 2097152)"))
+    parser.add_argument("--no-nice", action="store_true", help=text("Skip lowering CPU/I/O priority for the webshell scan"))
+    parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("PHP parsing byte limit per file; opener search streams larger files (default 2097152)"))
     parser.add_argument("--scan-total-bytes", type=int, default=256 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 268435456)"))
     parser.add_argument("--max-http-probes", type=int, default=128, help=text("Total HTTP request budget (default 128)"))
     parser.add_argument("--runtime-dir", action="append", default=[], help=text("Declare writable runtime storage inside selected roots; repeatable"))
@@ -38,8 +39,8 @@ def main(argv=None):
     parser.add_argument("--backup-root", default="/root/p2s-harden-backup-v2", help=text("Protected transaction directory (default /root/p2s-harden-backup-v2)"))
     parser.add_argument("--backup-id", help=text("Choose one transaction explicitly for rollback"))
     parser.add_argument("--yes", "-y", action="store_true", help=text("Approve the displayed fix plan without an interactive prompt"))
-    parser.add_argument("--fail-on", choices=("complete", "open"), default="complete", help=text("Exit precedence: complete (UNKNOWN first) or open (OPEN first); unknowns never pass"))
-    parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN exit impact; keep it visible; repeatable"))
+    parser.add_argument("--fail-on", choices=("complete", "open", "review"), default="complete", help=text("Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass"))
+    parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable"))
     parser.add_argument("--json", action="store_true", help=text("Structured findings, stable IDs, remediation, preview and transaction state"))
     parser.add_argument("--redact", action="store_true", help=text("Shareable read-only report: omit host details, inventory and original finding IDs"))
     parser.add_argument("--verbose", action="store_true", help=text('Show all findings, including OK'))
@@ -74,6 +75,8 @@ def main(argv=None):
     try:
         if args.baseline and args.mode != "scan-webshells":
             raise CheckError("--baseline supports --scan-webshells only")
+        if args.no_nice and args.mode != "scan-webshells":
+            raise CheckError("--no-nice supports --scan-webshells only")
         if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
             raise CheckError("--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
@@ -122,7 +125,12 @@ def main(argv=None):
             args.no_auto = True
         prepare_scope(args)
         if args.mode == "scan-webshells":
+            priority = webshell_priority(args.no_nice)
             report = scan_webshells(args)
+            report.discovery["scan_priority"] = priority
+            report.add("INFO", "Scan scheduling", "CPU: " + priority["cpu_priority"] + "; I/O: " + priority["io_priority"] +
+                       "; missing or denied priority helpers do not stop the scan; --no-nice opts out",
+                       rule_id="P2S-WS006", resource="scheduling", evidence=priority)
             show_report()
             return report.exit_code()
         prepare_runtime_dirs(args)
@@ -151,9 +159,10 @@ def main(argv=None):
                     return report.exit_code()
                 tx = Transaction(args.backup_root)
                 def apply():
-                    tx.prepare(updates, args.protect_dir, instances,
-                               expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
-                    tx.apply(instances, users)
+                    with tx.locked(create=True):
+                        tx.prepare(updates, args.protect_dir, instances,
+                                   expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
+                        tx.apply(instances, users)
                 transaction_output(apply)
                 report, _, _, _ = scan(args)
                 report.plan, report.transaction = plan, summarize(tx)

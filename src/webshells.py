@@ -20,12 +20,18 @@ _WS_CALLBACKS = frozenset(("call_user_func", "call_user_func_array", "array_map"
 _WS_CALLS = _WS_SINKS | _WS_NETWORK | _WS_CALLBACKS
 _WS_TOKEN = re.compile(r"\$[A-Za-z_][A-Za-z_0-9]*|\\?[A-Za-z_][A-Za-z_0-9\\]*|->|\?->|::|==|=>|!=|<=|>=|\?\?|&&|\|\||[^\s]", re.ASCII)
 _WS_OPEN = re.compile(r"<\?(?:php\b|=|(?!xml\b))", re.I | re.ASCII)
+_WS_EXPLICIT_OPEN = re.compile(r"<\?(?:php\b|=)", re.I | re.ASCII)
+# These transformations do not establish that an include is safe. Preserve
+# direct-input priority through them, as well as through copies and casts.
+_WS_INPUT_TRANSFORMS = frozenset(("basename", "dirname", "trim", "ltrim", "rtrim", "strval", "intval",
+    "floatval", "boolval", "strtolower", "strtoupper", "urldecode", "rawurldecode", "str_replace",
+    "preg_replace", "sprintf", "filter_input", "file_get_contents")) | _WS_DECODERS
 _WS_HEREDOC = re.compile(r"<<<[ \t]*(?:'([A-Za-z_][A-Za-z_0-9]{0,127})'|\"([A-Za-z_][A-Za-z_0-9]{0,127})\"|([A-Za-z_][A-Za-z_0-9]{0,127}))[ \t]*\r?\n")
 _WS_LINE_END = re.compile(r"\n|\?>")
 _WS_WHITESPACE = re.compile(r"\s+")
 
 
-def webshell_tokens(source, deadline):
+def webshell_tokens(source, deadline, short_tags=True):
     """Small lexical filter, not a PHP parser. Strings/comments are not code."""
     tokens, pos, active = [], 0, False
     while pos < len(source):
@@ -34,7 +40,7 @@ def webshell_tokens(source, deadline):
         if time.monotonic() > deadline:
             return tokens, "time"
         if not active:
-            opening = _WS_OPEN.search(source, pos)
+            opening = (_WS_OPEN if short_tags else _WS_EXPLICIT_OPEN).search(source, pos)
             if not opening:
                 break
             pos, active = opening.end(), True
@@ -96,11 +102,12 @@ def webshell_tokens(source, deadline):
     return tokens, None
 
 
-def webshell_indicators(data, deadline=None):
+def webshell_indicators(data, deadline=None, short_tags=True):
     """Bounded syntactic proximity and simple aliases; no exploitability claim."""
     source = data.decode("latin-1")
     deadline = deadline if deadline is not None else time.monotonic() + 10
-    tokens, incomplete = webshell_tokens(source, deadline)
+    tokens, incomplete = webshell_tokens(source, deadline, short_tags)
+    direct_aliases = set()
     hits, aliases, registry_aliases, decoded, complex_values, constants, pairs, stack = {}, set(), set(), set(), set(), {}, {}, []
     for index, token in enumerate(tokens):
         if index % 1024 == 0 and time.monotonic() > deadline:
@@ -118,16 +125,33 @@ def webshell_indicators(data, deadline=None):
                 pairs[opening] = index
     closing = {end: begin for begin, end in pairs.items()}
     def request(items, with_aliases=True):
+        selected_aliases = aliases if with_aliases is True else set() if with_aliases is False else with_aliases
         for kind, value, _ in items:
-            if kind == "variable" and (value in _WS_SOURCE or with_aliases and value in aliases):
+            if kind == "variable" and (value in _WS_SOURCE or value in selected_aliases):
                 return True
             if kind in ("interpolated", "backtick"):
-                if any(m[0] in _WS_SOURCE or with_aliases and m[0] in aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
+                if any(m[0] in _WS_SOURCE or m[0] in selected_aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
                     return True
         return any(kind == "code" and value.lower().lstrip("\\") in ("filter_input", "file_get_contents")
                    and j + 1 < len(items) and items[j + 1][1] == "("
                    and (value.lower().lstrip("\\") == "filter_input" or any(t[0] in ("string", "interpolated") and t[1] == "php://input" for t in items[j + 2:j + 5]))
                    for j, (kind, value, _) in enumerate(items))
+    def direct_input(begin, end):
+        # Unknown helper calls may validate/resolve a path. Their return value
+        # requires review; a plain alias, cast or basename is not such evidence.
+        visible, position = [], begin
+        while position < end:
+            kind, value, _ = tokens[position]
+            callable_name = kind == "variable" or kind == "code" and re.fullmatch(r"\\?[A-Za-z_][A-Za-z_0-9\\]*", value, re.ASCII) is not None
+            if (callable_name and position + 1 < end and tokens[position + 1][1] == "(" and
+                    constants.get(value, value.lower().lstrip("\\")) not in _WS_INPUT_TRANSFORMS):
+                stop = pairs.get(position + 1)
+                if stop is not None and stop < end:
+                    position = stop + 1
+                    continue
+            visible.append(tokens[position])
+            position += 1
+        return request(visible, direct_aliases)
     def encoded(items):
         return any(kind == "variable" and value in decoded or
                    constants.get(value, value.lower().lstrip("\\")) in _WS_DECODERS
@@ -179,11 +203,12 @@ def webshell_indicators(data, deadline=None):
         if kind == "code" and value == "{":
             depth += 1
             if pending_function:
-                scopes.append((depth, aliases, registry_aliases, decoded, complex_values, constants))
+                scopes.append((depth, aliases, direct_aliases, registry_aliases, decoded, complex_values, constants))
                 aliases, registry_aliases, decoded, complex_values, constants, pending_function = set(), set(), set(), set(), {}, False
+                direct_aliases = set()
         if kind == "code" and value == "}":
             if scopes and scopes[-1][0] == depth:
-                _, aliases, registry_aliases, decoded, complex_values, constants = scopes.pop()
+                _, aliases, direct_aliases, registry_aliases, decoded, complex_values, constants = scopes.pop()
             depth = max(0, depth - 1)
         if kind == "variable" and index + 1 < len(tokens) and tokens[index + 1][1] == "=":
             end = index + 2
@@ -192,15 +217,19 @@ def webshell_indicators(data, deadline=None):
             expression = tokens[index + 2:end]
             tainted = request(expression)
             from_registry = registry(expression) or len(expression) == 1 and expression[0][0] == "variable" and expression[0][1] in registry_aliases
+            direct_value = not from_registry and direct_input(index + 2, end)
             packed = encoded(expression)
             complex_value = end == index + 514 or uncertain(expression)
             aliases.discard(value)
+            direct_aliases.discard(value)
             registry_aliases.discard(value)
             decoded.discard(value)
             complex_values.discard(value)
             constants.pop(value, None)
             if tainted:
                 aliases.add(value)
+            if direct_value:
+                direct_aliases.add(value)
             if from_registry:
                 registry_aliases.add(value)
             if packed:
@@ -227,7 +256,7 @@ def webshell_indicators(data, deadline=None):
                 incomplete = incomplete or "expression"
             if request(tokens[index + 1:end]):
                 expression = tokens[index + 1:end]
-                add("prefixed-include" if prefixed(expression) and not request(expression, False) else "request-include", offset)
+                add("prefixed-include" if prefixed(expression) and not direct_input(index + 1, end) else "request-include", offset)
             if uncertain(tokens[index + 1:end]):
                 incomplete = incomplete or "expression"
         if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":

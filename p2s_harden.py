@@ -34,7 +34,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.2"
+VERSION = "2.3.0-dev.3"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -1748,6 +1748,24 @@ _EVIDENCE_GERMAN.update(access="Zugriff", symlink="Symlink", mount="Dateisystemg
     changed="Datei geändert", depth="Verzeichnistiefe", entries="Eintragslimit", time="Zeitlimit",
     **{"file-size":"Dateigröße", "file-time":"Datei-Zeitlimit", "total-bytes":"Gesamtdatenlimit", "tokens":"Tokenlimit", "expression":"Ausdruckslimit", "findings":"Befundlimit", "config-syntax":"Konfigurationssyntax"})
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
+
+_NEW_GERMAN.update({
+    "Skip lowering CPU/I/O priority for the webshell scan": "CPU-/I/O-Priorität für Webshell-Suche nicht absenken",
+    "--no-nice supports --scan-webshells only": "--no-nice unterstützt nur --scan-webshells",
+    "PHP parsing byte limit per file; opener search streams larger files (default 2097152)": "PHP-Parserlimit je Datei; größere Dateien werden nach Tags durchsucht (Standard 2097152)",
+    "Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst), open (OPEN zuerst), review (OPEN oder Code-Review zuerst); unbekannte Ergebnisse bestehen nie",
+    "Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable": "OPEN- oder Review-Exitwirkung eines Befunds/einer Regel ausnehmen; bleibt sichtbar; wiederholbar",
+    "Another fix or rollback is using this backup root; wait for it to finish and rerun": "Ein anderer Fix oder Rollback verwendet dieses Backup-Verzeichnis; Abschluss abwarten und erneut ausführen",
+    "Backup directory must have mode 0700 and be owned by root": "Backup-Verzeichnis muss root gehören und Modus 0700 haben",
+    "Backup directory changed while acquiring transaction lock": "Backup-Verzeichnis wurde beim Erwerb der Transaktionssperre ausgetauscht",
+    "Scan scheduling": "Scan-Priorität",
+    "CPU priority": "CPU-Priorität",
+    "I/O priority": "I/O-Priorität",
+    "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit.": "Scans senken CPU-Priorität auf mindestens nice 10 und fordern Idle-I/O mit optionalem ionice an. Fehlende/gesperrte Helfer stoppen keine Prüfungen; --no-nice deaktiviert dies. Prioritäten sind kein festes Ressourcenlimit.",
+    "CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out": "CPU: {cpu}; I/O: {io}; fehlende oder gesperrte Prioritätshelfer stoppen die Suche nicht; --no-nice deaktiviert dies"
+})
+_MESSAGE_TEMPLATES += (('CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; missing or denied priority helpers do not stop the scan; --no-nice opts out', 'CPU: {cpu}; I/O: {io}; fehlende oder gesperrte Prioritätshelfer stoppen die Suche nicht; --no-nice deaktiviert dies'),)
+_EVIDENCE_GERMAN.update(lowered="abgesenkt", already_low="bereits niedrig", unavailable="nicht verfügbar", disabled="deaktiviert", idle="Leerlauf")
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]
@@ -1829,6 +1847,7 @@ RULES = {
     "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
     "WS004": ("info", "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous."),
     "WS005": ("info", "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings."),
+    "WS006": ("info", "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -1867,6 +1886,8 @@ def safe_evidence(rule_id, evidence):
                           all(type(k) is str and k in WEBSHELL_REASONS and count(v) for k,v in value.items())),
         "WS004": dict(indicators=names("prefixed-include", "registry-callable"), line=count, review_required=boolean),
         "WS005": dict(baseline_entries=count),
+        "WS006": dict(cpu_priority=choices("lowered", "already_low", "unavailable", "disabled"),
+                      io_priority=choices("idle", "unavailable", "disabled")),
     }.get(rule_id[4:], {})
     return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
 
@@ -1877,7 +1898,7 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
               "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage",
-              "WS004": "PHP code review", "WS005": "Webshell baseline"}
+              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling"}
 
 
 def evidence_summary(rule_id, evidence, lang="en"):
@@ -1893,7 +1914,8 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   indicators="Indicators", line="Line", examined_files="Examined files",
                   indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
                   incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
-                  omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required")
+                  omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
+                  cpu_priority="CPU priority", io_priority="I/O priority")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -1934,13 +1956,21 @@ class Report:
     def configure(self, fail_on="complete", ignore=()):
         self.fail_on = fail_on
         for row in self.rows:
-            row["suppressed"] = row["status"] == "OPEN" and (row.get("baseline_accepted") is True or row["id"] in ignore or row["rule_id"] in ignore)
+            row["suppressed"] = (row["status"] == "OPEN" or self.review_row(row)) and (row.get("baseline_accepted") is True or row["id"] in ignore or row["rule_id"] in ignore)
+
+    @staticmethod
+    def review_row(row):
+        return row["status"] == "INFO" and row["rule_id"] == "P2S-WS004" and row["evidence"].get("review_required") is True
+
+    def has_review(self):
+        return any(self.review_row(row) and not row["suppressed"] and not row.get("baseline_accepted") for row in self.rows)
 
     def has(self, status):
         return any(r["status"] == status and not r["suppressed"] for r in self.rows)
 
     def exit_code(self):
-        if getattr(self, "fail_on", "complete") == "open" and self.has("OPEN"):
+        policy = getattr(self, "fail_on", "complete")
+        if policy in ("open", "review") and (self.has("OPEN") or policy == "review" and self.has_review()):
             return 1
         if self.has("UNKNOWN"):
             return 2
@@ -1974,7 +2004,9 @@ class Report:
             print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
-                                  suppressed_open=sum(r["suppressed"] for r in rows),
+                                  suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
+                                  has_review=self.has_review(),
+                                  suppressed_review=sum(r["suppressed"] and self.review_row(r) for r in rows),
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
@@ -2025,7 +2057,7 @@ class Report:
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN") or row["rule_id"] == "P2S-WS004":
-                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored OPEN]" if row["suppressed"] else ""
+                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
                 emit("        " + row["id"] + marker)
                 if row.get("affected_pools"):
                     count = len(row["affected_pools"])
@@ -2209,12 +2241,18 @@ _WS_CALLBACKS = frozenset(("call_user_func", "call_user_func_array", "array_map"
 _WS_CALLS = _WS_SINKS | _WS_NETWORK | _WS_CALLBACKS
 _WS_TOKEN = re.compile(r"\$[A-Za-z_][A-Za-z_0-9]*|\\?[A-Za-z_][A-Za-z_0-9\\]*|->|\?->|::|==|=>|!=|<=|>=|\?\?|&&|\|\||[^\s]", re.ASCII)
 _WS_OPEN = re.compile(r"<\?(?:php\b|=|(?!xml\b))", re.I | re.ASCII)
+_WS_EXPLICIT_OPEN = re.compile(r"<\?(?:php\b|=)", re.I | re.ASCII)
+# These transformations do not establish that an include is safe. Preserve
+# direct-input priority through them, as well as through copies and casts.
+_WS_INPUT_TRANSFORMS = frozenset(("basename", "dirname", "trim", "ltrim", "rtrim", "strval", "intval",
+    "floatval", "boolval", "strtolower", "strtoupper", "urldecode", "rawurldecode", "str_replace",
+    "preg_replace", "sprintf", "filter_input", "file_get_contents")) | _WS_DECODERS
 _WS_HEREDOC = re.compile(r"<<<[ \t]*(?:'([A-Za-z_][A-Za-z_0-9]{0,127})'|\"([A-Za-z_][A-Za-z_0-9]{0,127})\"|([A-Za-z_][A-Za-z_0-9]{0,127}))[ \t]*\r?\n")
 _WS_LINE_END = re.compile(r"\n|\?>")
 _WS_WHITESPACE = re.compile(r"\s+")
 
 
-def webshell_tokens(source, deadline):
+def webshell_tokens(source, deadline, short_tags=True):
     """Small lexical filter, not a PHP parser. Strings/comments are not code."""
     tokens, pos, active = [], 0, False
     while pos < len(source):
@@ -2223,7 +2261,7 @@ def webshell_tokens(source, deadline):
         if time.monotonic() > deadline:
             return tokens, "time"
         if not active:
-            opening = _WS_OPEN.search(source, pos)
+            opening = (_WS_OPEN if short_tags else _WS_EXPLICIT_OPEN).search(source, pos)
             if not opening:
                 break
             pos, active = opening.end(), True
@@ -2285,11 +2323,12 @@ def webshell_tokens(source, deadline):
     return tokens, None
 
 
-def webshell_indicators(data, deadline=None):
+def webshell_indicators(data, deadline=None, short_tags=True):
     """Bounded syntactic proximity and simple aliases; no exploitability claim."""
     source = data.decode("latin-1")
     deadline = deadline if deadline is not None else time.monotonic() + 10
-    tokens, incomplete = webshell_tokens(source, deadline)
+    tokens, incomplete = webshell_tokens(source, deadline, short_tags)
+    direct_aliases = set()
     hits, aliases, registry_aliases, decoded, complex_values, constants, pairs, stack = {}, set(), set(), set(), set(), {}, {}, []
     for index, token in enumerate(tokens):
         if index % 1024 == 0 and time.monotonic() > deadline:
@@ -2307,16 +2346,33 @@ def webshell_indicators(data, deadline=None):
                 pairs[opening] = index
     closing = {end: begin for begin, end in pairs.items()}
     def request(items, with_aliases=True):
+        selected_aliases = aliases if with_aliases is True else set() if with_aliases is False else with_aliases
         for kind, value, _ in items:
-            if kind == "variable" and (value in _WS_SOURCE or with_aliases and value in aliases):
+            if kind == "variable" and (value in _WS_SOURCE or value in selected_aliases):
                 return True
             if kind in ("interpolated", "backtick"):
-                if any(m[0] in _WS_SOURCE or with_aliases and m[0] in aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
+                if any(m[0] in _WS_SOURCE or m[0] in selected_aliases for m in re.finditer(r"\$[A-Za-z_][A-Za-z_0-9]*", value, re.ASCII)):
                     return True
         return any(kind == "code" and value.lower().lstrip("\\") in ("filter_input", "file_get_contents")
                    and j + 1 < len(items) and items[j + 1][1] == "("
                    and (value.lower().lstrip("\\") == "filter_input" or any(t[0] in ("string", "interpolated") and t[1] == "php://input" for t in items[j + 2:j + 5]))
                    for j, (kind, value, _) in enumerate(items))
+    def direct_input(begin, end):
+        # Unknown helper calls may validate/resolve a path. Their return value
+        # requires review; a plain alias, cast or basename is not such evidence.
+        visible, position = [], begin
+        while position < end:
+            kind, value, _ = tokens[position]
+            callable_name = kind == "variable" or kind == "code" and re.fullmatch(r"\\?[A-Za-z_][A-Za-z_0-9\\]*", value, re.ASCII) is not None
+            if (callable_name and position + 1 < end and tokens[position + 1][1] == "(" and
+                    constants.get(value, value.lower().lstrip("\\")) not in _WS_INPUT_TRANSFORMS):
+                stop = pairs.get(position + 1)
+                if stop is not None and stop < end:
+                    position = stop + 1
+                    continue
+            visible.append(tokens[position])
+            position += 1
+        return request(visible, direct_aliases)
     def encoded(items):
         return any(kind == "variable" and value in decoded or
                    constants.get(value, value.lower().lstrip("\\")) in _WS_DECODERS
@@ -2368,11 +2424,12 @@ def webshell_indicators(data, deadline=None):
         if kind == "code" and value == "{":
             depth += 1
             if pending_function:
-                scopes.append((depth, aliases, registry_aliases, decoded, complex_values, constants))
+                scopes.append((depth, aliases, direct_aliases, registry_aliases, decoded, complex_values, constants))
                 aliases, registry_aliases, decoded, complex_values, constants, pending_function = set(), set(), set(), set(), {}, False
+                direct_aliases = set()
         if kind == "code" and value == "}":
             if scopes and scopes[-1][0] == depth:
-                _, aliases, registry_aliases, decoded, complex_values, constants = scopes.pop()
+                _, aliases, direct_aliases, registry_aliases, decoded, complex_values, constants = scopes.pop()
             depth = max(0, depth - 1)
         if kind == "variable" and index + 1 < len(tokens) and tokens[index + 1][1] == "=":
             end = index + 2
@@ -2381,15 +2438,19 @@ def webshell_indicators(data, deadline=None):
             expression = tokens[index + 2:end]
             tainted = request(expression)
             from_registry = registry(expression) or len(expression) == 1 and expression[0][0] == "variable" and expression[0][1] in registry_aliases
+            direct_value = not from_registry and direct_input(index + 2, end)
             packed = encoded(expression)
             complex_value = end == index + 514 or uncertain(expression)
             aliases.discard(value)
+            direct_aliases.discard(value)
             registry_aliases.discard(value)
             decoded.discard(value)
             complex_values.discard(value)
             constants.pop(value, None)
             if tainted:
                 aliases.add(value)
+            if direct_value:
+                direct_aliases.add(value)
             if from_registry:
                 registry_aliases.add(value)
             if packed:
@@ -2416,7 +2477,7 @@ def webshell_indicators(data, deadline=None):
                 incomplete = incomplete or "expression"
             if request(tokens[index + 1:end]):
                 expression = tokens[index + 1:end]
-                add("prefixed-include" if prefixed(expression) and not request(expression, False) else "request-include", offset)
+                add("prefixed-include" if prefixed(expression) and not direct_input(index + 1, end) else "request-include", offset)
             if uncertain(tokens[index + 1:end]):
                 incomplete = incomplete or "expression"
         if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
@@ -2477,6 +2538,29 @@ def webshell_indicators(data, deadline=None):
 
 # Source: src/webshell_scan.py
 """Read-only filesystem scan, finite coverage diagnostics and exact baselines."""
+
+
+def webshell_priority(disabled=False):
+    """Lower this engine's priority without restarting its stdin/SSH payload."""
+    if disabled:
+        return dict(cpu_priority="disabled", io_priority="disabled")
+    result = dict(cpu_priority="unavailable", io_priority="unavailable")
+    try:
+        current = os.getpriority(os.PRIO_PROCESS, 0)
+        if current < 10:
+            os.setpriority(os.PRIO_PROCESS, 0, 10)
+        result["cpu_priority"] = "lowered" if current < 10 else "already_low"
+    except (OSError, AttributeError):
+        pass
+    helper = shutil.which("ionice")
+    if helper:
+        try:
+            helper = trusted(Path(helper).resolve(strict=True))
+            command([str(helper), "-c", "3", "-p", str(os.getpid())], timeout=2)
+            result["io_priority"] = "idle"
+        except (OSError, CheckError):
+            pass
+    return result
 
 
 def webshell_baseline_entries(data):
@@ -2746,23 +2830,42 @@ def scan_webshells(args):
                         frames.append((file_fd, os.scandir(file_fd), path))
                         file_fd = None
                         continue
-                    if opened.st_size > args.scan_file_bytes:
-                        record(path, "file-size")
-                        continue
-                    chunks, size = [], 0
+                    # Stream every byte before deciding whether parsing is
+                    # necessary. Large JS/assets without PHP openers do not
+                    # consume the PHP materialization budget, but still consume
+                    # the root byte/time budgets and receive the race checks.
+                    chunks, size, materialized, tail = [], 0, 0, b""
+                    has_open, explicit_open, binary = False, False, False
+                    fingerprint = hashlib.sha256()
                     while True:
                         if time.monotonic() > file_deadline:
                             read_problem = timeout_reason
                             break
-                        chunk = os.read(file_fd, min(65536, args.scan_file_bytes - size + 1, args.scan_total_bytes - read_bytes + 1))
+                        chunk = os.read(file_fd, min(65536, args.scan_total_bytes - read_bytes + 1))
                         if not chunk:
+                            probe = tail.decode("latin-1")
+                            has_open = has_open or _WS_OPEN.search(probe) is not None
+                            explicit_open = explicit_open or _WS_EXPLICIT_OPEN.search(probe) is not None
                             break
                         size += len(chunk)
                         read_bytes += len(chunk)
-                        if size > args.scan_file_bytes or read_bytes > args.scan_total_bytes:
-                            read_problem = "file-size" if size > args.scan_file_bytes else "total-bytes"
+                        if read_bytes > args.scan_total_bytes:
+                            read_problem = "total-bytes"
                             break
-                        chunks.append(chunk)
+                        fingerprint.update(chunk)
+                        probe = (tail + chunk).decode("latin-1")
+                        opening = _WS_OPEN.search(probe)
+                        explicit = _WS_EXPLICIT_OPEN.search(probe)
+                        # Defer trailing starts until the next chunk/EOF, so
+                        # <?xml and <?phpSuffix at boundaries are not openers.
+                        has_open = has_open or opening is not None and opening.start() < len(probe) - 8
+                        explicit_open = explicit_open or explicit is not None and explicit.start() < len(probe) - 8
+                        binary = binary or re.search(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", chunk) is not None
+                        tail = (tail + chunk)[-8:]
+                        if materialized < args.scan_file_bytes:
+                            part = chunk[:args.scan_file_bytes - materialized]
+                            chunks.append(part)
+                            materialized += len(part)
                     after = os.fstat(file_fd)
                     if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
                         record(path, "changed")
@@ -2773,8 +2876,13 @@ def scan_webshells(args):
                             break
                         continue
                     data = b"".join(chunks)
-                    hits, partial = webshell_indicators(data, file_deadline)
-                    if entry.name.lower() in (".user.ini", ".htaccess", "php.ini"):
+                    startup_file = entry.name.lower() in (".user.ini", ".htaccess", "php.ini")
+                    parse_php = explicit_open or has_open and not binary
+                    if size > args.scan_file_bytes and (parse_php or startup_file):
+                        record(path, "file-size")
+                        continue
+                    hits, partial = webshell_indicators(data, file_deadline, short_tags=not binary) if parse_php else ({}, None)
+                    if startup_file:
                         startup, startup_partial = webshell_startup_lines(data, entry.name.lower(), file_deadline)
                         hits.update({key:value for key,value in startup.items() if key not in hits})
                         partial = partial or startup_partial
@@ -2782,7 +2890,7 @@ def scan_webshells(args):
                         record(path, timeout_reason if partial == "time" else partial)
                     else:
                         examined += 1
-                    fingerprint = digest(data)
+                    fingerprint = fingerprint.hexdigest()
                     for indicator, line in sorted(hits.items()):
                         approved = baseline.get((path, indicator)) == fingerprint
                         if not approved and active >= 200:
@@ -3183,7 +3291,50 @@ class Transaction:
         self.root = Path(backup_root)
         self.path = None
         self.noop = False
+        self._lock_fd = None
         self.data = dict(version=1, status="prepared", files=[], directories=[], instances=[])
+
+    @contextlib.contextmanager
+    def locked(self, create=False):
+        """One writer per protected backup root; kernel releases locks on exit.
+
+        Lock the directory inode itself, so no replaceable lock file, stale PID
+        or symlink can split the lock. Reentrant only for this Transaction.
+        """
+        if self._lock_fd is not None:
+            yield
+            return
+        import fcntl
+        if os.geteuid() != 0:
+            raise CheckError('Changes and rollback require root')
+        if not self.root.is_absolute():
+            raise CheckError('Backup directory must be absolute')
+        trusted(self.root.parent)
+        if create:
+            try:
+                self.root.mkdir(mode=0o700)
+            except FileExistsError:
+                pass
+        trusted(self.root)
+        fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            opened = os.fstat(fd)
+            if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
+                raise CheckError('Backup directory must have mode 0700 and be owned by root')
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise CheckError('Another fix or rollback is using this backup root; wait for it to finish and rerun') from exc
+            current = self.root.lstat()
+            if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+                raise CheckError('Backup directory changed while acquiring transaction lock')
+            self._lock_fd = fd
+            try:
+                yield
+            finally:
+                self._lock_fd = None
+        finally:
+            os.close(fd)
 
     def begin(self):
         import time
@@ -3216,6 +3367,10 @@ class Transaction:
         self.save()
 
     def prepare(self, updates, protect_dirs, instances, expected=None):
+        with self.locked(create=True):
+            return self._prepare(updates, protect_dirs, instances, expected)
+
+    def _prepare(self, updates, protect_dirs, instances, expected=None):
         # Guard callers other than main as well: never edit first and discover
         # a missing reload/user-switch capability during recovery.
         affected = [i for i in instances if set(updates).intersection(i["inis"])]
@@ -3248,6 +3403,10 @@ class Transaction:
         self.save()
 
     def apply(self, instances, users):
+        with self.locked():
+            return self._apply(instances, users)
+
+    def _apply(self, instances, users):
         try:
             for item in self.data["files"]:
                 path = trusted(item["path"])
@@ -3324,6 +3483,10 @@ class Transaction:
         return states
 
     def restore(self, allow_partial=False, recover_service=False):
+        with self.locked():
+            return self._restore(allow_partial, recover_service)
+
+    def _restore(self, allow_partial=False, recover_service=False):
         # Preflight ALL entries before touching anything, so a conflict does
         # not leave a half-restored configuration or overwrite a newer edit.
         files = [i for i in self.data["files"] if i.get("started")]
@@ -3388,6 +3551,11 @@ class Transaction:
     @classmethod
     def rollback(cls, backup_root, backup_id=None):
         tx = cls(backup_root)
+        with tx.locked():
+            return tx._rollback(backup_id)
+
+    def _rollback(tx, backup_id=None):
+        cls = type(tx)
         trusted(tx.root)
         if backup_id is not None and not re.fullmatch(r"\d{8}T\d{6}-[a-f0-9]{10}", backup_id):
             raise CheckError('Invalid backup ID')
@@ -3497,7 +3665,8 @@ def main(argv=None):
     parser.add_argument("--walk-seconds", type=float, help=text("Seconds per walk: audit 10, webshell scan 120; scan only: 0 disables root time limit"))
     parser.add_argument("--scan-file-seconds", type=float, default=2, help=text("Webshell time budget per file (default 2 seconds; maximum 30)"))
     parser.add_argument("--baseline", help=text("Reviewed webshell JSON baseline; exact path, SHA256 and indicator matches only"))
-    parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("Webshell scan byte limit per file (default 2097152)"))
+    parser.add_argument("--no-nice", action="store_true", help=text("Skip lowering CPU/I/O priority for the webshell scan"))
+    parser.add_argument("--scan-file-bytes", type=int, default=2 * 1024 * 1024, help=text("PHP parsing byte limit per file; opener search streams larger files (default 2097152)"))
     parser.add_argument("--scan-total-bytes", type=int, default=256 * 1024 * 1024, help=text("Webshell scan byte limit per root (default 268435456)"))
     parser.add_argument("--max-http-probes", type=int, default=128, help=text("Total HTTP request budget (default 128)"))
     parser.add_argument("--runtime-dir", action="append", default=[], help=text("Declare writable runtime storage inside selected roots; repeatable"))
@@ -3505,8 +3674,8 @@ def main(argv=None):
     parser.add_argument("--backup-root", default="/root/p2s-harden-backup-v2", help=text("Protected transaction directory (default /root/p2s-harden-backup-v2)"))
     parser.add_argument("--backup-id", help=text("Choose one transaction explicitly for rollback"))
     parser.add_argument("--yes", "-y", action="store_true", help=text("Approve the displayed fix plan without an interactive prompt"))
-    parser.add_argument("--fail-on", choices=("complete", "open"), default="complete", help=text("Exit precedence: complete (UNKNOWN first) or open (OPEN first); unknowns never pass"))
-    parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN exit impact; keep it visible; repeatable"))
+    parser.add_argument("--fail-on", choices=("complete", "open", "review"), default="complete", help=text("Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass"))
+    parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable"))
     parser.add_argument("--json", action="store_true", help=text("Structured findings, stable IDs, remediation, preview and transaction state"))
     parser.add_argument("--redact", action="store_true", help=text("Shareable read-only report: omit host details, inventory and original finding IDs"))
     parser.add_argument("--verbose", action="store_true", help=text('Show all findings, including OK'))
@@ -3541,6 +3710,8 @@ def main(argv=None):
     try:
         if args.baseline and args.mode != "scan-webshells":
             raise CheckError("--baseline supports --scan-webshells only")
+        if args.no_nice and args.mode != "scan-webshells":
+            raise CheckError("--no-nice supports --scan-webshells only")
         if args.redact and args.mode not in ("check", "doctor", "discover", "scan-webshells"):
             raise CheckError("--redact supports --check, --doctor, --discover and --scan-webshells; review change previews locally without redaction")
         if any(not re.fullmatch(r"P2S-(?:[A-Z]+\d{3}|CUSTOM)(?:-[a-f0-9]{16})?", value) for value in args.ignore):
@@ -3589,7 +3760,12 @@ def main(argv=None):
             args.no_auto = True
         prepare_scope(args)
         if args.mode == "scan-webshells":
+            priority = webshell_priority(args.no_nice)
             report = scan_webshells(args)
+            report.discovery["scan_priority"] = priority
+            report.add("INFO", "Scan scheduling", "CPU: " + priority["cpu_priority"] + "; I/O: " + priority["io_priority"] +
+                       "; missing or denied priority helpers do not stop the scan; --no-nice opts out",
+                       rule_id="P2S-WS006", resource="scheduling", evidence=priority)
             show_report()
             return report.exit_code()
         prepare_runtime_dirs(args)
@@ -3618,9 +3794,10 @@ def main(argv=None):
                     return report.exit_code()
                 tx = Transaction(args.backup_root)
                 def apply():
-                    tx.prepare(updates, args.protect_dir, instances,
-                               expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
-                    tx.apply(instances, users)
+                    with tx.locked(create=True):
+                        tx.prepare(updates, args.protect_dir, instances,
+                                   expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
+                        tx.apply(instances, users)
                 transaction_output(apply)
                 report, _, _, _ = scan(args)
                 report.plan, report.transaction = plan, summarize(tx)

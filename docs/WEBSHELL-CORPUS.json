@@ -30,8 +30,8 @@
   },
   "selected_php_files": 25,
   "selected_bytes": 2666825,
-  "scanner_version": "2.3.0-dev.2",
-  "engine_sha256": "9118a1f8f5648124332473894fbb98329fec1ca6ea302994ed5863cc8d33086c",
+  "scanner_version": "2.3.0-dev.3",
+  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
   "limits": {
     "max_paths": 250000,
     "walk_seconds": 120,

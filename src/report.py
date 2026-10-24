@@ -37,6 +37,7 @@ RULES = {
     "WS003": ("info", "Review coverage reasons, permissions and scan limits; scan skipped paths separately. A completed indicator scan cannot establish that a server is clean."),
     "WS004": ("info", "Review this include/callback in application context and compare with trusted source. A constant prefix or registry lookup is not proof of safety; traversal or an attacker-controlled registry can still be dangerous."),
     "WS005": ("info", "Use only a reviewed, protected local baseline. Only identical path, SHA256 and indicator matches are accepted; changed files and coverage gaps remain findings."),
+    "WS006": ("info", "Scans lower CPU priority to at least nice 10 and request idle I/O with optional ionice. Missing/denied helpers do not stop checks; --no-nice opts out. Scheduling is not a hard resource limit."),
     "CUSTOM": ("info", "Review this diagnostic in its reported context."),
 }
 
@@ -75,6 +76,8 @@ def safe_evidence(rule_id, evidence):
                           all(type(k) is str and k in WEBSHELL_REASONS and count(v) for k,v in value.items())),
         "WS004": dict(indicators=names("prefixed-include", "registry-callable"), line=count, review_required=boolean),
         "WS005": dict(baseline_entries=count),
+        "WS006": dict(cpu_priority=choices("lowered", "already_low", "unavailable", "disabled"),
+                      io_priority=choices("idle", "unavailable", "disabled")),
     }.get(rule_id[4:], {})
     return {name: value for name, value in evidence.items() if name in fields and fields[name](value)}
 
@@ -85,7 +88,7 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
               "WS001": "PHP webshell indicator", "WS002": "PHP startup reference", "WS003": "Webshell scan coverage",
-              "WS004": "PHP code review", "WS005": "Webshell baseline"}
+              "WS004": "PHP code review", "WS005": "Webshell baseline", "WS006": "Scan scheduling"}
 
 
 def evidence_summary(rule_id, evidence, lang="en"):
@@ -101,7 +104,8 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   indicators="Indicators", line="Line", examined_files="Examined files",
                   indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
                   incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
-                  omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required")
+                  omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
+                  cpu_priority="CPU priority", io_priority="I/O priority")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -142,13 +146,21 @@ class Report:
     def configure(self, fail_on="complete", ignore=()):
         self.fail_on = fail_on
         for row in self.rows:
-            row["suppressed"] = row["status"] == "OPEN" and (row.get("baseline_accepted") is True or row["id"] in ignore or row["rule_id"] in ignore)
+            row["suppressed"] = (row["status"] == "OPEN" or self.review_row(row)) and (row.get("baseline_accepted") is True or row["id"] in ignore or row["rule_id"] in ignore)
+
+    @staticmethod
+    def review_row(row):
+        return row["status"] == "INFO" and row["rule_id"] == "P2S-WS004" and row["evidence"].get("review_required") is True
+
+    def has_review(self):
+        return any(self.review_row(row) and not row["suppressed"] and not row.get("baseline_accepted") for row in self.rows)
 
     def has(self, status):
         return any(r["status"] == status and not r["suppressed"] for r in self.rows)
 
     def exit_code(self):
-        if getattr(self, "fail_on", "complete") == "open" and self.has("OPEN"):
+        policy = getattr(self, "fail_on", "complete")
+        if policy in ("open", "review") and (self.has("OPEN") or policy == "review" and self.has_review()):
             return 1
         if self.has("UNKNOWN"):
             return 2
@@ -182,7 +194,9 @@ class Report:
             print(json.dumps(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
-                                  suppressed_open=sum(r["suppressed"] for r in rows),
+                                  suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
+                                  has_review=self.has_review(),
+                                  suppressed_review=sum(r["suppressed"] and self.review_row(r) for r in rows),
                                   fail_on=getattr(self, "fail_on", "complete"),
                                   discovery=discovery, plan=None if redact else getattr(self, "plan", None),
                                   transaction=None if redact else getattr(self, "transaction", None),
@@ -233,7 +247,7 @@ class Report:
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN") or row["rule_id"] == "P2S-WS004":
-                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored OPEN]" if row["suppressed"] else ""
+                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
                 emit("        " + row["id"] + marker)
                 if row.get("affected_pools"):
                     count = len(row["affected_pools"])

@@ -105,10 +105,29 @@ class WebshellIndicators(unittest.TestCase):
         self.assertLess(time.monotonic()-started, 2)
 
     def test_prefixed_indirect_include_is_review_but_direct_input_stays_high_priority(self):
-        self.assertIn('prefixed-include', self.indicators("<?php $page=$_GET['page']; include WP_PLUGIN_DIR . '/' . $page;"))
-        self.assertIn('prefixed-include', self.indicators("<?php $page=$_GET['page']; include '/plugins/' . $page;"))
+        self.assertIn('prefixed-include', self.indicators("<?php $page=lookup_page($_GET['page']); include WP_PLUGIN_DIR . '/' . $page;"))
+        self.assertIn('prefixed-include', self.indicators("<?php $page=lookup_page($_GET['page']); include '/plugins/' . $page;"))
         self.assertIn('request-include', self.indicators("<?php include '/plugins/' . $_GET['page'];"))
         self.assertIn('request-include', self.indicators("<?php $page=$_GET['page']; include $page;"))
+
+    def test_include_priority_survives_copies_casts_known_transforms_and_scope(self):
+        for setup in ("$p=$_GET['p'];", "$a=$_GET['p']; $b=$a; $p=$b;",
+                      "$p=(string) $_GET['p'];", "$a=$_GET['p']; $p=(string) $a;",
+                      "$p=(string) ($_GET['p']);", "$p=(($_GET['p']));",
+                      "$a=$_GET['p']; $p=((string)($a));",
+                      "$p=basename($_GET['p']);", "$a=$_GET['p']; $p=basename($a);",
+                      "$a=$_GET['p']; $p=trim($a);", "$a=$_GET['p']; $p=\"$a\";",
+                      "$p=lookup($_GET['p']) . $_GET['suffix'];",
+                      "$p=$_GET['p']; function unrelated(){$p='x';}"):
+            with self.subTest(setup=setup):
+                hits=self.indicators("<?php " + setup + " include __DIR__ . '/' . $p;")
+                self.assertIn('request-include',hits)
+                self.assertNotIn('prefixed-include',hits)
+        for setup in ("$p=lookup($_GET['p']);", "$a=lookup($_GET['p']); $p=$a;",
+                      "$a=$_GET['p']; $p=lookup($a);", "$a=$_GET['p']; $p=lookup(basename($a));"):
+            self.assertIn('prefixed-include',self.indicators("<?php " + setup + " include __DIR__ . '/' . $p;"))
+        self.assertEqual(self.indicators("<?php $p=$_GET['p']; $p='constant'; include __DIR__ . '/' . $p;"),{})
+        self.assertIn('request-execution',self.indicators("<?php $p=lookup($_GET['p']); system($p);"))
 
     def test_registry_lookup_is_review_but_request_supplied_registry_and_fallback_stay_high(self):
         for sample in ("call_user_func($registry[$_GET['key']][2]);", "$key=$_GET['key']; $registry[$key]();",
@@ -157,6 +176,90 @@ class WebshellBaselineContracts(unittest.TestCase):
             p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry(),self.entry(sha256='b'*64)]))
         with self.assertRaises(p.CheckError):
             p.webshell_baseline_entries(dict(schema_version=1,files=[self.entry()]*10001))
+
+
+class WebshellReviewPolicy(unittest.TestCase):
+    def report(self):
+        report=p.Report()
+        row=report.add('INFO','PHP code review','Review locally',rule_id='P2S-WS004',resource='fixture',
+                       evidence=dict(indicators=['prefixed-include'],review_required=True))
+        return report,row
+
+    def test_review_policy_blocks_only_unaccepted_code_review_and_open(self):
+        report,row=self.report()
+        for policy,expected in (('complete',0),('open',0),('review',1)):
+            report.configure(policy)
+            self.assertEqual(report.exit_code(),expected)
+        report.add('UNKNOWN','Coverage','Incomplete',rule_id='P2S-WS003')
+        for policy,expected in (('complete',2),('open',2),('review',1)):
+            report.configure(policy)
+            self.assertEqual(report.exit_code(),expected)
+        for ignore in ([row['id']],['P2S-WS004']):
+            report.configure('review',ignore)
+            self.assertEqual(report.exit_code(),2)
+            self.assertTrue(row['suppressed'])
+        row['baseline_accepted']=True
+        report.configure('review')
+        self.assertEqual(report.exit_code(),2)
+        report.rows.pop()
+        self.assertEqual(report.exit_code(),0)
+        report.add('INFO','Ordinary context','Context')
+        self.assertEqual(report.exit_code(),0)
+        report.add('OPEN','Finding','Review')
+        self.assertEqual(report.exit_code(),1)
+
+    def test_json_and_redacted_policy_counts_retain_review_contract(self):
+        report,row=self.report()
+        report.configure('review',['P2S-WS004'])
+        for redact in (False,True):
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):report.show(True,redact=redact)
+            data=json.loads(output.getvalue())
+            self.assertFalse(data['has_review'])
+            self.assertEqual(data['suppressed_review'],1)
+            self.assertEqual(data['suppressed_open'],0)
+            self.assertEqual(data['exit_code'],0)
+            self.assertTrue(data['findings'][0]['evidence']['review_required'])
+
+    def test_scheduling_evidence_stays_readable_and_private_in_both_languages(self):
+        report=p.Report()
+        report.add('INFO','Scan scheduling','CPU: lowered; I/O: idle; missing or denied priority helpers do not stop the scan; --no-nice opts out',
+                   rule_id='P2S-WS006',evidence=dict(cpu_priority='lowered',io_priority='idle',private='SECRET'))
+        for lang in ('en','de'):
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output):report.show(False,lang=lang,redact=True)
+            self.assertIn('CPU-Priorität: abgesenkt' if lang=='de' else 'CPU priority: lowered',output.getvalue())
+            self.assertNotIn('SECRET',output.getvalue())
+        self.assertIn('Scan-Priorität',p.localize('Scan scheduling','de'))
+        self.assertIn('fehlende oder gesperrte',p.localize(report.rows[0]['detail'],'de'))
+
+
+@unittest.skipUnless(sys.platform=='linux','Linux scheduling')
+class WebshellScheduling(unittest.TestCase):
+    def test_optional_helpers_missing_denied_and_opt_out_do_not_abort(self):
+        with patch.object(p.os,'getpriority',return_value=0),patch.object(p.os,'setpriority') as cpu,patch.object(p.shutil,'which',return_value=None):
+            self.assertEqual(p.webshell_priority(),dict(cpu_priority='lowered',io_priority='unavailable'))
+            cpu.assert_called_once_with(p.os.PRIO_PROCESS,0,10)
+        with patch.object(p.os,'getpriority',side_effect=PermissionError),patch.object(p.shutil,'which',return_value='/bin/ionice'),patch.object(p,'trusted',side_effect=p.CheckError('untrusted')):
+            self.assertEqual(p.webshell_priority(),dict(cpu_priority='unavailable',io_priority='unavailable'))
+        with patch.object(p.os,'getpriority') as cpu,patch.object(p.shutil,'which') as io_helper:
+            self.assertEqual(p.webshell_priority(True),dict(cpu_priority='disabled',io_priority='disabled'))
+            cpu.assert_not_called()
+            io_helper.assert_not_called()
+        with patch.object(p.os,'getpriority',return_value=19),patch.object(p.os,'setpriority') as cpu,patch.object(p.shutil,'which',return_value=None):
+            self.assertEqual(p.webshell_priority()['cpu_priority'],'already_low')
+            cpu.assert_not_called()
+
+    def test_real_cpu_priority_is_lowered_only_in_engine_and_inherited_by_children(self):
+        before=os.getpriority(os.PRIO_PROCESS,0)
+        code="import json,os,subprocess,sys; import p2s_harden as p; result=p.webshell_priority(); result['nice']=os.getpriority(os.PRIO_PROCESS,0); result['child_nice']=int(subprocess.check_output([sys.executable,'-c','import os;print(os.getpriority(os.PRIO_PROCESS,0))'])); print(json.dumps(result))"
+        run=subprocess.run([sys.executable,'-B','-c',code],capture_output=True,text=True,check=True)
+        data=json.loads(run.stdout)
+        self.assertEqual(data['nice'],max(10,before))
+        self.assertEqual(data['child_nice'],data['nice'])
+        self.assertEqual(os.getpriority(os.PRIO_PROCESS,0),before)
+        if p.shutil.which('ionice'):
+            self.assertEqual(data['io_priority'],'idle')
 
 
 @unittest.skipUnless(sys.platform == "linux", "Linux no-follow descriptor traversal")
@@ -280,7 +383,7 @@ class WebshellFilesystem(unittest.TestCase):
 
     def test_limits_remain_unknown_and_findings_survive_incomplete_coverage(self):
         (self.root / 'small.php').write_text("<?php eval($_GET['x']);")
-        (self.root / 'large.bin').write_bytes(b'x' * 2048)
+        (self.root / 'large.bin').write_bytes(b'<?php ' + b'x' * 2048)
         self.args.scan_file_bytes = 1024
         report = self.scan()
         self.assertEqual(report.exit_code(), 2)
@@ -310,6 +413,54 @@ class WebshellFilesystem(unittest.TestCase):
         self.assertEqual(report.exit_code(), 2)
         self.assertIn('changed', report.rows[-1]['evidence']['coverage_reasons'])
 
+    def test_large_files_without_php_are_streamed_and_binary_short_tags_are_inert(self):
+        self.args.scan_file_bytes=1024
+        (self.root/'large.js').write_bytes(b'// harmless asset\n'*20000)
+        (self.root/'image.jpg').write_bytes(b'\x00\xff<?' + b'(' * 150 + b'eval($_GET["x"]);')
+        (self.root/'unicode.txt').write_text('Grüße, 世界\n'*500,encoding='utf-8')
+        report=self.scan()
+        self.assertEqual(report.exit_code(),0)
+        self.assertEqual(report.rows[-1]['evidence']['examined_files'],3)
+        self.args.scan_total_bytes=1024
+        self.assertIn('total-bytes',self.scan().rows[-1]['evidence']['coverage_reasons'])
+
+    def test_explicit_php_in_binary_assets_and_text_short_tags_remain_detectable(self):
+        samples=(b'\x00\xff<?php eval($_GET["x"]);', b'\x00<?=system($_GET["x"]);',
+                 b'<? system($_GET["x"]);', 'Grüße <? system($_GET["x"]);'.encode())
+        for index,sample in enumerate(samples):
+            (self.root/('asset-'+str(index)+'.jpg')).write_bytes(sample)
+        report=self.scan()
+        self.assertEqual(sum(r['status']=='OPEN' for r in report.rows),len(samples))
+        for row in report.rows[:-1]:
+            self.assertEqual(row['sha256'],p.digest(Path(row['resource']['path']).read_bytes()))
+
+    def test_opener_search_covers_chunk_boundaries_tail_and_post_limit_php(self):
+        for offset in (65530,65533,65534,65535,65536,131071):
+            file=self.root/'large.data'
+            file.write_bytes(b'\x00'+b'x'*(offset-1)+b'<?php eval($_GET["x"]);')
+            self.args.scan_file_bytes=1024
+            self.assertIn('file-size',self.scan().rows[-1]['evidence']['coverage_reasons'])
+            self.args.scan_file_bytes=262144
+            self.assertTrue(self.scan().has('OPEN'))
+        file.write_bytes(b'x'*65535+b'<?')
+        self.args.scan_file_bytes=1024
+        self.assertIn('file-size',self.scan().rows[-1]['evidence']['coverage_reasons'])
+        file.write_bytes(b'x'*65535+b'<?xml version="1.0"?>')
+        self.assertEqual(self.scan().exit_code(),0)
+        file.write_bytes(b'\x00'+b'x'*65530+b'<?phpSuffix')
+        self.assertEqual(self.scan().exit_code(),0)
+
+    def test_opener_search_remains_correct_with_arbitrarily_short_reads(self):
+        (self.root/'polyglot.bin').write_bytes(b'\x00<?php eval($_GET["x"]);')
+        read=p.os.read
+        with patch.object(p.os,'read',side_effect=lambda fd,count: read(fd,min(count,1))):
+            self.assertTrue(self.scan().has('OPEN'))
+
+    def test_large_startup_config_without_php_tag_still_requires_parsing(self):
+        (self.root/'.user.ini').write_bytes(b'; benign\n'*1024+b'auto_prepend_file=payload.php\n')
+        self.args.scan_file_bytes=1024
+        self.assertIn('file-size',self.scan().rows[-1]['evidence']['coverage_reasons'])
+
     def test_redaction_has_useful_facts_but_no_path_source_hash_or_original_id(self):
         file = self.root / 'PRIVATE_HOST.php'
         file.write_text("<?php\neval(base64_decode($_POST['PRIVATE_SECRET']));")
@@ -333,7 +484,7 @@ class WebshellFilesystem(unittest.TestCase):
         self.assertFalse(data['has_unknown'])
         self.assertIsNone(data['plan'])
         self.assertIsNone(data['transaction'])
-        self.assertEqual(set(r['rule_id'] for r in data['findings']), {'P2S-WS001', 'P2S-WS003'})
+        self.assertEqual(set(r['rule_id'] for r in data['findings']), {'P2S-WS001', 'P2S-WS003', 'P2S-WS006'})
 
     def test_bash_ssh_transport_runs_the_mode_with_quoted_root_and_exact_exit(self):
         root = self.root / "a space and 'quote"
@@ -343,7 +494,7 @@ class WebshellFilesystem(unittest.TestCase):
         ssh.write_text('#!/bin/bash\nfor argument; do last="$argument"; done\nexec /bin/sh -c "$last"\n')
         ssh.chmod(0o700)
         result = subprocess.run(['/bin/bash', str(Path(p.__file__).with_name('p2s-harden.sh')), '--ssh', 'inert.test',
-            '--scan-webshells', '--root', str(root), '--scan-file-bytes', '4096', '--scan-total-bytes', '8192', '--redact', '--json'],
+            '--scan-webshells', '--root', str(root), '--scan-file-bytes', '4096', '--scan-total-bytes', '8192', '--no-nice', '--fail-on', 'review', '--redact', '--json'],
             env=dict(os.environ, SSH_BIN=str(ssh)), capture_output=True, text=True)
         self.assertEqual(result.returncode, 1, result.stderr)
         data = json.loads(result.stdout)
@@ -354,12 +505,12 @@ class WebshellFilesystem(unittest.TestCase):
 
     def test_file_timeout_continues_and_partial_files_are_not_fully_examined(self):
         slow = self.root / 'slow.php'
-        slow.write_bytes(b'costly')
+        slow.write_bytes(b'<?php costly')
         (self.root / 'found.php').write_text("<?php eval($_POST['x']);")
         self.args.walk_seconds = 0
         original = p.webshell_indicators
-        def inspect(data, deadline):
-            return ({}, 'time') if data == b'costly' else original(data,deadline)
+        def inspect(data, deadline, **options):
+            return ({}, 'time') if data == b'<?php costly' else original(data,deadline,**options)
         with patch.object(p,'webshell_indicators',side_effect=inspect):
             report=self.scan()
         self.assertTrue(report.has('OPEN'))
@@ -383,7 +534,7 @@ class WebshellFilesystem(unittest.TestCase):
 
     def test_coverage_paths_are_actionable_locally_and_only_counts_survive_redaction(self):
         file=self.root/'PRIVATE_OVERSIZED.bin'
-        file.write_bytes(b'x'*2048)
+        file.write_bytes(b'<?php '+b'x'*2048)
         self.args.scan_file_bytes=1024
         report=self.scan()
         self.assertEqual(report.rows[-1]['evidence']['examined_files'],0)
@@ -412,7 +563,7 @@ class WebshellFilesystem(unittest.TestCase):
         self.assertEqual(report.rows[-1]['evidence']['coverage_counts'],{'symlink':1002})
 
     def test_review_indicators_are_visible_without_high_open_exit(self):
-        (self.root/'plugin.php').write_text("<?php $plugin=$_GET['p']; include WP_PLUGIN_DIR . '/' . $plugin; call_user_func($registry[$plugin][2]);")
+        (self.root/'plugin.php').write_text("<?php $plugin=lookup_plugin($_GET['p']); include WP_PLUGIN_DIR . '/' . $plugin; call_user_func($registry[$plugin][2]);")
         report=self.scan()
         self.assertEqual(report.exit_code(),0)
         reviews=[r for r in report.rows if r['rule_id']=='P2S-WS004']
@@ -472,7 +623,7 @@ class WebshellFilesystem(unittest.TestCase):
             def scan(args):
                 captured.append(args)
                 return p.Report()
-            with patch.object(p,'scan_webshells',side_effect=scan),contextlib.redirect_stdout(io.StringIO()):
+            with patch.object(p,'scan_webshells',side_effect=scan),patch.object(p,'webshell_priority',return_value=dict(cpu_priority='disabled',io_priority='disabled')),contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(p.main(['--scan-webshells','--root',str(self.root),'--json',*options]),0)
             self.assertEqual(captured[0].walk_seconds,expected)
             self.assertEqual(captured[0].scan_file_seconds,2)
@@ -483,6 +634,7 @@ class WebshellFilesystem(unittest.TestCase):
                 scanner.assert_not_called()
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(p.main(['--check','--root',str(self.root),'--json','--walk-seconds','0']),2)
+            self.assertEqual(p.main(['--check','--root',str(self.root),'--json','--no-nice']),2)
 
 
 @unittest.skipUnless(sys.platform=='linux' and os.geteuid()==0,'Protected Linux root baseline fixtures')

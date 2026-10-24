@@ -24,11 +24,11 @@
 <p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
+**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **Supported configuration workflow: Debian/Ubuntu host PHP-FPM with Nginx and systemd.** RHEL, Apache/mod_php and Plesk/cPanel configuration fixes are outside the tested scope. Explicit-root static file scans have a broader Linux scope. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
 
 ## Start here
 
-**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.2**.
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.3**.
 Published **2.2.1 downloads below do not include that mode**. Use the generated
 launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
 [PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
@@ -116,7 +116,7 @@ sudo bash p2s-harden.sh --fix --yes --json
 sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 ```
 
-`--fix` only adds the defined shell-function restrictions and disables URL includes in supported INIs. Test application compatibility. Directory changes need an explicit `--protect-dir /absolute/code/path` and known PHP user; discovery never chooses permission changes. Human output prints the exact undo command; JSON returns the backup ID and state. Repeating implicit `--rollback` never selects an older fix. Rollback checks contents and metadata before writing, restores original timestamps and supports interrupted recovery. Fixes receive fresh modification times. [Transaction details](docs/DETAILS.md).
+`--fix` only adds the defined shell-function restrictions and disables URL includes in supported INIs. Test application compatibility. Directory changes need an explicit `--protect-dir /absolute/code/path` and known PHP user; discovery never chooses permission changes. Human output prints the exact undo command; JSON returns the backup ID and state. Repeating implicit `--rollback` never selects an older fix. Rollback checks contents and metadata before writing, restores original timestamps and supports interrupted recovery. Fixes receive fresh modification times. The development preview also adds a nonblocking kernel lock against simultaneous fix/rollback writers using the same protected backup root. Backups are retained until the operator removes them; monitor storage and retain needed recovery data. [Transaction details](docs/DETAILS.md).
 
 The existing-file fix can modify a package-managed `php.ini`. If both local and package-maintainer versions change, a later package upgrade may ask which configuration to keep. Review that diff and re-audit after upgrading; new-file drop-ins remain deferred. [Upgrade behavior](docs/DETAILS.md#package-upgrades).
 
@@ -152,7 +152,7 @@ locally; no sample is executed, unpacked, uploaded, deleted or quarantined.
   Reports contain no source excerpts or directive target values. `--redact`
   removes paths, file hashes and original IDs while retaining validated reasons,
   line numbers and coverage counts.
-- Default limits per root: 250000 entries, **120 seconds**, 2 MiB per file and
+- Default limits per root: 250000 entries, **120 seconds**, 2 MiB PHP parsing per file and
   **256 MiB** read in total, with at most 200 unaccepted finding rows. Each file
   has an independent **2-second** budget; a timed-out file does not stop later
   files. `--walk-seconds 0` disables only the root clock; `--scan-file-seconds`
@@ -163,11 +163,13 @@ locally; no sample is executed, unpacked, uploaded, deleted or quarantined.
   or split the scope. Nothing is silently accepted as clean.
 - Local text/JSON identifies incomplete paths and reasons; redaction keeps only
   validated counters/reasons. Fully examined and incomplete files are counted
-  separately. Indirect constant-prefixed includes and registry callbacks are
+  separately. Unknown-helper-derived constant-prefixed includes and registry callbacks are
   visible **INFO review items**; a prefix/registry is not a safety guarantee.
   An optional **reviewed `--baseline`** accepts identical path/hash/indicator
   matches, keeps accepted rows in JSON and never accepts UNKNOWN coverage.
   [Safe baseline workflow and limits](docs/WEBSHELLS.md#reviewed-baselines).
+
+The preview lowers scan CPU priority to nice 10 (or keeps an already lower priority) and requests idle I/O with optional `ionice`. `--no-nice` opts out. Missing/denied helpers are reported and scanning continues. These priorities do not cap CPU, memory or I/O usage. Large files are streamed for PHP openers before the parser size limit applies. Binary-like files require `<?php` or `<?=`; generic short tags in binary-like content are outside detection scope. Copies, casts and `basename()` retain HIGH/OPEN include priority.
 
 **An indicator requires review; absence of indicators does not establish a clean
 server.** This is a small static triage aid, without a malware signature database,
@@ -205,7 +207,7 @@ redaction. Report stdout is covered; SSH/system stderr may identify the host.
 - **Automation:** schema 2 JSON includes `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` and `transaction`. Text/paths are not an API identifier. `--verbose` shows every row.
 - **Known accepted OPEN finding:** repeat `--ignore FINDING_ID` for one resource, or `--ignore P2S-FS002` for the entire rule. It stays visible and marked suppressed; UNKNOWN cannot be suppressed into a pass. This affects exit evaluation only, not fix scope or file traversal.
 
-Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, otherwise **1 for OPEN**, otherwise **0**. For CI that must distinguish an OPEN even alongside incomplete checks, use `--fail-on open`: OPEN returns 1 first, otherwise UNKNOWN still returns 2. JSON always exposes both flags and every finding. Ignored OPEN rows do not change the exit code; they remain in the report.
+Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, otherwise **1 for OPEN**, otherwise **0**. For CI that must distinguish an OPEN even alongside incomplete checks, use `--fail-on open`: OPEN returns 1 first, otherwise UNKNOWN still returns 2. The preview adds `--fail-on review`: an unaccepted WS004 code-review item or OPEN returns 1 first; otherwise UNKNOWN returns 2. Ordinary INFO does not fail. `--ignore`/exact baselines may accept review rows; JSON adds `has_review` and `suppressed_review`. JSON always exposes the flags and every finding. Ignored OPEN rows do not change the exit code; they remain in the report.
 
 ## Verify your download
 

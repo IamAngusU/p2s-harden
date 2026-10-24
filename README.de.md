@@ -24,11 +24,11 @@
 <p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **2.2.1 ist die stabile Version für die unten beschriebenen Host-Setups.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
+**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **Unterstützter Konfigurationsablauf: Debian/Ubuntu mit Host-PHP-FPM, Nginx und systemd.** Konfigurationsfixes für RHEL, Apache/mod_php und Plesk/cPanel sind nicht abgedeckt. Die statische Dateisuche mit explizitem `--root` hat einen breiteren Linux-Umfang. **2.2.1 ist die stabile Version für die unten beschriebenen Host-Setups.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
 
 ## Direkt starten
 
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.2**.
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.3**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
 Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
@@ -116,7 +116,7 @@ sudo bash p2s-harden.sh --fix --yes --json
 sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 ```
 
-Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includes in unterstützten INIs. Anwendungskompatibilität prüfen. Verzeichnisänderungen brauchen `--protect-dir /absoluter/codepfad` und bekannten PHP-Benutzer; Erkennung wählt keine Rechteziele. Die Textausgabe nennt den exakten Undo-Befehl, JSON Backup-ID und Status. Wiederholtes implizites Rollback wählt keinen älteren Fix. Es prüft Inhalt und Metadaten, stellt ursprüngliche Zeitstempel wieder her und lässt sich nach Unterbrechung fortsetzen. Fixes erhalten aktuelle Änderungszeitpunkte.
+Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includes in unterstützten INIs. Anwendungskompatibilität prüfen. Verzeichnisänderungen brauchen `--protect-dir /absoluter/codepfad` und bekannten PHP-Benutzer; Erkennung wählt keine Rechteziele. Die Textausgabe nennt den exakten Undo-Befehl, JSON Backup-ID und Status. Wiederholtes implizites Rollback wählt keinen älteren Fix. Es prüft Inhalt und Metadaten, stellt ursprüngliche Zeitstempel wieder her und lässt sich nach Unterbrechung fortsetzen. Fixes erhalten aktuelle Änderungszeitpunkte. Die Entwicklungsvorschau ergänzt eine nicht wartende Kernel-Sperre gegen parallele Fix-/Rollback-Schreibzugriffe mit demselben geschützten Backup-Verzeichnis. Backups werden nicht automatisch gelöscht; Speicherplatz und benötigte Wiederherstellungen selbst verwalten.
 
 Audit, Diagnose, Inventar und Trockenlauf ändern keine Zielkonfiguration, Rechte oder Dienste. Lesen und HTTP können Zugriffszeiten und gewöhnliche Logs aktualisieren.
 
@@ -150,7 +150,7 @@ Die Änderung bestehender INIs kann eine paketverwaltete `php.ini` betreffen. Ä
 - **Automatisierung:** Schema 2 enthält `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` und `transaction`. Übersetzte Texte sind keine API-Kennung. `--verbose` zeigt alle Zeilen.
 - **Akzeptierter offener Befund:** `--ignore BEFUND_ID` für eine Ressource oder `--ignore P2S-FS002` für die ganze Regel. Der Befund bleibt sichtbar und markiert. UNKNOWN lässt sich nicht zu einem Erfolg unterdrücken. Die Option betrifft nur die Exitwertung, nicht Fixumfang oder Suchpfade.
 
-Standard (`--fail-on complete`): **2 bei UNKNOWN/Fehler**, sonst **1 bei OPEN**, sonst **0**. Für CI mit Vorrang offener Befunde: `--fail-on open` gibt bei OPEN zuerst 1 aus; andernfalls bleibt UNKNOWN bei 2. JSON zeigt beide Flags und alle Befunde. Ignorierte OPEN-Befunde bleiben im Bericht, beeinflussen den Exitcode aber nicht.
+Standard (`--fail-on complete`): **2 bei UNKNOWN/Fehler**, sonst **1 bei OPEN**, sonst **0**. Für CI mit Vorrang offener Befunde: `--fail-on open` gibt bei OPEN zuerst 1 aus; andernfalls bleibt UNKNOWN bei 2. Die Vorschau ergänzt `--fail-on review`: Ein nicht akzeptierter WS004-Code-Review oder OPEN ergibt zuerst 1; sonst ergibt UNKNOWN weiterhin 2. Gewöhnliches INFO führt nicht zum Fehlschlag. `--ignore` und exakte Baselines können Review-Befunde akzeptieren; JSON ergänzt `has_review` und `suppressed_review`. JSON zeigt alle Flags und Befunde. Ignorierte OPEN-Befunde bleiben im Bericht, beeinflussen den Exitcode aber nicht.
 
 ## Download prüfen
 
@@ -213,7 +213,7 @@ HTTP-Zugriff. Die Suche liest lokal; sie führt keinen Fund aus und entpackt,
   Schritte. Quelltext und Zielwerte von Startdirektiven stehen nicht im Report.
   `--redact` entfernt zusätzlich Pfade, Datei-Hashes und ursprüngliche IDs;
   geprüfte Gründe, Zeilennummern und Zähler bleiben erhalten.
-- Pro Wurzel gelten zunächst 250000 Einträge, **120 Sekunden**, 2 MiB je Datei,
+- Pro Wurzel gelten zunächst 250000 Einträge, **120 Sekunden**, 2 MiB PHP-Parserlimit je Datei,
   **256 MiB** insgesamt und höchstens 200 nicht durch Baseline akzeptierte Befundzeilen.
   Jede Datei hat ein eigenes **2-Sekunden-Limit**; danach geht die Suche weiter.
   `--walk-seconds 0` hebt nur den Wurzeltimer auf; `--scan-file-seconds` passt
@@ -236,7 +236,7 @@ OS-, Cron-/SSH- und Speicher-Backdoors, verschlüsselte Payloads und Dateien au�
 der ausgewählten Wurzeln bleiben außerhalb ihres Umfangs. Ziele von Startdirektiven
 werden nicht automatisch verfolgt. Bei bestätigtem Einbruch Beweise sichern, Host
 isolieren, Einstiegslücke schließen, aus vertrauenswürdigen Quellen neu aufsetzen
-und betroffene Zugangsdaten erneuern. [Regeln, Grenzen und Reaktion](docs/WEBSHELLS.md).
+und betroffene Zugangsdaten erneuern. Die Vorschau senkt die Scan-CPU-Priorität auf nice 10 (bereits niedrigere bleibt erhalten) und fordert Idle-I/O mit optionalem `ionice` an. `--no-nice` deaktiviert dies; fehlende oder gesperrte Helfer werden gemeldet und die Suche läuft weiter. Das sind keine festen Ressourcenlimits. Große Dateien werden vor dem Parserlimit nach PHP-Tags durchsucht. Binärartig erkannte Inhalte benötigen `<?php` oder `<?=`; einfache Short-Tags darin liegen außerhalb der Erkennung. Kopien, Casts und `basename()` behalten die hohe Include-Priorität. [Regeln, Grenzen und Reaktion](docs/WEBSHELLS.md).
 
 ## Umfang und Reifegrad
 

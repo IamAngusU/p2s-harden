@@ -6,27 +6,32 @@
   "archive_bytes": 70753300,
   "regular_files": 5320,
   "source_bytes": 167112154,
-  "engine_sha256": "9118a1f8f5648124332473894fbb98329fec1ca6ea302994ed5863cc8d33086c",
-  "scanner_version": "2.3.0-dev.2",
+  "engine_sha256": "74930db44a7f787f61ff960c23bef6f0d1ae90823c518d02ba8609cf551b195d",
+  "scanner_version": "2.3.0-dev.3",
   "platform": "linux",
   "python": "3.10.12",
   "results": [
     {
       "settings": "defaults",
       "cli_overrides": [],
-      "elapsed_seconds": 18.911,
+      "elapsed_seconds": 9.689,
       "exit_code": 2,
       "counts": {
         "OK": 0,
-        "OPEN": 0,
+        "OPEN": 1,
         "UNKNOWN": 1,
         "INFO": 4
       },
+      "scan_priority": {
+        "cpu_priority": "lowered",
+        "io_priority": "idle"
+      },
+      "has_review": true,
       "coverage": [
         {
-          "examined_files": 5282,
+          "examined_files": 5317,
           "attempted_files": 5320,
-          "incomplete_files": 38,
+          "incomplete_files": 3,
           "indicator_count": 4,
           "baseline_accepted_count": 0,
           "coverage_reasons": [
@@ -35,178 +40,37 @@
             "tokens"
           ],
           "coverage_counts": {
-            "file-size": 9,
-            "expression": 27,
-            "tokens": 2
+            "file-size": 1,
+            "tokens": 1,
+            "expression": 1
           },
           "omitted_coverage_paths": 0
         }
       ],
       "incomplete_paths": [
         {
-          "path": "wp-includes/js/dist/block-editor.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/editor.min.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/media-utils.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/block-editor.min.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/components.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/block-library.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/edit-site.js",
-          "reason": "file-size"
-        },
-        {
           "path": "wp-includes/js/dist/script-modules/vips/worker.min.js",
           "reason": "file-size"
-        },
-        {
-          "path": "wp-includes/js/dist/editor.js",
-          "reason": "file-size"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyone/assets/images/self-portrait-1885.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyone/assets/images/in-the-bois-de-boulogne.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentythirteen/images/block-patterns/bernal-cutaway.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfourteen/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfourteen/images/clouds.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfourteen/images/bridge.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/ipsum/assets/fonts/inter/inter-var-normal.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfifteen/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfifteen/assets/pier-seagulls.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfifteen/assets/fonts/noto-sans/noto-sans-all-700-italic.woff",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfour/assets/images/green-staircase.webp",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfour/assets/fonts/cardo/cardo_normal_400.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyeleven/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwelve/fonts/open-sans/open-sans-latin-400-italic.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/assets/fonts/beiruti/Beiruti-VariableFont_wght.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/assets/fonts/fira-sans/FiraSans-ThinItalic.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/assets/fonts/literata/Literata72pt-MediumItalic.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentythree/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
-          "reason": "expression"
         },
         {
           "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
           "reason": "tokens"
         },
         {
-          "path": "wp-content/themes/twentytwentythree/assets/fonts/ibm-plex-mono/IBMPlexMono-Regular.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyseventeen/assets/images/stripes.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyseventeen/assets/images/white-border.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyseventeen/assets/images/direct-light.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/videos/birds.mp4",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/images/ducks.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/fonts/SourceSerif4Variable-Roman.otf.woff2",
-          "reason": "expression"
-        },
-        {
           "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
-          "reason": "tokens"
+          "reason": "expression"
         }
       ],
       "indicators": [
         {
           "path": "wp-admin/update.php",
-          "rule_id": "P2S-WS004",
-          "status": "INFO",
+          "rule_id": "P2S-WS001",
+          "status": "OPEN",
           "evidence": {
             "indicators": [
-              "prefixed-include"
+              "request-include"
             ],
-            "line": 101,
-            "review_required": true
+            "line": 101
           }
         },
         {
@@ -259,19 +123,24 @@
         "--scan-file-seconds",
         "10"
       ],
-      "elapsed_seconds": 18.038,
+      "elapsed_seconds": 9.214,
       "exit_code": 2,
       "counts": {
         "OK": 0,
-        "OPEN": 0,
+        "OPEN": 1,
         "UNKNOWN": 1,
         "INFO": 4
       },
+      "scan_priority": {
+        "cpu_priority": "lowered",
+        "io_priority": "idle"
+      },
+      "has_review": true,
       "coverage": [
         {
-          "examined_files": 5291,
+          "examined_files": 5318,
           "attempted_files": 5320,
-          "incomplete_files": 29,
+          "incomplete_files": 2,
           "indicator_count": 4,
           "baseline_accepted_count": 0,
           "coverage_reasons": [
@@ -279,141 +148,32 @@
             "tokens"
           ],
           "coverage_counts": {
-            "expression": 27,
-            "tokens": 2
+            "tokens": 1,
+            "expression": 1
           },
           "omitted_coverage_paths": 0
         }
       ],
       "incomplete_paths": [
         {
-          "path": "wp-content/themes/twentytwentyone/assets/images/self-portrait-1885.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyone/assets/images/in-the-bois-de-boulogne.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentythirteen/images/block-patterns/bernal-cutaway.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfourteen/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfourteen/images/clouds.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfourteen/images/bridge.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/ipsum/assets/fonts/inter/inter-var-normal.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfifteen/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfifteen/assets/pier-seagulls.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyfifteen/assets/fonts/noto-sans/noto-sans-all-700-italic.woff",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfour/assets/images/green-staircase.webp",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfour/assets/fonts/cardo/cardo_normal_400.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyeleven/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwelve/fonts/open-sans/open-sans-latin-400-italic.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/screenshot.png",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/assets/fonts/beiruti/Beiruti-VariableFont_wght.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/assets/fonts/fira-sans/FiraSans-ThinItalic.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentyfive/assets/fonts/literata/Literata72pt-MediumItalic.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentythree/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
-          "reason": "expression"
-        },
-        {
           "path": "wp-content/themes/twentytwentythree/assets/fonts/inter/Inter-VariableFont_slnt,wght.ttf",
           "reason": "tokens"
         },
         {
-          "path": "wp-content/themes/twentytwentythree/assets/fonts/ibm-plex-mono/IBMPlexMono-Regular.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyseventeen/assets/images/stripes.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyseventeen/assets/images/white-border.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentyseventeen/assets/images/direct-light.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/videos/birds.mp4",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/images/ducks.jpg",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/fonts/source-serif-pro/SourceSerif4Variable-Roman.otf.woff2",
-          "reason": "expression"
-        },
-        {
-          "path": "wp-content/themes/twentytwentytwo/assets/fonts/SourceSerif4Variable-Roman.otf.woff2",
-          "reason": "expression"
-        },
-        {
           "path": "wp-content/themes/twentytwentytwo/assets/fonts/inter/Inter.ttf",
-          "reason": "tokens"
+          "reason": "expression"
         }
       ],
       "indicators": [
         {
           "path": "wp-admin/update.php",
-          "rule_id": "P2S-WS004",
-          "status": "INFO",
+          "rule_id": "P2S-WS001",
+          "status": "OPEN",
           "evidence": {
             "indicators": [
-              "prefixed-include"
+              "request-include"
             ],
-            "line": 101,
-            "review_required": true
+            "line": 101
           }
         },
         {

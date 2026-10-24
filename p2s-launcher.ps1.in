@@ -1,4 +1,4 @@
-﻿# p2s-harden 2.2.1. Self-contained Windows -> Linux SSH launcher.
+# p2s-harden 2.3.0-dev.3. Self-contained Windows -> Linux SSH launcher.
 # No PowerShell modules, Bash, Python or installation needed on the client.
 $ErrorActionPreference = 'Stop'
 $target = $null
@@ -18,7 +18,7 @@ function Write-Failure([string]$Title, [string]$Detail) {
         $Detail = Message 'Host details omitted; rerun locally without --redact' 'Hostdetails ausgelassen; zur lokalen Diagnose ohne --redact wiederholen'
     }
     if ($script:jsonMode) {
-        @{ schema_version = 2; version = '2.2.1'; language = $script:lang; redacted = $script:redactMode; exit_code = 2;
+        @{ schema_version = 2; version = '2.3.0-dev.3'; language = $script:lang; redacted = $script:redactMode; exit_code = 2;
            has_open = $false; has_unknown = $true;
            findings = @(@{ id = 'P2S-EXEC001-9773e1e8b98e2493'; rule_id = 'P2S-EXEC001'; resource = 'ssh_transport'; severity = 'unknown';
                            suppressed = $false; remediation = $Detail; status = 'UNKNOWN'; title = $Title; detail = $Detail }); discovery = @{} } | ConvertTo-Json -Depth 5
@@ -55,7 +55,7 @@ try {
             '--help' {
                 if ($lang -eq 'en') {
                     @'
-p2s-harden 2.2.1 - Windows -> Linux, directly over OpenSSH
+p2s-harden 2.3.0-dev.3 - Windows -> Linux, directly over OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Discover and audit
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Explain prerequisites
@@ -74,15 +74,16 @@ p2s-harden 2.2.1 - Windows -> Linux, directly over OpenSSH
   --max-paths COUNT            Limit filesystem traversal
   --walk-seconds SECONDS       Audit: 10s; webshell scan: 120s; scan-only 0 disables root timer
   --scan-file-seconds N        Independent webshell file timer (default 2s)
+  --no-nice                  Skip lowering scan CPU/I/O priority
   --baseline FILE             Reviewed JSON: exact path/hash/indicator acceptance
   --max-http-probes COUNT      Limit HTTP requests
   --protect-dir /path          Protect one directory; non-recursive
   --rollback [--backup-id ID]  Restore a transaction
   --json --verbose --no-auto --no-progress      Same options as the Bash CLI
   --redact                    Omit host details from a read-only shareable report
-  --scan-file-bytes N          Webshell scan: per-file byte limit (2097152)
+  --scan-file-bytes N          PHP parsing byte limit; larger files streamed (2097152)
   --scan-total-bytes N         Webshell scan: bytes per root (268435456)
-  --yes --fail-on complete|open --ignore ID     Approval and automation policy
+  --yes --fail-on complete|open|review --ignore ID     Approval and automation policy
 
 The Linux target requires Python 3.8+. Missing helpers are explained individually.
 The default mode is read-only. No installer or configuration file is needed.
@@ -90,7 +91,7 @@ The default mode is read-only. No installer or configuration file is needed.
                     exit 0
                 }
                 @'
-p2s-harden 2.2.1 - Windows -> Linux, direkt per OpenSSH
+p2s-harden 2.3.0-dev.3 - Windows -> Linux, direkt per OpenSSH
 
   .\p2s-harden.ps1 --ssh root@SERVER              Erkennen und prüfen
   .\p2s-harden.ps1 --ssh root@SERVER --doctor     Voraussetzungen erklären
@@ -109,22 +110,23 @@ p2s-harden 2.2.1 - Windows -> Linux, direkt per OpenSSH
   --max-paths ANZAHL           Dateisystem-Suchlauf begrenzen
   --walk-seconds SEKUNDEN      Audit: 10s; Webshell-Suche: 120s; nur Suche: 0 ohne Wurzeltimer
   --scan-file-seconds N        Eigenes Webshell-Zeitlimit je Datei (Standard 2s)
+  --no-nice                  Scan-Priorität nicht absenken
   --baseline DATEI            Geprüfte JSON: exakter Pfad/Hash/Indikator
   --max-http-probes ANZAHL     HTTP-Anfragen begrenzen
   --protect-dir /pfad          Ein Verzeichnis schützen; nicht rekursiv
   --rollback [--backup-id ID]  Eine Transaktion zurücknehmen
   --json --verbose --no-auto --no-progress      Wie bei der Bash-Datei
   --redact                    Teilbarer Prüfbericht ohne private Hostdetails
-  --scan-file-bytes N          Webshell-Suche: Dateilimit in Bytes (2097152)
+  --scan-file-bytes N          PHP-Parserlimit; größere Dateien gestreamt (2097152)
   --scan-total-bytes N         Webshell-Suche: Bytes je Wurzel (268435456)
-  --yes --fail-on complete|open --ignore ID     Freigabe und Automatisierungsregeln
+  --yes --fail-on complete|open|review --ignore ID     Freigabe und Automatisierungsregeln
 
 Das Linux-Ziel braucht Python 3.8+. Fehlende Helfer werden einzeln erklärt.
 Standard ist eine Prüfung. Kein Installer und keine Konfigurationsdatei.
 '@
                 exit 0
             }
-            '--version' { 'p2s-harden 2.2.1'; exit 0 }
+            '--version' { 'p2s-harden 2.3.0-dev.3'; exit 0 }
             default { $cliArguments.Add($argument) }
         }
     }

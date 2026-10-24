@@ -1,6 +1,29 @@
 """Read-only filesystem scan, finite coverage diagnostics and exact baselines."""
 
 
+def webshell_priority(disabled=False):
+    """Lower this engine's priority without restarting its stdin/SSH payload."""
+    if disabled:
+        return dict(cpu_priority="disabled", io_priority="disabled")
+    result = dict(cpu_priority="unavailable", io_priority="unavailable")
+    try:
+        current = os.getpriority(os.PRIO_PROCESS, 0)
+        if current < 10:
+            os.setpriority(os.PRIO_PROCESS, 0, 10)
+        result["cpu_priority"] = "lowered" if current < 10 else "already_low"
+    except (OSError, AttributeError):
+        pass
+    helper = shutil.which("ionice")
+    if helper:
+        try:
+            helper = trusted(Path(helper).resolve(strict=True))
+            command([str(helper), "-c", "3", "-p", str(os.getpid())], timeout=2)
+            result["io_priority"] = "idle"
+        except (OSError, CheckError):
+            pass
+    return result
+
+
 def webshell_baseline_entries(data):
     """Accept explicit reviewed entries or a local, nonredacted scan JSON."""
     from pathlib import PurePosixPath
@@ -268,23 +291,42 @@ def scan_webshells(args):
                         frames.append((file_fd, os.scandir(file_fd), path))
                         file_fd = None
                         continue
-                    if opened.st_size > args.scan_file_bytes:
-                        record(path, "file-size")
-                        continue
-                    chunks, size = [], 0
+                    # Stream every byte before deciding whether parsing is
+                    # necessary. Large JS/assets without PHP openers do not
+                    # consume the PHP materialization budget, but still consume
+                    # the root byte/time budgets and receive the race checks.
+                    chunks, size, materialized, tail = [], 0, 0, b""
+                    has_open, explicit_open, binary = False, False, False
+                    fingerprint = hashlib.sha256()
                     while True:
                         if time.monotonic() > file_deadline:
                             read_problem = timeout_reason
                             break
-                        chunk = os.read(file_fd, min(65536, args.scan_file_bytes - size + 1, args.scan_total_bytes - read_bytes + 1))
+                        chunk = os.read(file_fd, min(65536, args.scan_total_bytes - read_bytes + 1))
                         if not chunk:
+                            probe = tail.decode("latin-1")
+                            has_open = has_open or _WS_OPEN.search(probe) is not None
+                            explicit_open = explicit_open or _WS_EXPLICIT_OPEN.search(probe) is not None
                             break
                         size += len(chunk)
                         read_bytes += len(chunk)
-                        if size > args.scan_file_bytes or read_bytes > args.scan_total_bytes:
-                            read_problem = "file-size" if size > args.scan_file_bytes else "total-bytes"
+                        if read_bytes > args.scan_total_bytes:
+                            read_problem = "total-bytes"
                             break
-                        chunks.append(chunk)
+                        fingerprint.update(chunk)
+                        probe = (tail + chunk).decode("latin-1")
+                        opening = _WS_OPEN.search(probe)
+                        explicit = _WS_EXPLICIT_OPEN.search(probe)
+                        # Defer trailing starts until the next chunk/EOF, so
+                        # <?xml and <?phpSuffix at boundaries are not openers.
+                        has_open = has_open or opening is not None and opening.start() < len(probe) - 8
+                        explicit_open = explicit_open or explicit is not None and explicit.start() < len(probe) - 8
+                        binary = binary or re.search(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]", chunk) is not None
+                        tail = (tail + chunk)[-8:]
+                        if materialized < args.scan_file_bytes:
+                            part = chunk[:args.scan_file_bytes - materialized]
+                            chunks.append(part)
+                            materialized += len(part)
                     after = os.fstat(file_fd)
                     if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
                         record(path, "changed")
@@ -295,8 +337,13 @@ def scan_webshells(args):
                             break
                         continue
                     data = b"".join(chunks)
-                    hits, partial = webshell_indicators(data, file_deadline)
-                    if entry.name.lower() in (".user.ini", ".htaccess", "php.ini"):
+                    startup_file = entry.name.lower() in (".user.ini", ".htaccess", "php.ini")
+                    parse_php = explicit_open or has_open and not binary
+                    if size > args.scan_file_bytes and (parse_php or startup_file):
+                        record(path, "file-size")
+                        continue
+                    hits, partial = webshell_indicators(data, file_deadline, short_tags=not binary) if parse_php else ({}, None)
+                    if startup_file:
                         startup, startup_partial = webshell_startup_lines(data, entry.name.lower(), file_deadline)
                         hits.update({key:value for key,value in startup.items() if key not in hits})
                         partial = partial or startup_partial
@@ -304,7 +351,7 @@ def scan_webshells(args):
                         record(path, timeout_reason if partial == "time" else partial)
                     else:
                         examined += 1
-                    fingerprint = digest(data)
+                    fingerprint = fingerprint.hexdigest()
                     for indicator, line in sorted(hits.items()):
                         approved = baseline.get((path, indicator)) == fingerprint
                         if not approved and active >= 200:
