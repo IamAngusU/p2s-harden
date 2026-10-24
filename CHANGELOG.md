@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update to 2.3.0-dev.6: put the threat/scope model at the top of both READMEs; add read-only residual PHP capability policy, matched systemd manager properties and conservative upload-route checks. No extra functions, Nginx or units are changed. Extend real FPM observations and distro VM HTTP checks; three independent external server trials remain pending.
+
 - Update to 2.3.0-dev.5: Unicode-interoperable JSON path displays with exact byte hex metadata, strict byte/display baseline validation, and explicit unreviewed `--write-baseline-draft` output (exclusive mode-0600 creation; no automatic approvals). Add actual Rust serde_json parser checks to Windows CI. Large generated PHP remains bounded/incomplete; external tester evidence is still pending.
 
 - Update to 2.3.0-dev.4: ASCII-safe JSON/byte filename roundtrips and legacy-terminal output, conservative multiline-INI refusal, BOM/CRLF preservation, one appended PHP section, before/after effective INI verification with rollback before reload, a fixed system transaction lock, MEDIUM prefixed include findings, bounded explicit-opener window leads and explicit protected full-hash reviewed coverage exceptions. Add 14 real INI parser cases per FPM image and document WordPress integrity verification before baselining. 2.2.1 downloads do not contain these fixes.

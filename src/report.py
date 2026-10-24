@@ -14,6 +14,8 @@ RULES = {
     "PHP002": ("high", "Set allow_url_include=Off in the effective FPM INI/pool and reload the matching service."),
     "PHP003": ("medium", "Review a narrow per-pool open_basedir with application testing; it is an additional restriction, not a sandbox."),
     "PHP004": ("high", "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application."),
+    "PHP005": ("info", "disable_functions is defense in depth, not isolation. Review mail/helper commands, environment and file access, FFI policy and OS confinement against application requirements. Policy does not prove function availability or exploitability. No extra functions are disabled automatically."),
+    "NGX001": ("high", "Keep untrusted uploads outside executable code paths. Review an explicit Nginx rejection for upload PHP and all aliases/locations, validate with nginx -t and test the real virtual hosts. This tool changes no Nginx configuration and creates no upload probes."),
     "FPM001": ("high", "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication."),
     "FPM002": ("high", "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart."),
     "FPM003": ("medium", "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well."),
@@ -28,6 +30,7 @@ RULES = {
     "HTTP002": ("info", "Provide an explicit --site mapping or sufficient HTTP budget; inspect every unknown result."),
     "HTTP003": ("info", "Correct the URL/document-root mapping and retry the intended local virtual host."),
     "SYS001": ("medium", "Review the host ptrace policy against operational needs; this tool does not change sysctl settings."),
+    "SYS002": ("info", "Review NoNewPrivileges, ProtectSystem and PrivateTmp for the actual FPM unit, including write exceptions, shared temporary files and mail compatibility. Inspect worker/kernel enforcement separately. These options do not prevent all execution; this tool changes no systemd unit."),
     "IM001": ("info", "Review ImageMagick policy rules and delegates for the installed version and application requirements."),
     "FIX001": ("info", "Resolve the specific fix preflight blocker, inspect the full proposed diff, and rerun."),
     "TX001": ("info", "Keep the backup ID; a repeated implicit rollback never selects an older transaction."),
@@ -57,6 +60,15 @@ def safe_evidence(rule_id, evidence):
         "PHP002": dict(allow_url_include=boolean, affected_pool_count=count),
         "PHP003": dict(unrestricted=boolean),
         "PHP004": dict(ffi_policy=choices("off", "on", "preload", "unknown")),
+        "PHP005": dict(not_disabled_functions=names(*RESIDUAL_FUNCTIONS), enable_dl=choices("off", "on", "unknown"),
+                       sendmail_path=choices("empty", "configured", "unknown"), policy_only=boolean, affected_pool_count=count),
+        "NGX001": dict(outcome=choices("not_assessed", "limit", "static_directory_rejection", "php_fastcgi_mapping", "unmapped",
+                        "redirect_or_conditional", "nested_location", "unsupported_location", "dynamic_path", "duplicate_location",
+                        "unsupported_regex", "no_proven_handler", "location_filesystem_mapping", "unsupported_directive"),
+                       declared=boolean, candidate_count=count, configuration_only=boolean),
+        "SYS002": dict(assessment=choices("not_assessed", "manager_policy", "unavailable"),
+                       no_new_privileges=choices("yes", "no"), protect_system=choices("no", "yes", "full", "strict"),
+                       private_tmp=choices("no", "yes", "disconnected"), worker_attestation=boolean),
         "FPM001": dict(binding=choices("loopback", "network", "unverified"), client_allowlist=boolean,
                        hostname_resolution=choices("loopback", "non_loopback", "unavailable")),
         "FPM002": dict(socket_mode=lambda value: type(value) is str and re.fullmatch(r"0[0-7]{3}", value) is not None,
@@ -86,7 +98,7 @@ def safe_evidence(rule_id, evidence):
 
 
 RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes", "PHP003": "Filesystem restriction",
-              "PHP004": "PHP FFI", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
+              "PHP004": "PHP FFI", "PHP005": "Residual PHP capabilities", "NGX001": "Nginx upload execution", "SYS002": "FPM systemd hardening", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
@@ -96,7 +108,12 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
 
 def evidence_summary(rule_id, evidence, lang="en"):
     facts = safe_evidence(rule_id, evidence)
-    say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {"non_loopback":"outside loopback", "acl":"ACL"}.get(value, value)
+    say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {
+        "non_loopback":"outside loopback", "acl":"ACL", "not_assessed":"not assessed", "manager_policy":"manager policy",
+        "static_directory_rejection":"static URI prefix rejected", "php_fastcgi_mapping":"PHP FastCGI mapping",
+        "redirect_or_conditional":"redirect or conditional", "nested_location":"nested location", "unsupported_location":"unsupported location",
+        "dynamic_path":"dynamic path", "duplicate_location":"duplicate location", "unsupported_regex":"unsupported regex",
+        "no_proven_handler":"no proven handler", "location_filesystem_mapping":"location filesystem mapping", "unsupported_directive":"unsupported directive"}.get(value, value)
     labels = dict(missing_functions="Missing", allow_url_include="URL includes", unrestricted="Unrestricted",
                   ffi_policy="ffi.enable", binding="TCP binding", client_allowlist="Client allowlist",
                   hostname_resolution="Name resolution", socket_mode="Socket mode", source="Source",
@@ -108,7 +125,10 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
                   incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
                   omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
-                  cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files")
+                  cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files",
+                  not_disabled_functions="Not disabled by policy", enable_dl="enable_dl", sendmail_path="Mail helper command",
+                  policy_only="Policy only", outcome="Assessment", candidate_count="Storage candidates", declared="Declared storage",
+                  assessment="Assessment", no_new_privileges="NoNewPrivileges", protect_system="ProtectSystem", private_tmp="PrivateTmp", worker_attestation="Worker attestation", configuration_only="Configuration only")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -173,6 +193,10 @@ class Report:
         configure_output(as_json)
         rows = [dict(row, title=localize(row["title"], lang), detail=localize(row["detail"], lang),
                      remediation=localize(row["remediation"], lang)) for row in self.rows]
+        if not as_json:
+            for row in rows:
+                if row["rule_id"] in ("P2S-PHP005", "P2S-SYS002"):
+                    row["detail"] = evidence_summary(row["rule_id"], row["evidence"], lang) + "; " + row["detail"]
         discovery = localized_discovery(self.discovery, lang)
         if redact:
             # Allowlist projection, not regex replacement: even exception text,

@@ -1,4 +1,4 @@
-# PHP webshell indicator triage (2.3.0-dev.5 preview)
+# PHP webshell indicator triage (2.3.0-dev.6 preview)
 
 `--scan-webshells` is a separate read-only mode. It supplies local leads for
 investigation, not a malware verdict, an application vulnerability assessment
@@ -244,7 +244,7 @@ sample does not establish a general false-positive rate or certify WordPress.
 The same pinned commit is also tested as a **complete 5320-file source archive**
 (167112154 uncompressed bytes), including media and fonts. Default and expanded
 runs record fully examined/incomplete counts and **every retained incomplete
-relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). The dev.5 default run fully examines 5317 files with 3 windowed incomplete files (the large JS worker and two fonts); expanded budgets leave 2 incomplete fonts. Three review rows and one MEDIUM/OPEN include remain. There is no framework exemption. The fixture generates an unreviewed draft, proves that it accepts nothing, compares every proposed file against the pinned archive and deliberately approves the entries. A third recorded scan then exits 0 with 5317 examined / 3 incomplete / 3 reviewed exceptions. The raw accepted OPEN row remains in JSON. This is an acknowledgement demonstration on pinned benign test data, not a malware-clean result or evidence that WP-CLI was run on this development Git archive. Timing is a measurement
+relative path** in [WEBSHELL-FULL-CORPUS.json](WEBSHELL-FULL-CORPUS.json). The dev.6 default run fully examines 5317 files with 3 windowed incomplete files (the large JS worker and two fonts); expanded budgets leave 2 incomplete fonts. Three review rows and one MEDIUM/OPEN include remain. There is no framework exemption. The fixture generates an unreviewed draft, proves that it accepts nothing, compares every proposed file against the pinned archive and deliberately approves the entries. A third recorded scan then exits 0 with 5317 examined / 3 incomplete / 3 reviewed exceptions. The raw accepted OPEN row remains in JSON. This is an acknowledgement demonstration on pinned benign test data, not a malware-clean result or evidence that WP-CLI was run on this development Git archive. Timing is a measurement
 on the recorded run, not a performance guarantee. The regression suite also
 includes 450000 line comments followed by an indicator and a 300-file indicator
 tree that still reaches the active 200-finding cap.

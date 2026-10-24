@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.3.0-dev.5 — self-contained; engine is embedded below.
+# p2s-harden 2.3.0-dev.6 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.3.0-dev.5 — one file, automatic discovery
+p2s-harden 2.3.0-dev.6 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -76,7 +76,7 @@ HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.3.0-dev.5 — eine Datei, automatische Erkennung
+p2s-harden 2.3.0-dev.6 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -142,7 +142,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.3.0-dev.5'; exit 0 ;;
+    --version) echo 'p2s-harden 2.3.0-dev.6'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -199,7 +199,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.3.0-dev.5","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -228,7 +228,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.5","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -247,7 +247,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.5","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi
@@ -293,7 +293,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.5"
+VERSION = "2.3.0-dev.6"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -1153,7 +1153,8 @@ def prepare_scope(args):
         candidates = [Path(args.nginx_config)] if args.nginx_config else [p for p in map(Path, ("/etc/nginx/nginx.conf", "/usr/local/nginx/conf/nginx.conf", "/usr/local/etc/nginx/nginx.conf")) if p.is_file()]
         if len(candidates) == 1:
             try:
-                inventory = nginx_inventory(read_nginx(candidates[0], partial=True))
+                args.nginx_tree = read_nginx(candidates[0], partial=True)
+                inventory = nginx_inventory(args.nginx_tree)
                 inventory["config"] = str(candidates[0])
             except (OSError, UnicodeError, CheckError) as exc:
                 inventory["issues"].append(f'Automatic Nginx discovery incomplete: {exc}')
@@ -1675,7 +1676,36 @@ _MESSAGES.update({
     'Baseline draft exceeds 2 MiB; narrow the scan scope': ('Baseline draft exceeds 2 MiB; narrow the scan scope', 'Baseline-Entwurf überschreitet 2 MiB; Prüfbereich einschränken'),
     'Baseline draft requires a new file path': ('Baseline draft requires a new file path', 'Baseline-Entwurf benötigt einen neuen Dateipfad'),
 })
-_MESSAGE_TEMPLATES = (('Additional skipped paths: {count}', 'Additional skipped paths: {count}', 'Weitere ausgelassene Pfade: {count}'),
+_MESSAGES.update({
+    'Residual PHP capabilities': ('Residual PHP capabilities', 'Verbleibende PHP-Möglichkeiten'),
+    'Nginx upload execution': ('Nginx upload execution', 'Nginx-Ausführung in Upload-Pfaden'),
+    'FPM systemd hardening': ('FPM systemd hardening', 'FPM-systemd-Härtung'),
+    'Not disabled by policy': ('Not disabled by policy', 'Durch Policy nicht gesperrt'),
+    'Mail helper command': ('Mail helper command', 'Mail-Helferbefehl'),
+    'Policy only': ('Policy only', 'Nur Policy'),
+    'Assessment': ('Assessment', 'Bewertung'),
+    'Storage candidates': ('Storage candidates', 'Speicherkandidaten'),
+    'Declared storage': ('Declared storage', 'Deklarierter Speicher'),
+    'Worker attestation': ('Worker attestation', 'Worker-Attestierung'),
+    'Configuration only': ('Configuration only', 'Nur Konfiguration'),
+    'No verified active systemd context; service hardening is not assessed. Audit the actual service/container boundary separately.': ('No verified active systemd context; service hardening is not assessed. Audit the actual service/container boundary separately.', 'Kein verifizierter aktiver systemd-Kontext; Diensthärtung nicht bewertet. Tatsächliche Dienst-/Container-Grenze separat prüfen.'),
+    'Active FPM service properties could not be verified; inspect systemctl show and the running worker boundary separately. No unit is changed.': ('Active FPM service properties could not be verified; inspect systemctl show and the running worker boundary separately. No unit is changed.', 'Properties des aktiven FPM-Dienstes nicht verifiziert; systemctl show und laufende Worker-Grenzen separat prüfen. Keine Unit wird geändert.'),
+    'A static rejection guards the selected upload URI prefix in this parsed server block; alternate application includes and live-worker/network enforcement are not attested. No upload file or HTTP probe is created.': ('A static rejection guards the selected upload URI prefix in this parsed server block; alternate application includes and live-worker/network enforcement are not attested. No upload file or HTTP probe is created.', 'Eine statische Ablehnung schützt das ausgewählte Upload-URI-Präfix in diesem geparsten Serverblock; alternative Anwendungs-Includes und Durchsetzung in Workern/im Netz sind nicht attestiert. Keine Upload-Datei oder HTTP-Probe wird erstellt.'),
+    'An upload PHP URI has a FastCGI script mapping in the parsed configuration. An existing uploaded PHP file may execute; live application reachability is not tested. No upload file or HTTP probe is created.': ('An upload PHP URI has a FastCGI script mapping in the parsed configuration. An existing uploaded PHP file may execute; live application reachability is not tested. No upload file or HTTP probe is created.', 'Eine Upload-PHP-URI hat eine FastCGI-Skriptzuordnung in der geparsten Konfiguration. Eine vorhandene hochgeladene PHP-Datei könnte ausgeführt werden; Erreichbarkeit der laufenden Anwendung ist nicht geprüft. Keine Upload-Datei oder HTTP-Probe wird erstellt.'),
+    'Upload execution could not be established from the supported static Nginx subset; inspect aliases, regex order, nested locations and internal redirects manually. No upload file or HTTP probe is created.': ('Upload execution could not be established from the supported static Nginx subset; inspect aliases, regex order, nested locations and internal redirects manually. No upload file or HTTP probe is created.', 'Upload-Ausführung ließ sich mit der unterstützten statischen Nginx-Teilmenge nicht feststellen; Aliase, Regex-Reihenfolge, verschachtelte Locations und interne Umleitungen manuell prüfen. Keine Upload-Datei oder HTTP-Probe wird erstellt.'),
+    'No parsed Nginx configuration for upload checks; provide --nginx-config and declare storage with --runtime-dir. No upload file or HTTP probe is created.': ('No parsed Nginx configuration for upload checks; provide --nginx-config and declare storage with --runtime-dir. No upload file or HTTP probe is created.', 'Keine geparste Nginx-Konfiguration für Upload-Prüfungen; --nginx-config angeben und Speicher mit --runtime-dir deklarieren. Keine Upload-Datei oder HTTP-Probe wird erstellt.'),
+    "No upload storage identified; use --runtime-dir for actual writable storage. Directory names alone do not establish an application's upload paths.": ("No upload storage identified; use --runtime-dir for actual writable storage. Directory names alone do not establish an application's upload paths.", 'Kein Upload-Speicher identifiziert; tatsächlichen beschreibbaren Speicher mit --runtime-dir angeben. Verzeichnisnamen allein belegen keine Upload-Pfade einer Anwendung.'),
+    'Declared storage has no unambiguous static Nginx root mapping; inspect aliases and the intended virtual host manually.': ('Declared storage has no unambiguous static Nginx root mapping; inspect aliases and the intended virtual host manually.', 'Deklarierter Speicher hat keine eindeutige statische Nginx-Root-Zuordnung; Aliase und beabsichtigten vHost manuell prüfen.'),
+    'Upload mapping limit reached; narrow the selected scope.': ('Upload mapping limit reached; narrow the selected scope.', 'Limit der Upload-Zuordnungen erreicht; ausgewählten Bereich einschränken.'),
+})
+_MESSAGES.update({
+    'Function restrictions are not a sandbox. Function availability and indirect execution are not tested; dl is unavailable in FPM. Mail, environment and file APIs may be required by the application. No extra functions or settings are changed.': ('Function restrictions are not a sandbox. Function availability and indirect execution are not tested; dl is unavailable in FPM. Mail, environment and file APIs may be required by the application. No extra functions or settings are changed.', 'Funktionssperren sind keine Sandbox. Verfügbarkeit und indirekte Ausführung sind nicht geprüft; dl ist in FPM nicht verfügbar. Mail-, Umgebungs- und Datei-APIs können für die Anwendung nötig sein. Keine zusätzlichen Funktionen oder Einstellungen werden geändert.'),
+    'Manager-reported policy only; existing workers, exceptions and kernel enforcement are not attested. Review application writes, mail and shared temporary-file requirements before changing a service. No unit is changed.': ('Manager-reported policy only; existing workers, exceptions and kernel enforcement are not attested. Review application writes, mail and shared temporary-file requirements before changing a service. No unit is changed.', 'Nur vom Manager gemeldete Policy; bestehende Worker, Ausnahmen und Kernel-Durchsetzung sind nicht attestiert. Vor Dienständerungen Schreibbedarf, Mail und gemeinsam genutzte temporäre Dateien prüfen. Keine Unit wird geändert.'),
+    'disable_functions is defense in depth, not isolation. Review mail/helper commands, environment and file access, FFI policy and OS confinement against application requirements. Policy does not prove function availability or exploitability. No extra functions are disabled automatically.': ('disable_functions is defense in depth, not isolation. Review mail/helper commands, environment and file access, FFI policy and OS confinement against application requirements. Policy does not prove function availability or exploitability. No extra functions are disabled automatically.', 'disable_functions ist zusätzliche Härtung, keine Isolation. Mail-Helfer, Umgebungs-/Dateizugriff, FFI-Policy und OS-Grenzen nach Anwendungsbedarf prüfen. Policy belegt weder Verfügbarkeit noch Ausnutzbarkeit. Keine zusätzlichen Funktionen werden automatisch gesperrt.'),
+    'Keep untrusted uploads outside executable code paths. Review an explicit Nginx rejection for upload PHP and all aliases/locations, validate with nginx -t and test the real virtual hosts. This tool changes no Nginx configuration and creates no upload probes.': ('Keep untrusted uploads outside executable code paths. Review an explicit Nginx rejection for upload PHP and all aliases/locations, validate with nginx -t and test the real virtual hosts. This tool changes no Nginx configuration and creates no upload probes.', 'Nicht vertrauenswürdige Uploads von ausführbarem Code trennen. Explizite Nginx-Sperre samt Aliasen/Locations prüfen, mit nginx -t validieren und tatsächliche vHosts testen. Das Tool ändert Nginx nicht und erstellt keine Upload-Proben.'),
+    'Review NoNewPrivileges, ProtectSystem and PrivateTmp for the actual FPM unit, including write exceptions, shared temporary files and mail compatibility. Inspect worker/kernel enforcement separately. These options do not prevent all execution; this tool changes no systemd unit.': ('Review NoNewPrivileges, ProtectSystem and PrivateTmp for the actual FPM unit, including write exceptions, shared temporary files and mail compatibility. Inspect worker/kernel enforcement separately. These options do not prevent all execution; this tool changes no systemd unit.', 'NoNewPrivileges, ProtectSystem und PrivateTmp für die tatsächliche FPM-Unit prüfen, einschließlich Schreibausnahmen, temporärer Dateien und Mail-Kompatibilität. Worker-/Kernel-Durchsetzung separat prüfen. Die Optionen verhindern nicht jede Ausführung; das Tool ändert keine Unit.'),
+})
+_MESSAGE_TEMPLATES = (('Residual PHP capabilities {config}', 'Residual PHP capabilities {config}', 'Verbleibende PHP-Möglichkeiten {config}'), ('FPM systemd hardening {config}', 'FPM systemd hardening {config}', 'FPM-systemd-Härtung {config}'), ('Nginx upload execution {path}', 'Nginx upload execution {path}', 'Nginx-Ausführung in Upload-Pfaden {path}')) + (('Additional skipped paths: {count}', 'Additional skipped paths: {count}', 'Weitere ausgelassene Pfade: {count}'),
  ('HTTP request failed: {kind}', 'HTTP request failed: {kind}', 'HTTP-Anfrage fehlgeschlagen: {kind}'),
  ('{code}; unexpected HTTP status', '{code}; unexpected HTTP status', '{code}; unerwarteter HTTP-Status'),
  ('{code}; missing-path baseline unavailable',
@@ -2130,6 +2160,9 @@ _COMPILED_MESSAGES.extend((*_compile_message(en), en, de)
                           for source, en, de in _MESSAGE_TEMPLATES if source != en)
 
 
+_EVIDENCE_GERMAN.update({'manager_policy': 'Manager-Policy', 'not_assessed': 'nicht bewertet', 'unavailable': 'nicht verfügbar', 'configured': 'konfiguriert', 'empty': 'leer', 'static_directory_rejection': 'statische Präfixsperre', 'php_fastcgi_mapping': 'PHP-FastCGI-Zuordnung', 'unmapped': 'ohne Zuordnung', 'limit': 'Limit', 'redirect_or_conditional': 'Umleitung oder Bedingung', 'nested_location': 'verschachtelte Location', 'unsupported_location': 'nicht unterstützte Location', 'dynamic_path': 'dynamischer Pfad', 'duplicate_location': 'doppelte Location', 'unsupported_regex': 'nicht unterstützte Regex', 'no_proven_handler': 'kein belegter Handler', 'location_filesystem_mapping': 'Location-Dateisystemzuordnung', 'unsupported_directive': 'nicht unterstützte Direktive'})
+
+
 def localize(message, lang="en"):
     """Translate a diagnostic, preserving every captured technical value."""
     if lang not in ("en", "de"):
@@ -2228,6 +2261,8 @@ RULES = {
     "PHP002": ("high", "Set allow_url_include=Off in the effective FPM INI/pool and reload the matching service."),
     "PHP003": ("medium", "Review a narrow per-pool open_basedir with application testing; it is an additional restriction, not a sandbox."),
     "PHP004": ("high", "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application."),
+    "PHP005": ("info", "disable_functions is defense in depth, not isolation. Review mail/helper commands, environment and file access, FFI policy and OS confinement against application requirements. Policy does not prove function availability or exploitability. No extra functions are disabled automatically."),
+    "NGX001": ("high", "Keep untrusted uploads outside executable code paths. Review an explicit Nginx rejection for upload PHP and all aliases/locations, validate with nginx -t and test the real virtual hosts. This tool changes no Nginx configuration and creates no upload probes."),
     "FPM001": ("high", "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication."),
     "FPM002": ("high", "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart."),
     "FPM003": ("medium", "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well."),
@@ -2242,6 +2277,7 @@ RULES = {
     "HTTP002": ("info", "Provide an explicit --site mapping or sufficient HTTP budget; inspect every unknown result."),
     "HTTP003": ("info", "Correct the URL/document-root mapping and retry the intended local virtual host."),
     "SYS001": ("medium", "Review the host ptrace policy against operational needs; this tool does not change sysctl settings."),
+    "SYS002": ("info", "Review NoNewPrivileges, ProtectSystem and PrivateTmp for the actual FPM unit, including write exceptions, shared temporary files and mail compatibility. Inspect worker/kernel enforcement separately. These options do not prevent all execution; this tool changes no systemd unit."),
     "IM001": ("info", "Review ImageMagick policy rules and delegates for the installed version and application requirements."),
     "FIX001": ("info", "Resolve the specific fix preflight blocker, inspect the full proposed diff, and rerun."),
     "TX001": ("info", "Keep the backup ID; a repeated implicit rollback never selects an older transaction."),
@@ -2271,6 +2307,15 @@ def safe_evidence(rule_id, evidence):
         "PHP002": dict(allow_url_include=boolean, affected_pool_count=count),
         "PHP003": dict(unrestricted=boolean),
         "PHP004": dict(ffi_policy=choices("off", "on", "preload", "unknown")),
+        "PHP005": dict(not_disabled_functions=names(*RESIDUAL_FUNCTIONS), enable_dl=choices("off", "on", "unknown"),
+                       sendmail_path=choices("empty", "configured", "unknown"), policy_only=boolean, affected_pool_count=count),
+        "NGX001": dict(outcome=choices("not_assessed", "limit", "static_directory_rejection", "php_fastcgi_mapping", "unmapped",
+                        "redirect_or_conditional", "nested_location", "unsupported_location", "dynamic_path", "duplicate_location",
+                        "unsupported_regex", "no_proven_handler", "location_filesystem_mapping", "unsupported_directive"),
+                       declared=boolean, candidate_count=count, configuration_only=boolean),
+        "SYS002": dict(assessment=choices("not_assessed", "manager_policy", "unavailable"),
+                       no_new_privileges=choices("yes", "no"), protect_system=choices("no", "yes", "full", "strict"),
+                       private_tmp=choices("no", "yes", "disconnected"), worker_attestation=boolean),
         "FPM001": dict(binding=choices("loopback", "network", "unverified"), client_allowlist=boolean,
                        hostname_resolution=choices("loopback", "non_loopback", "unavailable")),
         "FPM002": dict(socket_mode=lambda value: type(value) is str and re.fullmatch(r"0[0-7]{3}", value) is not None,
@@ -2300,7 +2345,7 @@ def safe_evidence(rule_id, evidence):
 
 
 RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes", "PHP003": "Filesystem restriction",
-              "PHP004": "PHP FFI", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
+              "PHP004": "PHP FFI", "PHP005": "Residual PHP capabilities", "NGX001": "Nginx upload execution", "SYS002": "FPM systemd hardening", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
@@ -2310,7 +2355,12 @@ RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes",
 
 def evidence_summary(rule_id, evidence, lang="en"):
     facts = safe_evidence(rule_id, evidence)
-    say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {"non_loopback":"outside loopback", "acl":"ACL"}.get(value, value)
+    say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {
+        "non_loopback":"outside loopback", "acl":"ACL", "not_assessed":"not assessed", "manager_policy":"manager policy",
+        "static_directory_rejection":"static URI prefix rejected", "php_fastcgi_mapping":"PHP FastCGI mapping",
+        "redirect_or_conditional":"redirect or conditional", "nested_location":"nested location", "unsupported_location":"unsupported location",
+        "dynamic_path":"dynamic path", "duplicate_location":"duplicate location", "unsupported_regex":"unsupported regex",
+        "no_proven_handler":"no proven handler", "location_filesystem_mapping":"location filesystem mapping", "unsupported_directive":"unsupported directive"}.get(value, value)
     labels = dict(missing_functions="Missing", allow_url_include="URL includes", unrestricted="Unrestricted",
                   ffi_policy="ffi.enable", binding="TCP binding", client_allowlist="Client allowlist",
                   hostname_resolution="Name resolution", socket_mode="Socket mode", source="Source",
@@ -2322,7 +2372,10 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   indicator_count="Indicator count", coverage_reasons="Coverage reasons", attempted_files="Attempted files",
                   incomplete_files="Incomplete files", baseline_accepted_count="Baseline accepted", baseline_entries="Baseline entries",
                   omitted_coverage_paths="Omitted coverage paths", coverage_counts="Coverage counts", review_required="Review required",
-                  cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files")
+                  cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files",
+                  not_disabled_functions="Not disabled by policy", enable_dl="enable_dl", sendmail_path="Mail helper command",
+                  policy_only="Policy only", outcome="Assessment", candidate_count="Storage candidates", declared="Declared storage",
+                  assessment="Assessment", no_new_privileges="NoNewPrivileges", protect_system="ProtectSystem", private_tmp="PrivateTmp", worker_attestation="Worker attestation", configuration_only="Configuration only")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -2387,6 +2440,10 @@ class Report:
         configure_output(as_json)
         rows = [dict(row, title=localize(row["title"], lang), detail=localize(row["detail"], lang),
                      remediation=localize(row["remediation"], lang)) for row in self.rows]
+        if not as_json:
+            for row in rows:
+                if row["rule_id"] in ("P2S-PHP005", "P2S-SYS002"):
+                    row["detail"] = evidence_summary(row["rule_id"], row["evidence"], lang) + "; " + row["detail"]
         discovery = localized_discovery(self.discovery, lang)
         if redact:
             # Allowlist projection, not regex replacement: even exception text,
@@ -2625,6 +2682,231 @@ def shared_pool_users(report, instances):
         if len(pools) > 1:
             report.add("INFO", "Shared FPM account", str(len(pools)) + " pools share UID " + str(uid) + "; they do not form a Unix-user isolation boundary",
                        rule_id="P2S-FPM005", resource=dict(uid=uid, pools=pools), evidence=dict(pool_count=len(pools)))
+
+
+# Source: src/defense_posture.py
+"""Read-only policy observations, never a sandbox or exploitability verdict."""
+
+RESIDUAL_FUNCTIONS = ("putenv", "mail", "error_log", "dl", "pcntl_fork", "symlink", "link", "file_put_contents")
+
+
+def residual_php_policy(report, instance):
+    groups = {}
+    for name, settings in instance["pools"].items():
+        disabled = functions(instance["values"].get("disable_functions", ""))
+        for prefix in ("php_value", "php_admin_value"):
+            disabled |= functions(settings.get(prefix + "[disable_functions]", ""))
+        remaining = tuple(value for value in RESIDUAL_FUNCTIONS if value not in disabled)
+        dl = pool_effective(instance["values"], settings, "enable_dl")
+        dl = "unknown" if dl is None else "off" if dl.lower() in ("", "off", "0", "no", "false") else "on"
+        mail = pool_effective(instance["values"], settings, "sendmail_path")
+        mail = "unknown" if mail is None else "empty" if mail.strip().lower() in ("", "no value", "none") else "configured"
+        groups.setdefault((remaining, dl, mail), []).append(name)
+    for (remaining, dl, mail), pools in sorted(groups.items()):
+        row = report.add("INFO", "Residual PHP capabilities " + instance["config"],
+            "Function restrictions are not a sandbox. Function availability and indirect execution are not tested; dl is unavailable in FPM. Mail, environment and file APIs may be required by the application. No extra functions or settings are changed.",
+            rule_id="P2S-PHP005", resource=dict(config=instance["config"], pools=sorted(pools)),
+            evidence=dict(not_disabled_functions=list(remaining), enable_dl=dl, sendmail_path=mail,
+                          affected_pool_count=len(pools), policy_only=True))
+        row["affected_pools"] = sorted(pools)
+
+
+def fpm_service_posture(report, instance, cap):
+    service = instance.get("service")
+    resource = dict(config=instance["config"], service=service)
+    title = "FPM systemd hardening " + instance["config"]
+    if not service or not cap.get("systemd") or not cap.get("tools", {}).get("systemctl"):
+        report.add("INFO", title, "No verified active systemd context; service hardening is not assessed. Audit the actual service/container boundary separately.",
+                   rule_id="P2S-SYS002", resource=resource, evidence=dict(assessment="not_assessed", worker_attestation=False))
+        return
+    try:
+        if re.fullmatch(r"[A-Za-z0-9_.@-]+\.service", service) is None or service.startswith("-"):
+            raise CheckError("Invalid FPM service identity")
+        helper = shutil.which("systemctl")
+        if helper is None:
+            raise CheckError("systemctl is unavailable")
+        helper = str(trusted(Path(helper).resolve(strict=True)))
+        props = ("Id", "LoadState", "ActiveState", "MainPID", "NoNewPrivileges", "ProtectSystem", "PrivateTmp")
+        output, _ = command([helper, "show", "--no-pager", "--property=" + ",".join(props), "--", service], timeout=5)
+        values = {}
+        for line in output.splitlines():
+            key, separator, value = line.partition("=")
+            if separator and key in props and key not in values:
+                values[key] = value
+            else:
+                raise CheckError("Ambiguous systemd property output")
+        if (set(values) != set(props) or values["Id"] != service or values["LoadState"] != "loaded" or
+                values["ActiveState"] != "active" or values["MainPID"] != str(instance["pid"])):
+            raise CheckError("systemd properties do not match the active FPM master")
+        if (values["NoNewPrivileges"] not in ("yes", "no") or values["ProtectSystem"] not in ("no", "yes", "full", "strict") or
+                values["PrivateTmp"] not in ("no", "yes", "disconnected")):
+            raise CheckError("Unknown systemd hardening property value")
+        report.add("INFO", title,
+            "Manager-reported policy only; existing workers, exceptions and kernel enforcement are not attested. Review application writes, mail and shared temporary-file requirements before changing a service. No unit is changed.",
+            rule_id="P2S-SYS002", resource=resource,
+            evidence=dict(assessment="manager_policy", no_new_privileges=values["NoNewPrivileges"],
+                          protect_system=values["ProtectSystem"], private_tmp=values["PrivateTmp"], worker_attestation=False))
+    except (OSError, ValueError, CheckError):
+        report.add("UNKNOWN", title, "Active FPM service properties could not be verified; inspect systemctl show and the running worker boundary separately. No unit is changed.",
+                   rule_id="P2S-SYS002", resource=resource, evidence=dict(assessment="unavailable", worker_attestation=False))
+
+
+# Source: src/nginx_uploads.py
+"""Conservative upload-route checks. Never evaluate arbitrary PCRE or write probes."""
+
+
+def nginx_directives(nodes, name):
+    return [node["args"] for node in nodes if node["name"] == name and node["children"] is None]
+
+
+def nginx_upload_route(http, server, uri):
+    """One static URI witness; only an unambiguous leaf guard can prove a block."""
+    nodes = server["children"]
+    uncertain = {"if", "rewrite", "error_page", "__p2s_unresolved_include__"}
+    def complex_nodes(body):
+        return any(n["name"] in uncertain for n in body)
+    if any(char in uri for char in ("?", "#", "%", "$")):
+        return "UNKNOWN", "dynamic_path"
+    if complex_nodes(http["children"]) or complex_nodes(nodes):
+        return "UNKNOWN", "redirect_or_conditional"
+    parent_names = {"server", "location", "root", "index", "listen", "server_name", "access_log", "error_log", "log_format",
+                    "types", "default_type", "charset", "autoindex", "expires", "add_header", "log_not_found", "merge_slashes",
+                    "map", "upstream", "geo", "sendfile", "tcp_nopush", "tcp_nodelay", "keepalive_timeout", "keepalive_requests",
+                    "server_tokens", "server_names_hash_bucket_size", "server_names_hash_max_size", "types_hash_max_size"}
+    if any(n["name"] not in parent_names and not n["name"].startswith(("ssl_", "gzip", "client_"))
+           for n in http["children"] + nodes):
+        return "UNKNOWN", "unsupported_directive"
+    locations = [node for node in nodes if node["name"] == "location" and node["children"] is not None]
+    if any(any(child["name"] == "location" for child in node["children"]) for node in locations):
+        return "UNKNOWN", "nested_location"
+    if any(nginx_directives(node["children"], "alias") for node in locations):
+        return "UNKNOWN", "location_filesystem_mapping"
+    prefix, regex = [], []
+    for node in locations:
+        args = node["args"]
+        if len(args) == 1 and args[0].startswith("/"):
+            modifier, path = "", args[0]
+        elif len(args) == 2 and args[0] in ("=", "^~", "~", "~*"):
+            modifier, path = args
+        else:
+            return "UNKNOWN", "unsupported_location"
+        if modifier in ("~", "~*"):
+            regex.append((path, node))
+        else:
+            if "$" in path or any(char in path for char in ("?", "#", "%")) or not path.startswith("/"):
+                return "UNKNOWN", "dynamic_path"
+            prefix.append((path, modifier, node))
+    if len({(path, modifier == "=") for path, modifier, node in prefix}) != len(prefix):
+        return "UNKNOWN", "duplicate_location"
+    # A whole-directory guard must dominate every URI, not just one probe name.
+    guards = [(path, node) for path, modifier, node in prefix if modifier == "^~" and uri.startswith(path)]
+    if guards:
+        path, guard = max(guards, key=lambda item: len(item[0]))
+        body = guard["children"]
+        returns = nginx_directives(body, "return")
+        descendants = [p for p, modifier, node in prefix if node is not guard and
+                       (p.startswith(uri) or modifier != "=" and uri.startswith(p) and len(p) > len(path))]
+        allowed = {"return", "root", "access_log", "log_not_found", "add_header", "expires"}
+        if (not descendants and not any(n["name"] not in allowed or n["children"] is not None for n in body) and
+                len(returns) == 1 and len(returns[0]) == 1 and returns[0][0] in ("403", "404", "410", "444")):
+            return "OK", "static_directory_rejection"
+    witness = uri + "p2s-harden-probe.php"
+    exact = [node for path, modifier, node in prefix if modifier == "=" and path == witness]
+    matches = [(path, modifier, node) for path, modifier, node in prefix if modifier != "=" and witness.startswith(path)]
+    chosen = exact[0] if exact else max(matches, key=lambda item: len(item[0]))[2] if matches else None
+    selected_prefix = next((modifier for path, modifier, node in prefix if node is chosen), "")
+    if not exact and selected_prefix != "^~":
+        for pattern, node in regex:
+            if pattern in (r"/\.(env|git)", r"/\.ht", r"/\.htaccess", r"/\.") and "/." not in witness:
+                continue
+            if pattern in (r"\.php$", r"\.php(/|$)", r"\.php(?:/|$)"):
+                chosen = node
+                break
+            return "UNKNOWN", "unsupported_regex"
+    if chosen is None:
+        return "UNKNOWN", "no_proven_handler"
+    body = chosen["children"]
+    if complex_nodes(body) or any(n["children"] is not None for n in body):
+        return "UNKNOWN", "redirect_or_conditional"
+    body_names = {"return", "root", "alias", "try_files", "set", "access_log", "error_log", "log_not_found", "expires", "add_header", "default_type"}
+    if any(n["name"] not in body_names and not n["name"].startswith(("fastcgi_", "client_")) for n in body):
+        return "UNKNOWN", "unsupported_directive"
+    if (any(args not in (["$uri", "=404"], ["$fastcgi_script_name", "=404"]) for args in nginx_directives(body, "try_files")) or
+            any(args != ["$path_info", "$fastcgi_path_info"] for args in nginx_directives(body, "set")) or
+            any(args not in ([r"^(.+?\.php)(/.*)$"], [r"^(.+\.php)(/.*)$"], [r"^(.+\.php)(/.+)$"]) for args in nginx_directives(body, "fastcgi_split_path_info"))):
+        return "UNKNOWN", "redirect_or_conditional"
+    if nginx_directives(body, "alias") or nginx_directives(body, "root"):
+        return "UNKNOWN", "location_filesystem_mapping"
+    passes = nginx_directives(body, "fastcgi_pass")
+    scripts = [args[1:] for args in nginx_directives(body, "fastcgi_param") if args[:1] == ["SCRIPT_FILENAME"]]
+    if (len(passes) == 1 and len(passes[0]) == 1 and "$" not in passes[0][0] and len(scripts) == 1 and
+            scripts[0] in (["$document_root$fastcgi_script_name"], ["$realpath_root$fastcgi_script_name"]) and
+            not nginx_directives(body, "return")):
+        return "OPEN", "php_fastcgi_mapping"
+    return "UNKNOWN", "no_proven_handler"
+
+
+def nginx_upload_security(report, args):
+    requested = list(getattr(args, "runtime_dirs", []))
+    tree = getattr(args, "nginx_tree", None)
+    config = getattr(args, "nginx_config", None)
+    if tree is None and config:
+        try:
+            tree = read_nginx(Path(config), partial=True)
+        except (OSError, UnicodeError, CheckError):
+            tree = None
+    if tree is None:
+        report.add("UNKNOWN" if requested else "INFO", "Nginx upload execution", "No parsed Nginx configuration for upload checks; provide --nginx-config and declare storage with --runtime-dir. No upload file or HTTP probe is created.",
+                   rule_id="P2S-NGX001", resource="upload_scope", evidence=dict(outcome="not_assessed", candidate_count=len(requested)))
+        return
+    pending, alias_present = list(tree), False
+    while pending:
+        node = pending.pop()
+        alias_present |= node["name"] == "alias"
+        pending.extend(node["children"] or [])
+    seen, mapped, server_index = set(), set(), 0
+    for http in [node for node in tree if node["name"] == "http" and node["children"] is not None]:
+        inherited = nginx_directives(http["children"], "root")
+        for server in [node for node in http["children"] if node["name"] == "server" and node["children"] is not None]:
+            server_index += 1
+            roots = nginx_directives(server["children"], "root") or inherited
+            if len(roots) != 1 or len(roots[0]) != 1 or "$" in roots[0][0] or not Path(roots[0][0]).is_absolute():
+                continue
+            root = os.path.normpath(roots[0][0])
+            targets = set(requested)
+            for suffix in ("uploads", "wp-content/uploads"):
+                candidate = str(Path(root) / suffix)
+                if Path(candidate).is_dir():
+                    targets.add(candidate)
+            for target in sorted(targets):
+                if not any(os.path.commonpath([target, selected]) == selected for selected in getattr(args, "roots", [args.root])):
+                    continue
+                if os.path.commonpath([root, target]) != root:
+                    continue
+                key = (server_index, target)
+                if key in seen:
+                    continue
+                if len(seen) >= 128:
+                    report.add("UNKNOWN", "Nginx upload execution", "Upload mapping limit reached; narrow the selected scope.", rule_id="P2S-NGX001", resource="upload_limit", evidence=dict(outcome="limit"))
+                    return
+                seen.add(key); mapped.add(target)
+                uri = "/" if target == root else "/" + str(Path(target).relative_to(root)).replace(os.sep, "/").rstrip("/") + "/"
+                status, outcome = nginx_upload_route(http, server, uri)
+                if status == "OK" and alias_present:
+                    status, outcome = "UNKNOWN", "location_filesystem_mapping"
+                details = {"OK": "A static rejection guards the selected upload URI prefix in this parsed server block; alternate application includes and live-worker/network enforcement are not attested.",
+                           "OPEN": "An upload PHP URI has a FastCGI script mapping in the parsed configuration. An existing uploaded PHP file may execute; live application reachability is not tested.",
+                           "UNKNOWN": "Upload execution could not be established from the supported static Nginx subset; inspect aliases, regex order, nested locations and internal redirects manually."}
+                report.add(status, "Nginx upload execution " + target, details[status] + " No upload file or HTTP probe is created.",
+                           rule_id="P2S-NGX001", resource=dict(path=target, root=root, uri=uri, config=server["source"], line=server["line"], server_index=server_index),
+                           evidence=dict(outcome=outcome, declared=target in requested, candidate_count=1, configuration_only=True))
+    for target in requested:
+        if target not in mapped:
+            report.add("UNKNOWN", "Nginx upload execution " + target, "Declared storage has no unambiguous static Nginx root mapping; inspect aliases and the intended virtual host manually.",
+                       rule_id="P2S-NGX001", resource=dict(path=target), evidence=dict(outcome="unmapped", declared=True))
+    if not seen and not requested:
+        report.add("INFO", "Nginx upload execution", "No upload storage identified; use --runtime-dir for actual writable storage. Directory names alone do not establish an application's upload paths.",
+                   rule_id="P2S-NGX001", resource="upload_scope", evidence=dict(outcome="not_assessed", candidate_count=0))
 
 
 # Source: src/webshells.py
@@ -3537,10 +3819,13 @@ def scan(args, inventory_only=False):
         for instance in instances:
             users.update(v["user"] for v in instance["pools"].values() if v.get("user"))
         return report, {}, instances, users
+    nginx_upload_security(report, args)
     for instance in instances:
         saved_updates = {name: dict(values) for name, values in updates.items()}
         try:
             pool_security(report, instance)
+            residual_php_policy(report, instance)
+            fpm_service_posture(report, instance, cap)
             label = instance["config"]
             values = instance["values"]
             disabled = functions(values.get("disable_functions", ""))

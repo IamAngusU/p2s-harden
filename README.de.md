@@ -24,17 +24,31 @@
 <p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
 <p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
 
-**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **Unterstützter Konfigurationsablauf: Debian/Ubuntu mit Host-PHP-FPM, Nginx und systemd.** Konfigurationsfixes für RHEL, Apache/mod_php und Plesk/cPanel sind nicht abgedeckt. Die statische Dateisuche mit explizitem `--root` hat einen breiteren Linux-Umfang. **2.2.1 ist die stabile Version für die unten beschriebenen Host-Setups.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
+**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **Unterstützter Konfigurationsablauf: Debian/Ubuntu mit Host-PHP-FPM, Nginx und systemd.** Konfigurationsfixes für RHEL, Apache/mod_php und Plesk/cPanel sind nicht abgedeckt. Die statische Dateisuche mit explizitem `--root` hat einen breiteren Linux-Umfang. **2.2.1 ist die ältere veröffentlichte Konfigurationsversion; den INI-Hinweis unten beachten.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
 
 ## Direkt starten
 
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.5**.
+Ein Angreifer kann durch eine verwundbare Anwendung oder eine hochgeladene Datei bereits PHP ausführen. **`disable_functions` ist zusätzliche Härtung, keine Sandbox:** `--fix` begrenzt ausgewählte direkte Wege; es verhindert weder den ersten Einbruch noch jeden indirekten Ausführungsweg und erklärt keinen Host für sauber. Anwendungsupdates, minimale Rechte, OS-Isolation und Vorfallbehandlung bleiben eigenständige Aufgaben; die neuen Nginx-/systemd-Beobachtungen sind lesend und begrenzt.
+
+| Angriffsweg | Gegenmaßnahme | Prüft p2s | Ändert p2s |
+|---|---|---|---|
+| Verwundbares Plugin/Anwendung | Updates, verwundbaren Code entfernen, Anmeldung schützen | Kein Anwendungs-/CVE-Audit | Nichts |
+| Ausgewählte direkte PHP-Befehlsaufrufe | Sieben Funktionssperren und URL-Include-Policy | Globale/Pool-Policy; separate CI-Worker-Tests | Unterstützte INIs nach geprüfter Bestätigung |
+| Indirekte Helfer, FFI, Umgebungs- und Datei-APIs | Anwendungsspezifische Policy plus OS-Isolation | FFI-Policy und verbleibende Policy-Möglichkeiten; kein Bypass-Nachweis | Keine zusätzlichen Sperren |
+| PHP in Upload-Pfaden | Nicht ausführbarer Speicher und korrekte Nginx-Routen | Statische Root-/URI-Zuordnungen; Mehrdeutigkeit bleibt UNKNOWN | Keine Nginx-Änderung |
+| Privileggewinn, OS-Schreiben und temporäre Dateien | NoNewPrivileges, ProtectSystem, PrivateTmp samt Ausnahmen prüfen | Manager-Properties der zugeordneten aktiven Unit; keine Worker-/Kernel-Attestierung | Keine Unit-Änderung |
+| PHP-Benutzer kann Code ersetzen | Codebesitz und beschreibbare Laufzeitdaten trennen | Benutzer-/Rechteprüfung der ausgewählten Wurzeln | Nur ausdrücklich gewählte unterstützte Verzeichnisse |
+| Bestehende Webshell/Persistenz | Beweise sichern, isolieren, neu aufsetzen, betroffene Secrets tauschen | Begrenzte PHP-Indikatoren; keine OS-/Speicher-Persistenzprüfung | Keine Malware-Entfernung/Wiederherstellung |
+
+[Bedeutung, Nginx-Umfang und Prüfnachweise](docs/DEFENSES.md).
+
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.6**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
 Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
 Die Vorschau hat Commit-genaue CI-Nachweise und ist von den Stable-Release-Dateien getrennt.
 
-**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.5-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
+**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.6-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
 [Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
 
 Lade **eine Datei** für deinen Startrechner:
@@ -247,7 +261,7 @@ und betroffene Zugangsdaten erneuern. Die Vorschau senkt die Scan-CPU-Priorität
 
 ## Umfang und Reifegrad
 
-**Stabil innerhalb des dokumentierten Umfangs.** Datenträgerprüfung belegt nicht die Konfiguration jedes bestehenden Workers oder alle vHosts/Container/Angriffspfade. Separate Wegwerf-VM-Tests prüfen echten `/proc`-Discover, Nginx-Zuordnung, PHP-Benutzerrechte, systemd-Fix/Reload, HTTP-Workerwerte und Rollback auf Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/Distributions-PHP 8.1 und Ubuntu 24.04/PHP 8.3. Die FastCGI-Matrix umfasst PHP 8.2–8.5. [Aktuelle Review-Antwort](docs/REVIEW-2.2.1.md) · [Prüfnachweise](docs/VALIDATION.md) · [Release-Umfang und Abnahmekriterien](docs/PRODUCTION.md).
+**Geprüfter Konfigurationsablauf; Vorschau-Erweiterungen werden weiter erprobt.** Datenträgerprüfung belegt nicht die Konfiguration jedes bestehenden Workers oder alle vHosts/Container/Angriffspfade. Separate Wegwerf-VM-Tests prüfen echten `/proc`-Discover, Nginx-Zuordnung, PHP-Benutzerrechte, systemd-Fix/Reload, HTTP-Workerwerte und Rollback auf Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/Distributions-PHP 8.1 und Ubuntu 24.04/PHP 8.3. Die FastCGI-Matrix umfasst PHP 8.2–8.5. [Aktuelle Schutzgrenzen](docs/DEFENSES.md) · [2.2.1-Review](docs/REVIEW-2.2.1.md) · [Prüfnachweise](docs/VALIDATION.md) · [Release-Umfang und Abnahmekriterien](docs/PRODUCTION.md).
 
 Der Quellaccount kann derzeit keine GitHub-gehosteten Runner starten. Deshalb läuft öffentliche CI auf einem zweiten Account desselben Maintainers. Das ist kein unabhängiges Audit. Der Proof verlangt übereinstimmende getestete Quell-/Fork-Commits. [Jobs und Schritte](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [Synchronisierung](docs/CI.md).
 

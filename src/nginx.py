@@ -296,7 +296,8 @@ def prepare_scope(args):
         candidates = [Path(args.nginx_config)] if args.nginx_config else [p for p in map(Path, ("/etc/nginx/nginx.conf", "/usr/local/nginx/conf/nginx.conf", "/usr/local/etc/nginx/nginx.conf")) if p.is_file()]
         if len(candidates) == 1:
             try:
-                inventory = nginx_inventory(read_nginx(candidates[0], partial=True))
+                args.nginx_tree = read_nginx(candidates[0], partial=True)
+                inventory = nginx_inventory(args.nginx_tree)
                 inventory["config"] = str(candidates[0])
             except (OSError, UnicodeError, CheckError) as exc:
                 inventory["issues"].append(f'Automatic Nginx discovery incomplete: {exc}')

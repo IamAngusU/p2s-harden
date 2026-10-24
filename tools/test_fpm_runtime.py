@@ -80,7 +80,14 @@ try {
     restore_error_handler();
 }
 $all = ini_get_all();
+$residual = [];
+foreach (['putenv', 'mail', 'error_log', 'dl', 'pcntl_fork', 'symlink', 'link', 'file_put_contents'] as $name) {
+    $residual[$name] = function_exists($name);
+}
 echo json_encode(['sapi' => PHP_SAPI, 'php_version' => PHP_VERSION,
+    'residual_functions' => $residual, 'enable_dl' => ini_get('enable_dl'),
+    'sendmail_path_configured' => trim((string) ini_get('sendmail_path')) !== '',
+    'ffi_class_exists' => class_exists('FFI', false),
     'parent_env_visible' => getenv('P2S_PARENT_CANARY') !== false,
     'disable_functions' => ini_get('disable_functions'),
     'disable_functions_access' => $all['disable_functions']['access'],
@@ -197,7 +204,7 @@ def cases():
         dict(name="admin-short-preserves-global", global_disabled=all_functions, pool={"php_admin_value[disable_functions]": "exec"}, disabled=set(REQUIRED), include=False),
         dict(name="value-short-preserves-global", global_disabled=all_functions, pool={"php_value[disable_functions]": "exec"}, disabled=set(REQUIRED), include=False),
         dict(name="global-value-admin-all-additive", global_disabled="exec", pool={"php_value[disable_functions]": "system", "php_admin_value[disable_functions]": "shell_exec"}, disabled={"exec", "system", "shell_exec"}, include=False),
-        dict(name="admin-only-complete", global_disabled="", pool={"php_admin_value[disable_functions]": all_functions}, disabled=set(REQUIRED), include=False),
+        dict(name="admin-only-complete", global_disabled="", pool={"php_admin_value[disable_functions]": all_functions + ",putenv,mail"}, disabled=set(REQUIRED), residual_disabled={"putenv", "mail"}, include=False),
         dict(name="value-only-complete", global_disabled="", pool={"php_value[disable_functions]": all_functions}, disabled=set(REQUIRED), include=False),
         *[dict(name=prefix + "-url-on", global_disabled="", pool={prefix + "[allow_url_include]": "On"}, disabled=set(), include=True)
           for prefix in ("php_value", "php_flag", "php_admin_value", "php_admin_flag")],
@@ -285,6 +292,11 @@ def observe(image_id, case, run_id):
 
 def assert_observation(case, data, baseline):
     failures = []
+    if data.get("residual_functions", {}).get("dl") is not False:
+        failures.append("dl must not be available in the real FPM SAPI")
+    for name, exists in baseline["residual_functions"].items():
+        if data["residual_functions"].get(name) != (exists and name not in case.get("residual_disabled", set())):
+            failures.append("residual function availability differs from FPM policy: " + name)
     if data["parent_env_visible"] != case.get("parent_env", False):
         failures.append("clear_env runtime inheritance mismatch")
     expected_txt = case.get("txt", False)
@@ -312,7 +324,8 @@ def audit_comparison(engine, case, data, directory):
     pools = engine.pool_values(data["fpm_pool_dump"])
     instance = dict(pid=123, start="fixture", binary="/fixture/php-fpm", service=None,
                     config="/fixture/fpm.conf", inis=[str(directory / "php.ini")], env={},
-                    values={"disable_functions": case["global_disabled"], "allow_url_include": "Off", "open_basedir": "/lab"},
+                    values={"disable_functions": case["global_disabled"], "allow_url_include": "Off", "open_basedir": "/lab",
+                            "enable_dl": data["enable_dl"], "sendmail_path": "configured" if data["sendmail_path_configured"] else ""},
                     pools=pools)
     args = argparse.Namespace(web_user=[], root=str(directory), roots=[str(directory)], site=[], discovery={})
     permissions = json.dumps(dict(files=0, directories=0, file_sample=[], directory_sample=[], errors=[]))
@@ -326,6 +339,14 @@ def audit_comparison(engine, case, data, directory):
     runtime_pool = "OPEN" if any(v["exists"] for v in data["functions"].values()) else "OK"
     runtime_include = "OPEN" if data["data_include_allowed"] else "OK"
     failures = []
+    residual = next(row for row in report.rows if row["rule_id"] == "P2S-PHP005" and "fixture" in row["affected_pools"])
+    disabled_policy = engine.functions(case["global_disabled"])
+    for prefix in ("php_value", "php_admin_value"):
+        disabled_policy |= engine.functions(pools["fixture"].get(prefix + "[disable_functions]", ""))
+    if (residual["status"] != "INFO" or residual["evidence"].get("policy_only") is not True or
+            set(residual["evidence"]["not_disabled_functions"]) != set(engine.RESIDUAL_FUNCTIONS) - disabled_policy or
+            residual["evidence"]["sendmail_path"] != ("configured" if data["sendmail_path_configured"] else "empty")):
+        failures.append("residual capability observation overstates availability or differs from the FPM policy")
     def state(rule, pool="fixture", source=None):
         return [row["status"] for row in report.rows if row["rule_id"] == rule and row["resource"].get("pool") == pool
                 and (source is None or row["resource"].get("source") == source)]

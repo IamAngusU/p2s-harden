@@ -273,3 +273,9 @@ The additive schema-2 `evidence` object contains validated technical facts.
 Redacted output retains approved function names, mode/source, setting states,
 counts and HTTP status, while excluding private paths/names and arbitrary
 diagnostics. Per-resource ignores still require the original local report.
+
+## Development preview defense observations
+
+- **P2S-PHP005 — INFO:** remaining selected functions not disabled by policy, enable_dl and sendmail_path state. Missing INI values remain unknown evidence. This is not runtime function availability or proof of an exploitable indirect route. Pools with identical policy are grouped.
+- **P2S-SYS002 — INFO/UNKNOWN:** selected properties from systemctl show only after active service identity/MainPID match. Missing context is explicitly unassessed; a failed/mismatched active-service query is UNKNOWN. Even yes/full/strict values are manager policy, not worker/kernel enforcement or a sandbox verdict.
+- **P2S-NGX001 — OPEN/OK/UNKNOWN/INFO:** selected upload URI route policy in parsed Nginx configuration. OPEN is a supported FastCGI script mapping; OK is only a narrowly recognized whole-prefix static rejection in that server block. Unsupported/ambiguous routes remain UNKNOWN; missing upload scope is INFO and asks for --runtime-dir. See [the exact subset and limits](DEFENSES.md).

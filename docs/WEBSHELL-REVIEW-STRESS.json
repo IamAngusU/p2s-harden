@@ -13,13 +13,13 @@
   },
   {
     "engine": "after",
-    "engine_sha256": "f8d91ab4497c319c97101bd748c33d89f69eb57d8bae4065663cc0e8235db886",
+    "engine_sha256": "adc348345db3ed40da27287dde7f067da48ed087e89dee29ccee2faaeff52829",
     "platform": "win32",
     "python": "3.12.14",
     "bytes": 1800024,
     "line_comments": 450000,
     "deadline_seconds": 2,
-    "elapsed_seconds": 0.218,
+    "elapsed_seconds": 0.203,
     "indicators": {
       "request-execution": 450002
     },

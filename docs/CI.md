@@ -40,3 +40,5 @@ Then inspect the new run, or trigger `CLI tests` manually in the fork. Compare t
 The separate `ci-proof` branch contains generated evidence only and is excluded from ordinary push CI. The proof workflow is enabled only in the named CI fork and uses its own scoped workflow token. No cross-account personal token is stored in this repository.
 
 The native Windows job also runs `python -B tools/test_json_interop.py`: real pinned Rust `serde_json::Value` must accept generated report/draft JSON and reject the former lone-surrogate fixture. Cargo and its locked dependencies are development-only; the distributed CLI does not invoke Rust or install anything.
+
+The dev.6 matrix retains 104 FastCGI and 56 real INI cases, adding residual-function existence observations in actual FPM (including dl absence and a pool that disables putenv/mail). Each of the four disposable systemd VMs adds real manager-property comparison plus upload PHP execution, static 403 rejection and a nested unsupported route that must stay UNKNOWN: 13 stages per VM, 52 overall. No production upload probes or service changes are part of ordinary p2s checks.
