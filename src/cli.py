@@ -25,6 +25,8 @@ def main(argv=None):
     parser.add_argument("--web-user", action="append", default=[], help=text("Additional PHP user for permission checks; repeatable"))
     parser.add_argument("--site", action="append", default=[], metavar="URL=ROOT", help=text("Explicit virtual host and document root; repeatable"))
     parser.add_argument("--nginx-config", help=text('Custom Nginx main configuration'))
+    parser.add_argument("--nginx-baseline", metavar="FILE", help=text("Reviewed Nginx UNKNOWN exceptions bound to the complete configuration; --check only"))
+    parser.add_argument("--write-nginx-review-draft", metavar="FILE", help=text("Create a private unreviewed Nginx UNKNOWN draft; --check only"))
     parser.add_argument("--no-auto", action="store_true", help=text('Disable automatic document-root/domain discovery'))
     parser.add_argument("--max-sites", type=int, default=32, help=text('Maximum automatic HTTP mappings (default 32)'))
     parser.add_argument("--max-paths", type=int, default=250000, help=text("Maximum entries per filesystem walk (default 250000)"))
@@ -41,7 +43,7 @@ def main(argv=None):
     parser.add_argument("--backup-root", default="/root/p2s-harden-backup-v2", help=text("Protected transaction directory (default /root/p2s-harden-backup-v2)"))
     parser.add_argument("--backup-id", help=text("Choose one transaction explicitly for rollback"))
     parser.add_argument("--yes", "-y", action="store_true", help=text("Approve the displayed fix plan without an interactive prompt"))
-    parser.add_argument("--fail-on", choices=("complete", "open", "review"), default="complete", help=text("Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass"))
+    parser.add_argument("--fail-on", choices=("complete", "open", "review"), default="complete", help=text("Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unacknowledged unknowns never pass"))
     parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable"))
     parser.add_argument("--json", action="store_true", help=text("Structured findings, stable IDs, remediation, preview and transaction state"))
     parser.add_argument("--redact", action="store_true", help=text("Shareable read-only report: omit host details, inventory and original finding IDs"))
@@ -75,6 +77,10 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
+        if (args.nginx_baseline or args.write_nginx_review_draft) and args.mode != "check":
+            raise CheckError("Nginx review options support --check only")
+        if args.write_nginx_review_draft and args.redact:
+            raise CheckError("Nginx review drafts contain configuration identities; use locally without --redact")
         if args.baseline and args.mode != "scan-webshells":
             raise CheckError("--baseline supports --scan-webshells only")
         if args.write_baseline_draft and args.mode != "scan-webshells":
@@ -151,6 +157,8 @@ def main(argv=None):
             return report.exit_code()
         prepare_runtime_dirs(args)
         report, updates, instances, users = scan(args, inventory_only=True) if args.mode == "discover" else scan(args)
+        if args.mode == "check":
+            nginx_review_report(report, args)
         if args.mode in ("dry-run", "fix"):
             blockers = fix_blockers(updates, args.protect_dir, instances, users)
             plan = change_plan(updates, args.protect_dir, [text(reason) for reason in blockers])

@@ -726,7 +726,7 @@ _NEW_GERMAN = {
     "Protected transaction directory (default /root/p2s-harden-backup-v2)": "Geschütztes Transaktionsverzeichnis (Standard /root/p2s-harden-backup-v2)",
     "Choose one transaction explicitly for rollback": "Eine bestimmte Transaktion für Rollback auswählen",
     "Approve the displayed fix plan without an interactive prompt": "Angezeigten Fix-Plan ohne interaktive Rückfrage freigeben",
-    "Exit precedence: complete (UNKNOWN first) or open (OPEN first); unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst) oder open (OPEN zuerst); unbekannte Ergebnisse bestehen nie",
+    "Exit precedence: complete (UNKNOWN first) or open (OPEN first); unacknowledged unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst) oder open (OPEN zuerst); nicht akzeptierte unbekannte Ergebnisse bestehen nie",
     "Suppress one finding/rule's OPEN exit impact; keep it visible; repeatable": "OPEN-Exitwirkung eines Befunds/einer Regel ausnehmen; Befund bleibt sichtbar; wiederholbar",
     "Structured findings, stable IDs, remediation, preview and transaction state": "Strukturierte Befunde, stabile IDs, Behebung, Vorschau und Transaktionsstatus",
     "Maximum entries per filesystem walk (default 250000)": "Höchstens 250000 Einträge je Dateisystem-Suchlauf (Standard)",
@@ -904,7 +904,7 @@ _NEW_GERMAN.update({
     "Skip lowering CPU/I/O priority for the webshell scan": "CPU-/I/O-Priorität für Webshell-Suche nicht absenken",
     "--no-nice supports --scan-webshells only": "--no-nice unterstützt nur --scan-webshells",
     "PHP parsing byte limit per file; opener search streams larger files (default 2097152)": "PHP-Parserlimit je Datei; größere Dateien werden nach Tags durchsucht (Standard 2097152)",
-    "Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst), open (OPEN zuerst), review (OPEN oder Code-Review zuerst); unbekannte Ergebnisse bestehen nie",
+    "Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unacknowledged unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst), open (OPEN zuerst), review (OPEN oder Code-Review zuerst); nicht akzeptierte unbekannte Ergebnisse bestehen nie",
     "Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable": "OPEN- oder Review-Exitwirkung eines Befunds/einer Regel ausnehmen; bleibt sichtbar; wiederholbar",
     "Another fix or rollback is using this backup root; wait for it to finish and rerun": "Ein anderer Fix oder Rollback verwendet dieses Backup-Verzeichnis; Abschluss abwarten und erneut ausführen",
     "Backup directory must have mode 0700 and be owned by root": "Backup-Verzeichnis muss root gehören und Modus 0700 haben",
@@ -981,3 +981,101 @@ def localized_discovery(discovery, lang="en"):
     # Pool names, users and listener strings remain opaque, including a real
     # account or socket literally named "unbekannt".
     return result
+
+_MESSAGES.update({en: (en, de) for en, de in {'Nginx review': 'Nginx-Review',
+ 'Review entries': 'Review-Einträge',
+ 'Reviewed Nginx UNKNOWN exceptions bound to the complete configuration; --check only': 'Reviewte '
+                                                                                        'Nginx-UNKNOWN-Ausnahmen '
+                                                                                        'mit Bindung an die '
+                                                                                        'komplette '
+                                                                                        'Konfiguration; nur '
+                                                                                        '--check',
+ 'Create a private unreviewed Nginx UNKNOWN draft; --check only': 'Privaten ungeprüften '
+                                                                  'Nginx-UNKNOWN-Entwurf erstellen; nur '
+                                                                  '--check',
+ 'Nginx review options support --check only': 'Nginx-Review-Optionen unterstützen nur --check',
+ 'Nginx review drafts contain configuration identities; use locally without --redact': 'Nginx-Review-Entwürfe '
+                                                                                       'enthalten '
+                                                                                       'Konfigurationskennungen; '
+                                                                                       'lokal ohne --redact '
+                                                                                       'verwenden',
+ 'Nginx review file is unreviewed, invalid, unsafe or unreadable; no exceptions accepted.': 'Nginx-Review-Datei '
+                                                                                            'ist ungeprüft, '
+                                                                                            'ungültig, '
+                                                                                            'unsicher oder '
+                                                                                            'nicht lesbar; '
+                                                                                            'keine Ausnahme '
+                                                                                            'akzeptiert.',
+ 'Private unreviewed Nginx draft written; no existing file is overwritten and no exception is accepted automatically.': 'Privaten '
+                                                                                                                        'ungeprüften '
+                                                                                                                        'Nginx-Entwurf '
+                                                                                                                        'geschrieben; '
+                                                                                                                        'keine '
+                                                                                                                        'vorhandene '
+                                                                                                                        'Datei '
+                                                                                                                        'überschrieben '
+                                                                                                                        'und '
+                                                                                                                        'keine '
+                                                                                                                        'Ausnahme '
+                                                                                                                        'automatisch '
+                                                                                                                        'akzeptiert.',
+ 'Nginx review draft could not be written safely; the audit results are retained.': 'Nginx-Review-Entwurf '
+                                                                                    'konnte nicht sicher '
+                                                                                    'geschrieben werden; die '
+                                                                                    'Prüfergebnisse bleiben '
+                                                                                    'erhalten.',
+ 'Review the complete Nginx include closure and real routes before accepting a draft. An acknowledgement retains UNKNOWN and never proves blocking. Changed configuration invalidates it.': 'Vor '
+                                                                                                                                                                                            'Freigabe '
+                                                                                                                                                                                            'sämtliche '
+                                                                                                                                                                                            'Nginx-Includes '
+                                                                                                                                                                                            'und '
+                                                                                                                                                                                            'tatsächliche '
+                                                                                                                                                                                            'Routen '
+                                                                                                                                                                                            'prüfen. '
+                                                                                                                                                                                            'Akzeptanz '
+                                                                                                                                                                                            'behält '
+                                                                                                                                                                                            'UNKNOWN '
+                                                                                                                                                                                            'bei '
+                                                                                                                                                                                            'und '
+                                                                                                                                                                                            'belegt '
+                                                                                                                                                                                            'keine '
+                                                                                                                                                                                            'Sperre. '
+                                                                                                                                                                                            'Konfigurationsänderungen '
+                                                                                                                                                                                            'machen '
+                                                                                                                                                                                            'sie '
+                                                                                                                                                                                            'ungültig.',
+ 'The upload denial uses .* without DOTALL; a URL-decoded line break can bypass it and select the PHP handler. An upload PHP URI has a FastCGI script mapping in the parsed configuration. An existing uploaded PHP file may execute; live application reachability is not tested. No upload file or HTTP probe is created.': 'Die '
+                                                                                                                                                                                                                                                                                                                              'Upload-Sperre '
+                                                                                                                                                                                                                                                                                                                              'nutzt '
+                                                                                                                                                                                                                                                                                                                              '.* '
+                                                                                                                                                                                                                                                                                                                              'ohne '
+                                                                                                                                                                                                                                                                                                                              'DOTALL; '
+                                                                                                                                                                                                                                                                                                                              'ein '
+                                                                                                                                                                                                                                                                                                                              'URL-dekodierter '
+                                                                                                                                                                                                                                                                                                                              'Zeilenumbruch '
+                                                                                                                                                                                                                                                                                                                              'kann '
+                                                                                                                                                                                                                                                                                                                              'sie '
+                                                                                                                                                                                                                                                                                                                              'umgehen '
+                                                                                                                                                                                                                                                                                                                              'und '
+                                                                                                                                                                                                                                                                                                                              'den '
+                                                                                                                                                                                                                                                                                                                              'PHP-Handler '
+                                                                                                                                                                                                                                                                                                                              'auswählen. '
+                                                                                                                                                                                                                                                                                                                              'Eine '
+                                                                                                                                                                                                                                                                                                                              'vorhandene '
+                                                                                                                                                                                                                                                                                                                              'Upload-PHP-Datei '
+                                                                                                                                                                                                                                                                                                                              'könnte '
+                                                                                                                                                                                                                                                                                                                              'ausgeführt '
+                                                                                                                                                                                                                                                                                                                              'werden; '
+                                                                                                                                                                                                                                                                                                                              'tatsächliche '
+                                                                                                                                                                                                                                                                                                                              'Erreichbarkeit '
+                                                                                                                                                                                                                                                                                                                              'ist '
+                                                                                                                                                                                                                                                                                                                              'nicht '
+                                                                                                                                                                                                                                                                                                                              'geprüft. '
+                                                                                                                                                                                                                                                                                                                              'Keine '
+                                                                                                                                                                                                                                                                                                                              'Upload-Datei '
+                                                                                                                                                                                                                                                                                                                              'oder '
+                                                                                                                                                                                                                                                                                                                              'HTTP-Probe '
+                                                                                                                                                                                                                                                                                                                              'wird '
+                                                                                                                                                                                                                                                                                                                              'erstellt.'}.items()})
+
+_EVIDENCE_GERMAN.update(ordered_php_rejection="geordnete PHP-Sperre", nested_php_rejection="verschachtelte PHP-Sperre", competing_location="konkurrierende Location", regex_line_break_gap="Regex-Lücke bei Zeilenumbrüchen", configuration_snapshot_incomplete="Konfigurationssnapshot unvollständig")

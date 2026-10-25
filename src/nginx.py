@@ -96,11 +96,16 @@ def parse_nginx(text, source="<config>"):
     return block()
 
 
+class NginxTree(list):
+    """Expanded nodes with an optional stable, complete configuration identity."""
+
+
 def read_nginx(config, partial=False):
     """Read configs, never execute nginx or load modules during discovery."""
     import glob
     config = Path(config)
     prefix, cache, budget = config.parent, {}, [0, 0]
+    fingerprints, aliases, expansions = {}, [], []
     def load(path, stack):
         path = Path(path)
         for component in [path, *path.parents]:
@@ -108,13 +113,22 @@ def read_nginx(config, partial=False):
             if st.st_uid != 0 or (not stat.S_ISLNK(st.st_mode) and st.st_mode & 0o022):
                 raise CheckError(f'Nginx configuration is not protected by root ownership: {component}')
         resolved = trusted(path.resolve(strict=True))
+        aliases.append((str(path), str(resolved)))
         if str(resolved) in stack:
             raise CheckError(f'Nginx: include cycle at {resolved}')
         if str(resolved) not in cache:
             if not resolved.is_file() or resolved.stat().st_size > 1024 * 1024:
                 raise CheckError('Nginx: configuration file too large or not a regular file')
             budget[0] += 1
-            text = resolved.read_text()
+            with resolved.open("rb") as stream:
+                before = os.fstat(stream.fileno())
+                raw = stream.read(1024 * 1024 + 1)
+                after = os.fstat(stream.fileno())
+            identity = lambda st: (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+            if len(raw) > 1024 * 1024 or identity(before) != identity(after):
+                raise CheckError("Nginx configuration changed while reading")
+            text = raw.decode("utf-8")
+            fingerprints[str(resolved)] = (identity(after), digest(raw))
             budget[1] += len(text)
             if budget[0] > 2048 or budget[1] > 8 * 1024 * 1024:
                 raise CheckError('Nginx: read limit reached')
@@ -135,6 +149,7 @@ def read_nginx(config, partial=False):
                 pattern = Path(node["args"][0])
                 pattern = str(pattern if pattern.is_absolute() else prefix / pattern)
                 paths = sorted(glob.glob(pattern))
+                expansions.append((pattern, paths))
                 if not paths and not glob.has_magic(pattern):
                     if not partial:
                         raise CheckError(f'Nginx include missing: {pattern}')
@@ -154,7 +169,27 @@ def read_nginx(config, partial=False):
             if len(result) > 100000:
                 raise CheckError('Nginx: expansion limit reached')
         return result
-    return load(config, [])
+    result = NginxTree(load(config, []))
+    pending, complete = list(result), True
+    while pending:
+        node = pending.pop()
+        complete &= node["name"] != "__p2s_unresolved_include__"
+        pending.extend(node["children"] or [])
+    try:
+        identity = lambda st: (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+        complete &= all(identity(Path(path).stat()) == metadata for path, (metadata, fingerprint) in fingerprints.items())
+        complete &= all(str(Path(path).resolve(strict=True)) == resolved for path, resolved in aliases)
+        complete &= all(sorted(glob.glob(pattern)) == paths for pattern, paths in expansions)
+    except OSError:
+        complete = False
+    if complete:
+        # Raw hashes include comments; expanded nodes and glob results bind order,
+        # empty globs, source paths, lines and the complete include closure.
+        content = dict(main=str(config.absolute()), files=sorted((path, value[1]) for path, value in fingerprints.items()),
+                       expansions=expansions, nodes=result)
+        result.snapshot_sha256 = digest(json.dumps(content, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("ascii"))
+    result.snapshot_complete = bool(complete)
+    return result
 
 
 def nginx_inventory(tree):

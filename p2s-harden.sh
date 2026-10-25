@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.3.0-dev.6 — self-contained; engine is embedded below.
+# p2s-harden 2.3.0-dev.7 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.3.0-dev.6 — one file, automatic discovery
+p2s-harden 2.3.0-dev.7 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -45,6 +45,8 @@ Options (override automatically discovered values):
   --root /path                 Limit the filesystem audit scope
   --site URL=DOCUMENT_ROOT     Explicit virtual host; repeatable
   --nginx-config /path         Custom Nginx main configuration
+  --nginx-baseline FILE        Reviewed UNKNOWN exceptions; --check only
+  --write-nginx-review-draft FILE  Private unreviewed draft; --check only
   --web-user USER              Additional FPM user
   --no-auto                   Use explicit mappings only
   --max-sites 32              Limit automatic HTTP mappings
@@ -64,19 +66,19 @@ Options (override automatically discovered values):
   --scan-file-bytes N          PHP parsing byte limit; larger files streamed (2097152)
   --scan-total-bytes N         Webshell scan: bytes per root (268435456)
   --yes, -y                   Approve the fix without an interactive prompt
-  --fail-on complete|open|review     Exit precedence; UNKNOWN never passes
+  --fail-on complete|open|review     Exit precedence; unacknowledged UNKNOWN never passes
   --ignore ID                 Keep a finding visible but suppress its OPEN/review exit
   --verbose                   Include all findings, including OK
   --no-progress               Hide interactive progress messages
 
 Discovery never infers permission-change targets.
 --check/--discover/--dry-run do not modify configuration or reload services.
-Exit 0: selected checks passed; 1: open findings (or review with --fail-on review); 2: unknown/error.
+Exit 0: no active blockers (reviewed UNKNOWN may remain); 1: open findings (or review with --fail-on review); 2: unknown/error.
 HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.3.0-dev.6 — eine Datei, automatische Erkennung
+p2s-harden 2.3.0-dev.7 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -96,6 +98,8 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --root /pfad                 Dateisystem-Prüfbereich einschränken
   --site URL=DOKUMENTWURZEL     Expliziter vHost, wiederholbar
   --nginx-config /pfad          Abweichende Nginx-Hauptkonfiguration
+  --nginx-baseline DATEI       Reviewte UNKNOWN-Ausnahmen; nur --check
+  --write-nginx-review-draft DATEI  Privater ungeprüfter Entwurf; nur --check
   --web-user BENUTZER           Zusätzlicher FPM-Benutzer
   --no-auto                    Nur explizite Zuordnungen verwenden
   --max-sites 32               Limit automatischer HTTP-Zuordnungen
@@ -115,14 +119,14 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --scan-file-bytes N           PHP-Parserlimit; größere Dateien gestreamt (2097152)
   --scan-total-bytes N          Webshell-Suche: Bytes je Wurzel (268435456)
   --yes, -y                    Fix ohne interaktive Rückfrage freigeben
-  --fail-on complete|open|review      Exit-Vorrang; UNKNOWN besteht niemals
+  --fail-on complete|open|review      Exit-Vorrang; nicht akzeptiertes UNKNOWN besteht niemals
   --ignore ID                  Befund sichtbar lassen, seine OPEN-/Review-Exitwirkung ausnehmen
   --verbose                    Alle Einzelbefunde einschließlich OK anzeigen
   --no-progress                Phasenhinweise im interaktiven Terminal ausblenden
 
 Erkennung leitet keine automatischen Rechteänderungen ab.
 --check/--discover/--dry-run schreiben keine Zielkonfiguration und laden nichts neu.
-Exit 0: ausgewiesene Einzelprüfungen bestanden; 1: offen (oder Review mit --fail-on review); 2: unbekannt/Fehler.
+Exit 0: keine aktiven Blocker (reviewtes UNKNOWN kann bleiben); 1: offen (oder Review mit --fail-on review); 2: unbekannt/Fehler.
 HELP
 }
 
@@ -142,7 +146,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.3.0-dev.6'; exit 0 ;;
+    --version) echo 'p2s-harden 2.3.0-dev.7'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -199,7 +203,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.3.0-dev.7","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -228,7 +232,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.7","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -247,7 +251,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.7","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi
@@ -293,7 +297,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.3.0-dev.6"
+VERSION = "2.3.0-dev.7"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -953,11 +957,16 @@ def parse_nginx(text, source="<config>"):
     return block()
 
 
+class NginxTree(list):
+    """Expanded nodes with an optional stable, complete configuration identity."""
+
+
 def read_nginx(config, partial=False):
     """Read configs, never execute nginx or load modules during discovery."""
     import glob
     config = Path(config)
     prefix, cache, budget = config.parent, {}, [0, 0]
+    fingerprints, aliases, expansions = {}, [], []
     def load(path, stack):
         path = Path(path)
         for component in [path, *path.parents]:
@@ -965,13 +974,22 @@ def read_nginx(config, partial=False):
             if st.st_uid != 0 or (not stat.S_ISLNK(st.st_mode) and st.st_mode & 0o022):
                 raise CheckError(f'Nginx configuration is not protected by root ownership: {component}')
         resolved = trusted(path.resolve(strict=True))
+        aliases.append((str(path), str(resolved)))
         if str(resolved) in stack:
             raise CheckError(f'Nginx: include cycle at {resolved}')
         if str(resolved) not in cache:
             if not resolved.is_file() or resolved.stat().st_size > 1024 * 1024:
                 raise CheckError('Nginx: configuration file too large or not a regular file')
             budget[0] += 1
-            text = resolved.read_text()
+            with resolved.open("rb") as stream:
+                before = os.fstat(stream.fileno())
+                raw = stream.read(1024 * 1024 + 1)
+                after = os.fstat(stream.fileno())
+            identity = lambda st: (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+            if len(raw) > 1024 * 1024 or identity(before) != identity(after):
+                raise CheckError("Nginx configuration changed while reading")
+            text = raw.decode("utf-8")
+            fingerprints[str(resolved)] = (identity(after), digest(raw))
             budget[1] += len(text)
             if budget[0] > 2048 or budget[1] > 8 * 1024 * 1024:
                 raise CheckError('Nginx: read limit reached')
@@ -992,6 +1010,7 @@ def read_nginx(config, partial=False):
                 pattern = Path(node["args"][0])
                 pattern = str(pattern if pattern.is_absolute() else prefix / pattern)
                 paths = sorted(glob.glob(pattern))
+                expansions.append((pattern, paths))
                 if not paths and not glob.has_magic(pattern):
                     if not partial:
                         raise CheckError(f'Nginx include missing: {pattern}')
@@ -1011,7 +1030,27 @@ def read_nginx(config, partial=False):
             if len(result) > 100000:
                 raise CheckError('Nginx: expansion limit reached')
         return result
-    return load(config, [])
+    result = NginxTree(load(config, []))
+    pending, complete = list(result), True
+    while pending:
+        node = pending.pop()
+        complete &= node["name"] != "__p2s_unresolved_include__"
+        pending.extend(node["children"] or [])
+    try:
+        identity = lambda st: (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+        complete &= all(identity(Path(path).stat()) == metadata for path, (metadata, fingerprint) in fingerprints.items())
+        complete &= all(str(Path(path).resolve(strict=True)) == resolved for path, resolved in aliases)
+        complete &= all(sorted(glob.glob(pattern)) == paths for pattern, paths in expansions)
+    except OSError:
+        complete = False
+    if complete:
+        # Raw hashes include comments; expanded nodes and glob results bind order,
+        # empty globs, source paths, lines and the complete include closure.
+        content = dict(main=str(config.absolute()), files=sorted((path, value[1]) for path, value in fingerprints.items()),
+                       expansions=expansions, nodes=result)
+        result.snapshot_sha256 = digest(json.dumps(content, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("ascii"))
+    result.snapshot_complete = bool(complete)
+    return result
 
 
 def nginx_inventory(tree):
@@ -1940,7 +1979,7 @@ _NEW_GERMAN = {
     "Protected transaction directory (default /root/p2s-harden-backup-v2)": "Geschütztes Transaktionsverzeichnis (Standard /root/p2s-harden-backup-v2)",
     "Choose one transaction explicitly for rollback": "Eine bestimmte Transaktion für Rollback auswählen",
     "Approve the displayed fix plan without an interactive prompt": "Angezeigten Fix-Plan ohne interaktive Rückfrage freigeben",
-    "Exit precedence: complete (UNKNOWN first) or open (OPEN first); unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst) oder open (OPEN zuerst); unbekannte Ergebnisse bestehen nie",
+    "Exit precedence: complete (UNKNOWN first) or open (OPEN first); unacknowledged unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst) oder open (OPEN zuerst); nicht akzeptierte unbekannte Ergebnisse bestehen nie",
     "Suppress one finding/rule's OPEN exit impact; keep it visible; repeatable": "OPEN-Exitwirkung eines Befunds/einer Regel ausnehmen; Befund bleibt sichtbar; wiederholbar",
     "Structured findings, stable IDs, remediation, preview and transaction state": "Strukturierte Befunde, stabile IDs, Behebung, Vorschau und Transaktionsstatus",
     "Maximum entries per filesystem walk (default 250000)": "Höchstens 250000 Einträge je Dateisystem-Suchlauf (Standard)",
@@ -2118,7 +2157,7 @@ _NEW_GERMAN.update({
     "Skip lowering CPU/I/O priority for the webshell scan": "CPU-/I/O-Priorität für Webshell-Suche nicht absenken",
     "--no-nice supports --scan-webshells only": "--no-nice unterstützt nur --scan-webshells",
     "PHP parsing byte limit per file; opener search streams larger files (default 2097152)": "PHP-Parserlimit je Datei; größere Dateien werden nach Tags durchsucht (Standard 2097152)",
-    "Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst), open (OPEN zuerst), review (OPEN oder Code-Review zuerst); unbekannte Ergebnisse bestehen nie",
+    "Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unacknowledged unknowns never pass": "Exit-Vorrang: complete (UNKNOWN zuerst), open (OPEN zuerst), review (OPEN oder Code-Review zuerst); nicht akzeptierte unbekannte Ergebnisse bestehen nie",
     "Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable": "OPEN- oder Review-Exitwirkung eines Befunds/einer Regel ausnehmen; bleibt sichtbar; wiederholbar",
     "Another fix or rollback is using this backup root; wait for it to finish and rerun": "Ein anderer Fix oder Rollback verwendet dieses Backup-Verzeichnis; Abschluss abwarten und erneut ausführen",
     "Backup directory must have mode 0700 and be owned by root": "Backup-Verzeichnis muss root gehören und Modus 0700 haben",
@@ -2196,6 +2235,104 @@ def localized_discovery(discovery, lang="en"):
     # account or socket literally named "unbekannt".
     return result
 
+_MESSAGES.update({en: (en, de) for en, de in {'Nginx review': 'Nginx-Review',
+ 'Review entries': 'Review-Einträge',
+ 'Reviewed Nginx UNKNOWN exceptions bound to the complete configuration; --check only': 'Reviewte '
+                                                                                        'Nginx-UNKNOWN-Ausnahmen '
+                                                                                        'mit Bindung an die '
+                                                                                        'komplette '
+                                                                                        'Konfiguration; nur '
+                                                                                        '--check',
+ 'Create a private unreviewed Nginx UNKNOWN draft; --check only': 'Privaten ungeprüften '
+                                                                  'Nginx-UNKNOWN-Entwurf erstellen; nur '
+                                                                  '--check',
+ 'Nginx review options support --check only': 'Nginx-Review-Optionen unterstützen nur --check',
+ 'Nginx review drafts contain configuration identities; use locally without --redact': 'Nginx-Review-Entwürfe '
+                                                                                       'enthalten '
+                                                                                       'Konfigurationskennungen; '
+                                                                                       'lokal ohne --redact '
+                                                                                       'verwenden',
+ 'Nginx review file is unreviewed, invalid, unsafe or unreadable; no exceptions accepted.': 'Nginx-Review-Datei '
+                                                                                            'ist ungeprüft, '
+                                                                                            'ungültig, '
+                                                                                            'unsicher oder '
+                                                                                            'nicht lesbar; '
+                                                                                            'keine Ausnahme '
+                                                                                            'akzeptiert.',
+ 'Private unreviewed Nginx draft written; no existing file is overwritten and no exception is accepted automatically.': 'Privaten '
+                                                                                                                        'ungeprüften '
+                                                                                                                        'Nginx-Entwurf '
+                                                                                                                        'geschrieben; '
+                                                                                                                        'keine '
+                                                                                                                        'vorhandene '
+                                                                                                                        'Datei '
+                                                                                                                        'überschrieben '
+                                                                                                                        'und '
+                                                                                                                        'keine '
+                                                                                                                        'Ausnahme '
+                                                                                                                        'automatisch '
+                                                                                                                        'akzeptiert.',
+ 'Nginx review draft could not be written safely; the audit results are retained.': 'Nginx-Review-Entwurf '
+                                                                                    'konnte nicht sicher '
+                                                                                    'geschrieben werden; die '
+                                                                                    'Prüfergebnisse bleiben '
+                                                                                    'erhalten.',
+ 'Review the complete Nginx include closure and real routes before accepting a draft. An acknowledgement retains UNKNOWN and never proves blocking. Changed configuration invalidates it.': 'Vor '
+                                                                                                                                                                                            'Freigabe '
+                                                                                                                                                                                            'sämtliche '
+                                                                                                                                                                                            'Nginx-Includes '
+                                                                                                                                                                                            'und '
+                                                                                                                                                                                            'tatsächliche '
+                                                                                                                                                                                            'Routen '
+                                                                                                                                                                                            'prüfen. '
+                                                                                                                                                                                            'Akzeptanz '
+                                                                                                                                                                                            'behält '
+                                                                                                                                                                                            'UNKNOWN '
+                                                                                                                                                                                            'bei '
+                                                                                                                                                                                            'und '
+                                                                                                                                                                                            'belegt '
+                                                                                                                                                                                            'keine '
+                                                                                                                                                                                            'Sperre. '
+                                                                                                                                                                                            'Konfigurationsänderungen '
+                                                                                                                                                                                            'machen '
+                                                                                                                                                                                            'sie '
+                                                                                                                                                                                            'ungültig.',
+ 'The upload denial uses .* without DOTALL; a URL-decoded line break can bypass it and select the PHP handler. An upload PHP URI has a FastCGI script mapping in the parsed configuration. An existing uploaded PHP file may execute; live application reachability is not tested. No upload file or HTTP probe is created.': 'Die '
+                                                                                                                                                                                                                                                                                                                              'Upload-Sperre '
+                                                                                                                                                                                                                                                                                                                              'nutzt '
+                                                                                                                                                                                                                                                                                                                              '.* '
+                                                                                                                                                                                                                                                                                                                              'ohne '
+                                                                                                                                                                                                                                                                                                                              'DOTALL; '
+                                                                                                                                                                                                                                                                                                                              'ein '
+                                                                                                                                                                                                                                                                                                                              'URL-dekodierter '
+                                                                                                                                                                                                                                                                                                                              'Zeilenumbruch '
+                                                                                                                                                                                                                                                                                                                              'kann '
+                                                                                                                                                                                                                                                                                                                              'sie '
+                                                                                                                                                                                                                                                                                                                              'umgehen '
+                                                                                                                                                                                                                                                                                                                              'und '
+                                                                                                                                                                                                                                                                                                                              'den '
+                                                                                                                                                                                                                                                                                                                              'PHP-Handler '
+                                                                                                                                                                                                                                                                                                                              'auswählen. '
+                                                                                                                                                                                                                                                                                                                              'Eine '
+                                                                                                                                                                                                                                                                                                                              'vorhandene '
+                                                                                                                                                                                                                                                                                                                              'Upload-PHP-Datei '
+                                                                                                                                                                                                                                                                                                                              'könnte '
+                                                                                                                                                                                                                                                                                                                              'ausgeführt '
+                                                                                                                                                                                                                                                                                                                              'werden; '
+                                                                                                                                                                                                                                                                                                                              'tatsächliche '
+                                                                                                                                                                                                                                                                                                                              'Erreichbarkeit '
+                                                                                                                                                                                                                                                                                                                              'ist '
+                                                                                                                                                                                                                                                                                                                              'nicht '
+                                                                                                                                                                                                                                                                                                                              'geprüft. '
+                                                                                                                                                                                                                                                                                                                              'Keine '
+                                                                                                                                                                                                                                                                                                                              'Upload-Datei '
+                                                                                                                                                                                                                                                                                                                              'oder '
+                                                                                                                                                                                                                                                                                                                              'HTTP-Probe '
+                                                                                                                                                                                                                                                                                                                              'wird '
+                                                                                                                                                                                                                                                                                                                              'erstellt.'}.items()})
+
+_EVIDENCE_GERMAN.update(ordered_php_rejection="geordnete PHP-Sperre", nested_php_rejection="verschachtelte PHP-Sperre", competing_location="konkurrierende Location", regex_line_break_gap="Regex-Lücke bei Zeilenumbrüchen", configuration_snapshot_incomplete="Konfigurationssnapshot unvollständig")
+
 
 # Source: src/report_paths.py
 """Interoperable Unicode display with lossless Linux filesystem byte metadata."""
@@ -2263,6 +2400,7 @@ RULES = {
     "PHP004": ("high", "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application."),
     "PHP005": ("info", "disable_functions is defense in depth, not isolation. Review mail/helper commands, environment and file access, FFI policy and OS confinement against application requirements. Policy does not prove function availability or exploitability. No extra functions are disabled automatically."),
     "NGX001": ("high", "Keep untrusted uploads outside executable code paths. Review an explicit Nginx rejection for upload PHP and all aliases/locations, validate with nginx -t and test the real virtual hosts. This tool changes no Nginx configuration and creates no upload probes."),
+    "NGX002": ("info", "Review the complete Nginx include closure and real routes before accepting a draft. An acknowledgement retains UNKNOWN and never proves blocking. Changed configuration invalidates it."),
     "FPM001": ("high", "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication."),
     "FPM002": ("high", "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart."),
     "FPM003": ("medium", "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well."),
@@ -2311,8 +2449,9 @@ def safe_evidence(rule_id, evidence):
                        sendmail_path=choices("empty", "configured", "unknown"), policy_only=boolean, affected_pool_count=count),
         "NGX001": dict(outcome=choices("not_assessed", "limit", "static_directory_rejection", "php_fastcgi_mapping", "unmapped",
                         "redirect_or_conditional", "nested_location", "unsupported_location", "dynamic_path", "duplicate_location",
-                        "unsupported_regex", "no_proven_handler", "location_filesystem_mapping", "unsupported_directive"),
+                        "unsupported_regex", "no_proven_handler", "location_filesystem_mapping", "unsupported_directive", "ordered_php_rejection", "nested_php_rejection", "competing_location", "regex_line_break_gap", "configuration_snapshot_incomplete"),
                        declared=boolean, candidate_count=count, configuration_only=boolean),
+        "NGX002": dict(review_entries=count),
         "SYS002": dict(assessment=choices("not_assessed", "manager_policy", "unavailable"),
                        no_new_privileges=choices("yes", "no"), protect_system=choices("no", "yes", "full", "strict"),
                        private_tmp=choices("no", "yes", "disconnected"), worker_attestation=boolean),
@@ -2345,7 +2484,7 @@ def safe_evidence(rule_id, evidence):
 
 
 RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes", "PHP003": "Filesystem restriction",
-              "PHP004": "PHP FFI", "PHP005": "Residual PHP capabilities", "NGX001": "Nginx upload execution", "SYS002": "FPM systemd hardening", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
+              "PHP004": "PHP FFI", "PHP005": "Residual PHP capabilities", "NGX001": "Nginx upload execution", "NGX002": "Nginx review", "SYS002": "FPM systemd hardening", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
@@ -2357,6 +2496,7 @@ def evidence_summary(rule_id, evidence, lang="en"):
     facts = safe_evidence(rule_id, evidence)
     say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {
         "non_loopback":"outside loopback", "acl":"ACL", "not_assessed":"not assessed", "manager_policy":"manager policy",
+        "ordered_php_rejection":"ordered PHP rejection", "nested_php_rejection":"nested PHP rejection", "competing_location":"competing location", "regex_line_break_gap":"regex permits a line-break bypass",
         "static_directory_rejection":"static URI prefix rejected", "php_fastcgi_mapping":"PHP FastCGI mapping",
         "redirect_or_conditional":"redirect or conditional", "nested_location":"nested location", "unsupported_location":"unsupported location",
         "dynamic_path":"dynamic path", "duplicate_location":"duplicate location", "unsupported_regex":"unsupported regex",
@@ -2375,7 +2515,7 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files",
                   not_disabled_functions="Not disabled by policy", enable_dl="enable_dl", sendmail_path="Mail helper command",
                   policy_only="Policy only", outcome="Assessment", candidate_count="Storage candidates", declared="Declared storage",
-                  assessment="Assessment", no_new_privileges="NoNewPrivileges", protect_system="ProtectSystem", private_tmp="PrivateTmp", worker_attestation="Worker attestation", configuration_only="Configuration only")
+                  assessment="Assessment", no_new_privileges="NoNewPrivileges", protect_system="ProtectSystem", private_tmp="PrivateTmp", worker_attestation="Worker attestation", configuration_only="Configuration only", review_entries="Review entries")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -2432,9 +2572,12 @@ class Report:
         policy = getattr(self, "fail_on", "complete")
         if policy in ("open", "review") and (self.has("OPEN") or policy == "review" and self.has_review()):
             return 1
-        if self.has("UNKNOWN"):
+        if self.has_unaccepted_unknown():
             return 2
         return int(self.has("OPEN"))
+
+    def has_unaccepted_unknown(self):
+        return any(row["status"] == "UNKNOWN" and not (row["rule_id"] == "P2S-NGX001" and row.get("review_accepted") is True) for row in self.rows)
 
     def show(self, as_json=False, verbose=False, lang="en", redact=False):
         configure_output(as_json)
@@ -2461,13 +2604,16 @@ class Report:
                             detail=detail,
                             severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
                             evidence=evidence, suppressed=row["suppressed"],
-                            **({"baseline_accepted":row["baseline_accepted"] is True} if "baseline_accepted" in row else {}))
+                            **({"baseline_accepted":row["baseline_accepted"] is True} if "baseline_accepted" in row else {}),
+                            **({"review_accepted":True} if row.get("review_accepted") is True else {}))
             rows = [project(index, row) for index, row in enumerate(self.rows)]
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
             print(json.dumps(json_paths(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
+                                  has_unaccepted_unknown=self.has_unaccepted_unknown(),
+                                  accepted_unknown=sum(row.get("review_accepted") is True for row in rows),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
                                   suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
                                   has_review=self.has_review(),
@@ -2523,7 +2669,7 @@ class Report:
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN") or row["rule_id"] == "P2S-WS004":
-                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
+                marker = " [reviewed UNKNOWN]" if row.get("review_accepted") else " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
                 emit("        " + row["id"] + marker)
                 if row.get("affected_pools"):
                     count = len(row["affected_pools"])
@@ -2538,6 +2684,10 @@ class Report:
         accepted = sum(r.get("baseline_accepted") is True for r in self.rows)
         if accepted:
             emit(localize("Baseline accepted: {count} unchanged indicator rows; --verbose or --json retains them", lang).format(count=accepted))
+        acknowledged = sum(row.get("review_accepted") is True for row in rows)
+        if acknowledged:
+            emit(("Reviewte UNKNOWN-Befunde: " if lang == "de" else "Acknowledged UNKNOWN findings: ") + str(acknowledged) +
+                 ("; keine nachgewiesene Sperre." if lang == "de" else "; blocking remains unproven."))
         emit("Nur die ausgewiesenen Host-Pfade/Instanzen wurden geprüft; keine Sicherheitszertifizierung." if lang == "de" else
              "Only the reported host paths and instances were checked; this is not a security certification.")
         if self.discovery.get("assessment"):
@@ -2752,37 +2902,103 @@ def fpm_service_posture(report, instance, cap):
 
 
 # Source: src/nginx_uploads.py
-"""Conservative upload-route checks. Never evaluate arbitrary PCRE or write probes."""
+"""Conservative upload-route checks. No arbitrary PCRE evaluation or probes."""
 
 
 def nginx_directives(nodes, name):
     return [node["args"] for node in nodes if node["name"] == name and node["children"] is None]
 
 
+def nginx_php_pattern(pattern, insensitive=False):
+    """Parse a finite grammar, never compile configuration text as a regex.
+
+    Prefixes are literal ASCII path segments with at most one literal choice
+    per segment (64 expanded paths total). Only PHP-family suffixes are known.
+    """
+    if len(pattern) > 2048:
+        return None
+    dot_all = pattern.startswith("(?s)")
+    if dot_all:
+        pattern = pattern[4:]
+    suffix = next((end for end in ("$", "(/|$)", "(?:/|$)") if pattern.endswith(end)), None)
+    if suffix is None:
+        return None
+    stem = pattern[:-len(suffix)]
+    if r"\." not in stem:
+        return None
+    head, extensions = stem.rsplit(r"\.", 1)
+    if extensions.startswith("(?:") and extensions.endswith(")"):
+        extensions = extensions[3:-1]
+    elif extensions.startswith("(") and extensions.endswith(")"):
+        extensions = extensions[1:-1]
+    extensions = extensions.split("|")
+    if not extensions or any(value not in ("php", "phtml", "phar") for value in extensions):
+        return None
+    if head == "":
+        prefixes = [""]
+        dot_all = True  # Unanchored suffixes do not exclude earlier line breaks.
+    elif head.startswith("^/") and head.endswith("/.*"):
+        prefixes = ["/"]
+        for segment in head[2:-3].split("/"):
+            if segment.startswith("(?:") and segment.endswith(")"):
+                values = segment[3:-1].split("|")
+            elif segment.startswith("(") and segment.endswith(")"):
+                values = segment[1:-1].split("|")
+            else:
+                values = [segment]
+            if not values or any(re.fullmatch(r"[A-Za-z0-9_-]+", value) is None for value in values):
+                return None
+            if len(prefixes) * len(values) > 64:
+                return None
+            prefixes = [prefix + value + "/" for prefix in prefixes for value in values]
+    else:
+        return None
+    return dict(prefixes=prefixes, extensions=set(extensions), insensitive=insensitive, path_info=suffix != "$", dot_all=dot_all)
+
+
+def nginx_rejection(body):
+    """An unconditional leaf: no access bypasses, redirects or content modules."""
+    allowed = {"deny", "return", "access_log", "log_not_found", "add_header", "expires"}
+    if any(node["children"] is not None or node["name"] not in allowed for node in body):
+        return False
+    returns, denies = nginx_directives(body, "return"), nginx_directives(body, "deny")
+    if returns:
+        return len(returns) == 1 and len(returns[0]) == 1 and returns[0][0] in ("403", "404", "410", "444")
+    return denies == [["all"]]
+
+
+def nginx_fastcgi_mapping(body):
+    allowed = {"try_files", "set", "access_log", "error_log", "log_not_found", "expires", "add_header", "default_type"}
+    if any(node["children"] is not None or (node["name"] not in allowed and not node["name"].startswith(("fastcgi_", "client_"))) for node in body):
+        return False
+    if (any(args not in (["$uri", "=404"], ["$fastcgi_script_name", "=404"]) for args in nginx_directives(body, "try_files")) or
+            any(args != ["$path_info", "$fastcgi_path_info"] for args in nginx_directives(body, "set")) or
+            any(args not in ([r"^(.+?\.php)(/.*)$"], [r"^(.+\.php)(/.*)$"], [r"^(.+\.php)(/.+)$"]) for args in nginx_directives(body, "fastcgi_split_path_info"))):
+        return False
+    passes = nginx_directives(body, "fastcgi_pass")
+    scripts = [args[1:] for args in nginx_directives(body, "fastcgi_param") if args[:1] == ["SCRIPT_FILENAME"]]
+    return (len(passes) == 1 and len(passes[0]) == 1 and "$" not in passes[0][0] and len(scripts) == 1 and
+            scripts[0] in (["$document_root$fastcgi_script_name"], ["$realpath_root$fastcgi_script_name"]))
+
+
 def nginx_upload_route(http, server, uri):
-    """One static URI witness; only an unambiguous leaf guard can prove a block."""
+    """Prove rejection over a bounded URI language, not one lucky filename."""
     nodes = server["children"]
-    uncertain = {"if", "rewrite", "error_page", "__p2s_unresolved_include__"}
-    def complex_nodes(body):
-        return any(n["name"] in uncertain for n in body)
-    if any(char in uri for char in ("?", "#", "%", "$")):
+    if any(char in uri for char in ("?", "#", "%", "$")) or not uri.isascii() or not uri.isprintable():
         return "UNKNOWN", "dynamic_path"
-    if complex_nodes(http["children"]) or complex_nodes(nodes):
+    uncertain = {"if", "rewrite", "error_page", "__p2s_unresolved_include__"}
+    if any(node["name"] in uncertain for node in http["children"] + nodes):
         return "UNKNOWN", "redirect_or_conditional"
+    if any(args != ["on"] for body in (http["children"], nodes) for args in nginx_directives(body, "merge_slashes")):
+        return "UNKNOWN", "unsupported_directive"
     parent_names = {"server", "location", "root", "index", "listen", "server_name", "access_log", "error_log", "log_format",
                     "types", "default_type", "charset", "autoindex", "expires", "add_header", "log_not_found", "merge_slashes",
                     "map", "upstream", "geo", "sendfile", "tcp_nopush", "tcp_nodelay", "keepalive_timeout", "keepalive_requests",
                     "server_tokens", "server_names_hash_bucket_size", "server_names_hash_max_size", "types_hash_max_size"}
-    if any(n["name"] not in parent_names and not n["name"].startswith(("ssl_", "gzip", "client_"))
-           for n in http["children"] + nodes):
+    if any(node["name"] not in parent_names and not node["name"].startswith(("ssl_", "gzip", "client_")) for node in http["children"] + nodes):
         return "UNKNOWN", "unsupported_directive"
-    locations = [node for node in nodes if node["name"] == "location" and node["children"] is not None]
-    if any(any(child["name"] == "location" for child in node["children"]) for node in locations):
-        return "UNKNOWN", "nested_location"
-    if any(nginx_directives(node["children"], "alias") for node in locations):
-        return "UNKNOWN", "location_filesystem_mapping"
     prefix, regex = [], []
-    for node in locations:
+    for node in (n for n in nodes if n["name"] == "location" and n["children"] is not None):
         args = node["args"]
         if len(args) == 1 and args[0].startswith("/"):
             modifier, path = "", args[0]
@@ -2790,59 +3006,80 @@ def nginx_upload_route(http, server, uri):
             modifier, path = args
         else:
             return "UNKNOWN", "unsupported_location"
+        if nginx_directives(node["children"], "alias"):
+            return "UNKNOWN", "location_filesystem_mapping"
         if modifier in ("~", "~*"):
-            regex.append((path, node))
+            regex.append((path, modifier, node))
         else:
-            if "$" in path or any(char in path for char in ("?", "#", "%")) or not path.startswith("/"):
+            if not path.startswith("/") or not path.isascii() or any(char in path for char in "$?#%"):
                 return "UNKNOWN", "dynamic_path"
             prefix.append((path, modifier, node))
     if len({(path, modifier == "=") for path, modifier, node in prefix}) != len(prefix):
         return "UNKNOWN", "duplicate_location"
-    # A whole-directory guard must dominate every URI, not just one probe name.
-    guards = [(path, node) for path, modifier, node in prefix if modifier == "^~" and uri.startswith(path)]
-    if guards:
-        path, guard = max(guards, key=lambda item: len(item[0]))
-        body = guard["children"]
-        returns = nginx_directives(body, "return")
-        descendants = [p for p, modifier, node in prefix if node is not guard and
-                       (p.startswith(uri) or modifier != "=" and uri.startswith(p) and len(p) > len(path))]
-        allowed = {"return", "root", "access_log", "log_not_found", "add_header", "expires"}
-        if (not descendants and not any(n["name"] not in allowed or n["children"] is not None for n in body) and
-                len(returns) == 1 and len(returns[0]) == 1 and returns[0][0] in ("403", "404", "410", "444")):
+    # Competing exact/descendant prefixes can bypass regex selection for a
+    # different filename. Never certify a directory using just one witness.
+    matches = [(path, modifier, node) for path, modifier, node in prefix if modifier != "=" and uri.startswith(path)]
+    selected = max(matches, key=lambda item: len(item[0])) if matches else None
+    competing = any(path.startswith(uri) and (selected is None or node is not selected[2]) for path, modifier, node in prefix)
+    nested = [(path, modifier, node) for path, modifier, node in prefix if any(child["name"] == "location" for child in node["children"])]
+    if nested and (len(nested) != 1 or selected != nested[0] or selected[1] != "^~"):
+        return "UNKNOWN", "nested_location"
+    if selected and selected[1] == "^~":
+        body = selected[2]["children"]
+        if not competing and nginx_rejection(body):
             return "OK", "static_directory_rejection"
-    witness = uri + "p2s-harden-probe.php"
-    exact = [node for path, modifier, node in prefix if modifier == "=" and path == witness]
-    matches = [(path, modifier, node) for path, modifier, node in prefix if modifier != "=" and witness.startswith(path)]
-    chosen = exact[0] if exact else max(matches, key=lambda item: len(item[0]))[2] if matches else None
-    selected_prefix = next((modifier for path, modifier, node in prefix if node is chosen), "")
-    if not exact and selected_prefix != "^~":
-        for pattern, node in regex:
-            if pattern in (r"/\.(env|git)", r"/\.ht", r"/\.htaccess", r"/\.") and "/." not in witness:
-                continue
-            if pattern in (r"\.php$", r"\.php(/|$)", r"\.php(?:/|$)"):
-                chosen = node
-                break
-            return "UNKNOWN", "unsupported_regex"
-    if chosen is None:
+        if nested and not competing:
+            static = [node for node in body if node["name"] != "location"]
+            if any(node["children"] is not None or node["name"] not in {"access_log", "log_not_found", "expires", "add_header", "try_files"} for node in static):
+                return "UNKNOWN", "unsupported_directive"
+            if any(args != ["$uri", "=404"] for args in nginx_directives(static, "try_files")):
+                return "UNKNOWN", "redirect_or_conditional"
+            guarded_php = False
+            for child in (node for node in body if node["name"] == "location"):
+                args = child["args"]
+                parsed = nginx_php_pattern(args[1], args[0] == "~*") if len(args) == 2 and args[0] in ("~", "~*") else None
+                if not parsed or parsed["prefixes"] != [""] or not nginx_rejection(child["children"]):
+                    return "UNKNOWN", "nested_location"
+                guarded_php |= "php" in parsed["extensions"]
+            if guarded_php:
+                return "OK", "nested_php_rejection"
         return "UNKNOWN", "no_proven_handler"
-    body = chosen["children"]
-    if complex_nodes(body) or any(n["children"] is not None for n in body):
-        return "UNKNOWN", "redirect_or_conditional"
-    body_names = {"return", "root", "alias", "try_files", "set", "access_log", "error_log", "log_not_found", "expires", "add_header", "default_type"}
-    if any(n["name"] not in body_names and not n["name"].startswith(("fastcgi_", "client_")) for n in body):
-        return "UNKNOWN", "unsupported_directive"
-    if (any(args not in (["$uri", "=404"], ["$fastcgi_script_name", "=404"]) for args in nginx_directives(body, "try_files")) or
-            any(args != ["$path_info", "$fastcgi_path_info"] for args in nginx_directives(body, "set")) or
-            any(args not in ([r"^(.+?\.php)(/.*)$"], [r"^(.+\.php)(/.*)$"], [r"^(.+\.php)(/.+)$"]) for args in nginx_directives(body, "fastcgi_split_path_info"))):
-        return "UNKNOWN", "redirect_or_conditional"
-    if nginx_directives(body, "alias") or nginx_directives(body, "root"):
-        return "UNKNOWN", "location_filesystem_mapping"
-    passes = nginx_directives(body, "fastcgi_pass")
-    scripts = [args[1:] for args in nginx_directives(body, "fastcgi_param") if args[:1] == ["SCRIPT_FILENAME"]]
-    if (len(passes) == 1 and len(passes[0]) == 1 and "$" not in passes[0][0] and len(scripts) == 1 and
-            scripts[0] in (["$document_root$fastcgi_script_name"], ["$realpath_root$fastcgi_script_name"]) and
-            not nginx_directives(body, "return")):
-        return "OPEN", "php_fastcgi_mapping"
+    if nested:
+        return "UNKNOWN", "nested_location"
+    guards, handlers = [], 0
+    def relevant(pattern):
+        return any(uri.lower().startswith(path.lower()) or path.lower().startswith(uri.lower()) if pattern["insensitive"] else
+                   uri.startswith(path) or path.startswith(uri) for path in pattern["prefixes"])
+    def covers(guard, handler, check_lines=True):
+        if not handler["extensions"].issubset(guard["extensions"]) or handler["insensitive"] and not guard["insensitive"] or handler["path_info"] and not guard["path_info"]:
+            return False
+        if check_lines and handler["dot_all"] and not guard["dot_all"]:
+            return False
+        # Only a guard that covers the complete selected directory can approve
+        # a handler. Narrow partial guards never turn uncovered paths green.
+        return any((uri.lower().startswith(path.lower()) if guard["insensitive"] else uri.startswith(path)) for path in guard["prefixes"])
+    for text, modifier, node in regex:
+        if text in (r"/\.(env|git)", r"/\.ht", r"/\.htaccess", r"/\.") and nginx_rejection(node["children"]):
+            continue
+        parsed = nginx_php_pattern(text, modifier == "~*")
+        if parsed is None:
+            return "UNKNOWN", "unsupported_regex"
+        if not relevant(parsed):
+            continue
+        if nginx_rejection(node["children"]):
+            guards.append(parsed)
+        elif nginx_fastcgi_mapping(node["children"]):
+            handlers += 1
+            if not any(covers(guard, parsed) for guard in guards):
+                return "OPEN", "regex_line_break_gap" if any(covers(guard, parsed, check_lines=False) for guard in guards) else "php_fastcgi_mapping"
+        else:
+            return "UNKNOWN", "no_proven_handler"
+    if handlers and guards:
+        if selected and any(node["children"] is not None or node["name"] not in
+                            {"access_log", "error_log", "log_not_found", "add_header", "expires", "try_files", "index", "default_type"}
+                            for node in selected[2]["children"]):
+            return "UNKNOWN", "unsupported_directive"
+        return ("UNKNOWN", "competing_location") if competing else ("OK", "ordered_php_rejection")
     return "UNKNOWN", "no_proven_handler"
 
 
@@ -2892,14 +3129,19 @@ def nginx_upload_security(report, args):
                 seen.add(key); mapped.add(target)
                 uri = "/" if target == root else "/" + str(Path(target).relative_to(root)).replace(os.sep, "/").rstrip("/") + "/"
                 status, outcome = nginx_upload_route(http, server, uri)
+                if not getattr(tree, "snapshot_complete", True):
+                    status, outcome = "UNKNOWN", "configuration_snapshot_incomplete"
                 if status == "OK" and alias_present:
                     status, outcome = "UNKNOWN", "location_filesystem_mapping"
                 details = {"OK": "A static rejection guards the selected upload URI prefix in this parsed server block; alternate application includes and live-worker/network enforcement are not attested.",
                            "OPEN": "An upload PHP URI has a FastCGI script mapping in the parsed configuration. An existing uploaded PHP file may execute; live application reachability is not tested.",
                            "UNKNOWN": "Upload execution could not be established from the supported static Nginx subset; inspect aliases, regex order, nested locations and internal redirects manually."}
-                report.add(status, "Nginx upload execution " + target, details[status] + " No upload file or HTTP probe is created.",
+                row = report.add(status, "Nginx upload execution " + target, (("The upload denial uses .* without DOTALL; a URL-decoded line break can bypass it and select the PHP handler. " if outcome == "regex_line_break_gap" else "") + details[status]) + " No upload file or HTTP probe is created.",
                            rule_id="P2S-NGX001", resource=dict(path=target, root=root, uri=uri, config=server["source"], line=server["line"], server_index=server_index),
                            evidence=dict(outcome=outcome, declared=target in requested, candidate_count=1, configuration_only=True))
+                snapshot = getattr(tree, "snapshot_sha256", None)
+                if status == "UNKNOWN" and outcome in NGINX_REVIEWABLE and snapshot:
+                    row["nginx_review"] = dict(finding_id=row["id"], snapshot_sha256=snapshot, outcome=outcome)
     for target in requested:
         if target not in mapped:
             report.add("UNKNOWN", "Nginx upload execution " + target, "Declared storage has no unambiguous static Nginx root mapping; inspect aliases and the intended virtual host manually.",
@@ -2907,6 +3149,56 @@ def nginx_upload_security(report, args):
     if not seen and not requested:
         report.add("INFO", "Nginx upload execution", "No upload storage identified; use --runtime-dir for actual writable storage. Directory names alone do not establish an application's upload paths.",
                    rule_id="P2S-NGX001", resource="upload_scope", evidence=dict(outcome="not_assessed", candidate_count=0))
+
+
+# Source: src/nginx_review.py
+"""Explicit acknowledgement of unresolved static routing, never an OK verdict."""
+
+NGINX_REVIEWABLE = frozenset(("redirect_or_conditional", "nested_location", "unsupported_location", "unsupported_regex",
+                            "no_proven_handler", "location_filesystem_mapping", "unsupported_directive", "competing_location"))
+
+
+def nginx_review_entries(data):
+    if (type(data) is not dict or data.get("schema_version") != 1 or data.get("kind") != "nginx-upload-review" or
+            data.get("requires_review") is not True or type(data.get("entries")) is not list or len(data["entries"]) > 128):
+        raise CheckError("Nginx review requires an explicit schema 1 nginx-upload-review draft")
+    result = set()
+    for entry in data["entries"]:
+        if (type(entry) is not dict or set(entry) != {"finding_id", "snapshot_sha256", "outcome", "reviewed", "reason"} or
+                entry.get("reviewed") is not True or type(entry.get("reason")) is not str or not entry["reason"].strip() or len(entry["reason"]) > 1024 or
+                type(entry.get("finding_id")) is not str or re.fullmatch(r"P2S-NGX001-[a-f0-9]{16}", entry["finding_id"]) is None or
+                type(entry.get("snapshot_sha256")) is not str or re.fullmatch(r"[a-f0-9]{64}", entry["snapshot_sha256"]) is None or
+                type(entry.get("outcome")) is not str or entry["outcome"] not in NGINX_REVIEWABLE):
+            raise CheckError("Nginx review entries require reviewed=true, a reason and an unchanged complete configuration identity")
+        key = (entry["finding_id"], entry["snapshot_sha256"], entry["outcome"])
+        if key in result:
+            raise CheckError("Duplicate Nginx review entry")
+        result.add(key)
+    return result
+
+
+def nginx_review_report(report, args):
+    if getattr(args, "nginx_baseline", None):
+        try:
+            entries = read_webshell_baseline(args.nginx_baseline, nginx_review_entries)
+            for row in report.rows:
+                token = row.get("nginx_review")
+                if token and (token["finding_id"], token["snapshot_sha256"], token["outcome"]) in entries:
+                    row["review_accepted"] = True
+        except (OSError, UnicodeError, ValueError, CheckError):
+            report.add("UNKNOWN", "Nginx review", "Nginx review file is unreviewed, invalid, unsafe or unreadable; no exceptions accepted.",
+                       rule_id="P2S-NGX002", resource="nginx_review")
+    if getattr(args, "write_nginx_review_draft", None):
+        entries = [dict(row["nginx_review"], reviewed=False, reason="") for row in report.rows if row.get("nginx_review")]
+        draft = dict(schema_version=1, kind="nginx-upload-review", requires_review=True, entries=entries,
+                     instructions="Review all virtual hosts, aliases, redirects and the complete include closure. Test the real routes. Add a reason and set reviewed=true only for entries you accept. UNKNOWN stays visible; this is not a blocking or safety proof.")
+        try:
+            path = write_private_json(args.write_nginx_review_draft, draft)
+            report.add("INFO", "Nginx review", "Private unreviewed Nginx draft written; no existing file is overwritten and no exception is accepted automatically.",
+                       rule_id="P2S-NGX002", resource=dict(path=path), evidence=dict(review_entries=len(entries)))
+        except (OSError, ValueError, CheckError):
+            report.add("UNKNOWN", "Nginx review", "Nginx review draft could not be written safely; the audit results are retained.",
+                       rule_id="P2S-NGX002", resource="nginx_review")
 
 
 # Source: src/webshells.py
@@ -3357,7 +3649,7 @@ def webshell_baseline_entries(data):
     return result
 
 
-def read_webshell_baseline(name):
+def read_webshell_baseline(name, validator=None):
     """Do not let an application-writable baseline approve attacker changes."""
     path = Path(os.path.abspath(name))
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
@@ -3387,7 +3679,7 @@ def read_webshell_baseline(name):
         after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
             raise CheckError("Baseline changed while reading")
-        return webshell_baseline_entries(json.loads(b"".join(chunks).decode("utf-8")))
+        return (validator or webshell_baseline_entries)(json.loads(b"".join(chunks).decode("utf-8")))
     finally:
         os.close(fd)
 
@@ -3757,6 +4049,12 @@ def webshell_baseline_draft(report):
 def write_baseline_draft(name, report):
     """Create mode 0600 exclusively through pinned, non-symlink directories."""
     draft = webshell_baseline_draft(report)
+    path = write_private_json(name, draft)
+    return dict(path=path, indicator_files=len(draft["files"]), coverage_files=len(draft["reviewed_files"]))
+
+
+def write_private_json(name, draft):
+    """Exclusive private JSON output, shared by explicitly unreviewed drafts."""
     data = (json.dumps(draft, ensure_ascii=True, indent=2) + "\n").encode("ascii")
     if len(data) > 2 * 1024 * 1024:
         raise CheckError("Baseline draft exceeds 2 MiB; narrow the scan scope")
@@ -3791,7 +4089,7 @@ def write_baseline_draft(name, report):
         if file_fd is not None:
             os.close(file_fd)
         os.close(parent)
-    return dict(path=str(path), indicator_files=len(draft["files"]), coverage_files=len(draft["reviewed_files"]))
+    return str(path)
 
 
 # Source: src/audit.py
@@ -4545,6 +4843,8 @@ def main(argv=None):
     parser.add_argument("--web-user", action="append", default=[], help=text("Additional PHP user for permission checks; repeatable"))
     parser.add_argument("--site", action="append", default=[], metavar="URL=ROOT", help=text("Explicit virtual host and document root; repeatable"))
     parser.add_argument("--nginx-config", help=text('Custom Nginx main configuration'))
+    parser.add_argument("--nginx-baseline", metavar="FILE", help=text("Reviewed Nginx UNKNOWN exceptions bound to the complete configuration; --check only"))
+    parser.add_argument("--write-nginx-review-draft", metavar="FILE", help=text("Create a private unreviewed Nginx UNKNOWN draft; --check only"))
     parser.add_argument("--no-auto", action="store_true", help=text('Disable automatic document-root/domain discovery'))
     parser.add_argument("--max-sites", type=int, default=32, help=text('Maximum automatic HTTP mappings (default 32)'))
     parser.add_argument("--max-paths", type=int, default=250000, help=text("Maximum entries per filesystem walk (default 250000)"))
@@ -4561,7 +4861,7 @@ def main(argv=None):
     parser.add_argument("--backup-root", default="/root/p2s-harden-backup-v2", help=text("Protected transaction directory (default /root/p2s-harden-backup-v2)"))
     parser.add_argument("--backup-id", help=text("Choose one transaction explicitly for rollback"))
     parser.add_argument("--yes", "-y", action="store_true", help=text("Approve the displayed fix plan without an interactive prompt"))
-    parser.add_argument("--fail-on", choices=("complete", "open", "review"), default="complete", help=text("Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unknowns never pass"))
+    parser.add_argument("--fail-on", choices=("complete", "open", "review"), default="complete", help=text("Exit precedence: complete (UNKNOWN first), open (OPEN first), review (OPEN or code review first); unacknowledged unknowns never pass"))
     parser.add_argument("--ignore", action="append", default=[], metavar="ID", help=text("Suppress one finding/rule's OPEN or code-review exit impact; keep it visible; repeatable"))
     parser.add_argument("--json", action="store_true", help=text("Structured findings, stable IDs, remediation, preview and transaction state"))
     parser.add_argument("--redact", action="store_true", help=text("Shareable read-only report: omit host details, inventory and original finding IDs"))
@@ -4595,6 +4895,10 @@ def main(argv=None):
                 for line in output.getvalue().splitlines():
                     emit(line)
     try:
+        if (args.nginx_baseline or args.write_nginx_review_draft) and args.mode != "check":
+            raise CheckError("Nginx review options support --check only")
+        if args.write_nginx_review_draft and args.redact:
+            raise CheckError("Nginx review drafts contain configuration identities; use locally without --redact")
         if args.baseline and args.mode != "scan-webshells":
             raise CheckError("--baseline supports --scan-webshells only")
         if args.write_baseline_draft and args.mode != "scan-webshells":
@@ -4671,6 +4975,8 @@ def main(argv=None):
             return report.exit_code()
         prepare_runtime_dirs(args)
         report, updates, instances, users = scan(args, inventory_only=True) if args.mode == "discover" else scan(args)
+        if args.mode == "check":
+            nginx_review_report(report, args)
         if args.mode in ("dry-run", "fix"):
             blockers = fix_blockers(updates, args.protect_dir, instances, users)
             plan = change_plan(updates, args.protect_dir, [text(reason) for reason in blockers])

@@ -1,4 +1,4 @@
-# PHP webshell indicator triage (2.3.0-dev.6 preview)
+# PHP webshell indicator triage (2.3.0-dev.7 preview)
 
 `--scan-webshells` is a separate read-only mode. It supplies local leads for
 investigation, not a malware verdict, an application vulnerability assessment

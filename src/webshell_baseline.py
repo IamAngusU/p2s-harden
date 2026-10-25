@@ -38,6 +38,12 @@ def webshell_baseline_draft(report):
 def write_baseline_draft(name, report):
     """Create mode 0600 exclusively through pinned, non-symlink directories."""
     draft = webshell_baseline_draft(report)
+    path = write_private_json(name, draft)
+    return dict(path=path, indicator_files=len(draft["files"]), coverage_files=len(draft["reviewed_files"]))
+
+
+def write_private_json(name, draft):
+    """Exclusive private JSON output, shared by explicitly unreviewed drafts."""
     data = (json.dumps(draft, ensure_ascii=True, indent=2) + "\n").encode("ascii")
     if len(data) > 2 * 1024 * 1024:
         raise CheckError("Baseline draft exceeds 2 MiB; narrow the scan scope")
@@ -72,4 +78,4 @@ def write_baseline_draft(name, report):
         if file_fd is not None:
             os.close(file_fd)
         os.close(parent)
-    return dict(path=str(path), indicator_files=len(draft["files"]), coverage_files=len(draft["reviewed_files"]))
+    return str(path)
