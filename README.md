@@ -48,6 +48,27 @@ launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
 [PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
 Preview files have commit-specific CI evidence; they are separate from the stable-release assets.
 
+**Can your upload guard miss a newline?**
+
+The common `^/uploads/.*\.php$` denial can miss a line break encoded as `%0a`,
+while a later PHP handler still executes the file. This requires a way to place
+such a filename in the executable upload path; it is not a verdict about every
+upload form. Real Nginx/FPM fixture tests reproduce the gap and its correction.
+
+With the **dev.7 preview launcher above**, inspect your actual paths read-only:
+
+```bash
+sudo bash p2s-harden.sh --check --root /srv/site \
+  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
+```
+
+No upload marker is created by the audit. To reproduce all three outcomes in
+an isolated local lab, run `python3 tools/reproduce-nginx-upload-guard.py` from
+the source checkout. Only this optional lab needs Python and Docker; it publishes
+no ports and mounts no host paths. [One-command reproduction and expected output](docs/UPLOAD-GUARD-LAB.md)
+· [Image-preserving guard examples](docs/NGINX-UPLOADS.md)
+· [Shareable EN/DE announcement](docs/LAUNCH.md).
+
 **Upload route checks:** dev.7 recognizes bounded regex and nested PHP denials that preserve images, detects the `.*` line-break bypass, and supports explicit configuration-bound UNKNOWN review. [Examples and exact limits](docs/NGINX-UPLOADS.md).
 
 **INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.7 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep the dev.7 audit engine unchanged; add a one-command, isolated Nginx/FPM upload-guard lab, expected observations, prominent EN/DE README entry and shareable announcement drafts. CI reproduces the three real responses and wrong-image cleanup. No ports are published, no host paths mounted and no production configuration edited. Keep whole-include review identities and conservative front-controller UNKNOWNs; explain the safety reasons.
+
 - Update to 2.3.0-dev.7: recognize a bounded, ordered Nginx PHP-guard grammar and one nested denial while preserving static images. Detect the real URL-decoded line-break bypass in ordinary `.*` guards; do not certify these as safe. Add protected unreviewed Nginx drafts and explicit UNKNOWN acknowledgements bound to the complete stable include closure, never to a single-file hash. Changes invalidate review; missing/read/race/scope failures cannot be accepted. Add regression contracts and five real Nginx/FPM VM stages. Remains a preview; no external-server evidence is invented.
 
 - Update to 2.3.0-dev.6: put the threat/scope model at the top of both READMEs; add read-only residual PHP capability policy, matched systemd manager properties and conservative upload-route checks. No extra functions, Nginx or units are changed. Extend real FPM observations and distro VM HTTP checks; three independent external server trials remain pending.
