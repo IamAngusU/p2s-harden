@@ -53,6 +53,10 @@ it while a later unanchored `\.php$` handler still matches. The checker reports
 This is reproduced with an inert PHP marker in the disposable distro VM tests;
 the corrected DOTALL guard rejects both names and leaves the static image
 available. A conventional filename alone is insufficient to establish safety.
+This requires a way to create such a filename in that executable directory;
+it does not establish that an application's upload validation allows it.
+[Run the optional isolated one-command lab](UPLOAD-GUARD-LAB.md) to reproduce
+all three outcomes without modifying a host Nginx/FPM installation.
 
 ## Bounded grammar and remaining UNKNOWNs
 
@@ -108,6 +112,27 @@ snapshot. Raw file contents, source paths, expanded directive order, empty
 globs and their matches are included. Editing a comment, adding an include,
 changing order or changing the target invalidates the review. The report's
 local `nginx_review` object supplies the identity; `--redact` omits it.
+
+### Why the review identity includes other virtual hosts
+
+An apparently unrelated server block can expose the same upload files through
+its root or an alias. Inherited directives, maps, include expansion and routing
+order can also change the meaning of the reviewed block. Binding only its own
+file or text could retain an old acknowledgement after a new exposure appears
+elsewhere. The current complete-include identity intentionally invalidates
+reviews even for comments or unrelated-site edits. This costs re-review on busy
+multi-site hosts; it is a documented conservative tradeoff, not a claim that
+every changed byte alters execution. Narrowing it needs a tested dependency and
+cross-vhost exposure model first.
+
+### Laravel/Symfony and other front controllers
+
+A fixed `index.php` mapping is not automatically labelled uploaded-file
+execution. Complex routing may still be UNKNOWN: framework names and a
+front-controller directive alone do not establish every filesystem mapping,
+internal redirect or application include. Use the draft workflow above after
+inspecting the complete configuration and testing your real routes. Only retain
+entries you can justify; an acknowledgement is not a framework certification.
 
 Acknowledgement **retains UNKNOWN**, its raw count and `has_unknown:true`.
 It adds `review_accepted:true`, `accepted_unknown` and

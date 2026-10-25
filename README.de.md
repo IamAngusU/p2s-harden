@@ -48,6 +48,28 @@ Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
 Die Vorschau hat Commit-genaue CI-Nachweise und ist von den Stable-Release-Dateien getrennt.
 
+**Übersieht deine Upload-Sperre einen Zeilenumbruch?**
+
+Die verbreitete Sperre `^/uploads/.*\.php$` kann einen als `%0a` kodierten
+Zeilenumbruch übersehen, während ein späterer PHP-Handler die Datei ausführt.
+Dafür muss so ein Dateiname im ausführbaren Upload-Pfad entstehen können;
+nicht jede Upload-Funktion ist dadurch ausnutzbar. Tests mit echtem Nginx/FPM
+reproduzieren die Lücke und ihre Korrektur.
+
+Mit dem **dev.7-Vorschau-Launcher oben** die tatsächlichen Pfade lesend prüfen:
+
+```bash
+sudo bash p2s-harden.sh --check --root /srv/site \
+  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
+```
+
+Das Audit erstellt keine Upload-Marker. Alle drei Varianten lokal nachstellen:
+`python3 tools/reproduce-nginx-upload-guard.py` im Quellcode-Checkout. Nur dieses
+optionale Labor braucht Python und Docker; es veröffentlicht keine Ports und
+bindet keine Host-Pfade ein. [Ein-Befehl-Anleitung und erwartete Ausgabe](docs/UPLOAD-GUARD-LAB.md)
+· [Schutzbeispiele mit weiter erreichbaren Bildern](docs/NGINX-UPLOADS.md)
+· [Teilbarer Ankündigungstext auf DE/EN](docs/LAUNCH.md).
+
 **Upload-Routen:** dev.7 erkennt begrenzte Regex- und verschachtelte PHP-Sperren, die Bilder ausliefern, meldet den Zeilenumbruch-Bypass bei `.*` und erlaubt ausdrücklich reviewte UNKNOWN-Einträge mit Bindung an die komplette Konfiguration. [Beispiele und genaue Grenzen](docs/NGINX-UPLOADS.md).
 
 **Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.7-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.

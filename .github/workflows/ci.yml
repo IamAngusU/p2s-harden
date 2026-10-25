@@ -31,6 +31,30 @@ jobs:
               apt-get install -y -qq --no-install-recommends bash procps util-linux &&
               bash /source/tools/test-linux.sh
             '
+      - name: Reproduce upload guard behavior with real Nginx and FPM
+        if: matrix.image == 'python:3.12-slim-bookworm'
+        run: |
+          mkdir -p artifacts
+          python3 -B tools/reproduce-nginx-upload-guard.py --json > artifacts/nginx-upload-lab.json
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          run = subprocess.run(['python3', '-B', 'tools/reproduce-nginx-upload-guard.py',
+                                '--php-image', 'nginx:stable', '--json'], capture_output=True, text=True, timeout=240)
+          data = json.loads(run.stdout)
+          assert run.returncode == data['exit_code'] == 2 and data['cleanup_complete'] and data.get('error'), data
+          assert not data['cases'], data
+          Path('artifacts/nginx-upload-lab-negative.json').write_text(run.stdout)
+          print('Wrong FPM image refused; owned containers and volume removed.')
+          PY
+      - name: Retain reproducible upload lab evidence
+        if: always() && matrix.image == 'python:3.12-slim-bookworm'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nginx-upload-lab
+          path: artifacts/nginx-upload-lab*.json
+          if-no-files-found: error
+          retention-days: 30
   fpm:
     name: PHP-FPM ${{ matrix.php }}
     runs-on: ubuntu-24.04
