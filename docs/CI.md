@@ -48,3 +48,13 @@ The separate `ci-proof` branch contains generated evidence only and is excluded 
 The native Windows job also runs `python -B tools/test_json_interop.py`: real pinned Rust `serde_json::Value` must accept generated report/draft JSON and reject the former lone-surrogate fixture. Cargo and its locked dependencies are development-only; the distributed CLI does not invoke Rust or install anything.
 
 The dev.6 matrix retains 104 FastCGI and 56 real INI cases, adding residual-function existence observations in actual FPM (including dl absence and a pool that disables putenv/mail). Each of the four disposable systemd VMs adds real manager-property comparison plus upload PHP execution, static 403 rejection and a nested unsupported route that must stay UNKNOWN: 13 stages per VM, 52 overall. No production upload probes or service changes are part of ordinary p2s checks.
+
+## Stable 2.2 maintenance releases
+
+Stable 2.2.2 is a narrow INI-editor/transaction backport on `release/2.2`.
+Its own twelve-job workflow requires source/fork maintenance heads to match
+before signing; it excludes the 2.3 preview checks. Its separate
+[maintenance proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md)
+does not replace `ci-proof` for main. Verification requires
+`--source-ref refs/heads/release/2.2` and the release tag's exact source digest.
+Earlier 2.2.1 attestations retain their original main-ref policy.

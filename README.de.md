@@ -36,21 +36,25 @@
 
 ## Direkt starten
 
-### Veröffentlicht: 2.2.1 für lesende Audits
+### Stabile Version: 2.2.2
 
-> [!WARNING]
-> **Mit 2.2.1 kein `--fix` ausführen.** Der INI-Editor kann mehrzeilig zitierte Werte beschädigen und nachfolgende Einstellungen verlieren. Lesende Audits sind nicht betroffen. Für Änderungen die Konfiguration manuell prüfen/bearbeiten oder die unten getrennt verlinkte korrigierte Entwicklungsvorschau prüfen. [Release-Warnung](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.1).
+2.2.2 übernimmt den korrigierten INI-Editor und Transaktionsschutz in die stabile 2.2er-Konfigurationslinie. Eine Dev-Version ist für diese Fixes nicht mehr nötig.
+
+> [!NOTE]
+> **Für automatische Fixes 2.2.2 oder neuer verwenden.** Die alte 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. 2.2.2 verweigert mehrdeutige Eingaben, erhält BOM/CRLF und prüft unbeteiligte effektive Werte vor dem Reload. Verweigerte Dateien manuell prüfen. [Release und Prüfnachweise](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.2).
 
 Lade **eine Datei** für deinen Startrechner:
 
-- [Windows PowerShell](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.1/p2s-harden.ps1)
-- [Linux/macOS Bash](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.1/p2s-harden.sh)
-- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.1)
+- [Windows PowerShell](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.ps1)
+- [Linux/macOS Bash](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.sh)
+- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.2)
+
+[Genauer CI-Nachweis des Stable-Releases](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md). Das Badge oben beschreibt den Entwicklungsbranch main.
 
 ### Entwicklungsvorschau: 2.3.0-dev.7
 
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
-Die Vorschau ergänzt Webshell-Indikatoren, Upload-Routenprüfungen und INI-Schutzkorrekturen. Sie verweigert mehrdeutige Quotes und vergleicht unbeteiligte effektive INI-Werte vor dem Reload. **Sie ist kein neues Stable-Release.** Die 2.2.1-Dateien enthalten diese Erweiterungen nicht. [Webshell-Umfang](#nach-php-webshell-indikatoren-suchen) · [Upload-Prüfung](#upload-sperren-prüfen-vorschau).
+Die Vorschau ergänzt Webshell-Indikatoren und neue Upload-Routenprüfungen. **Diese Erweiterungen gehören nicht zu Stable 2.2.2.** Der korrigierte INI-Editor ist bereits in 2.2.2 enthalten; dafür die stabilen Downloads oben verwenden. [Webshell-Umfang](#nach-php-webshell-indikatoren-suchen) · [Upload-Prüfung](#upload-sperren-prüfen-vorschau).
 
 **Bisherige Dateinamen bleiben nutzbar:** Das Projekt hieß zuvor `p2s-harden`. Launcher, Release-Dateien, Backup-Pfade und `P2S-`-Befund-IDs behalten ihre Namen, damit vorhandene Abläufe und Rollback-Befehle funktionieren.
 
@@ -137,8 +141,8 @@ Ein Angreifer kann durch eine verwundbare Anwendung oder eine hochgeladene Datei
 
 ## Fixes erst ansehen, dann anwenden
 
-> [!WARNING]
-> **Die folgenden `--fix`-Beispiele brauchen die geprüfte dev.7-Vorschau.** Wegen des INI-Editorfehlers nicht mit den veröffentlichten 2.2.1-Dateien ausführen. Mit 2.2.1 manuell bearbeiten oder zuerst die [Entwicklungsvorschau](#entwicklungsvorschau-230-dev7) und die Anwendungskompatibilität prüfen.
+> [!NOTE]
+> **Für diese Befehle die stabile Version 2.2.2 oder neuer verwenden.** Die alte 2.2.1 wegen des INI-Editorfehlers ersetzen. Vor Änderungen den Diff und die Anwendungskompatibilität prüfen. [Stabile Downloads](#stabile-version-222).
 
 ```bash
 sudo bash p2s-harden.sh --dry-run --lang de
@@ -153,7 +157,7 @@ sudo bash p2s-harden.sh --fix --yes --json
 sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 ```
 
-Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includes in unterstützten INIs. Anwendungskompatibilität prüfen. Verzeichnisänderungen brauchen `--protect-dir /absoluter/codepfad` und bekannten PHP-Benutzer; Erkennung wählt keine Rechteziele. Die Textausgabe nennt den exakten Undo-Befehl, JSON Backup-ID und Status. Wiederholtes implizites Rollback wählt keinen älteren Fix. Es prüft Inhalt und Metadaten, stellt ursprüngliche Zeitstempel wieder her und lässt sich nach Unterbrechung fortsetzen. Fixes erhalten aktuelle Änderungszeitpunkte. Die Entwicklungsvorschau ergänzt eine nicht wartende Kernel-Sperre gegen parallele Fix-/Rollback-Schreibzugriffe über ein festes geschütztes Systemverzeichnis, auch bei unterschiedlichen `--backup-root`-Werten. Backups werden nicht automatisch gelöscht; Speicherplatz und benötigte Wiederherstellungen selbst verwalten.
+Der Fix ergänzt nur die definierten Funktionssperren und deaktiviert URL-Includes in unterstützten INIs. Anwendungskompatibilität prüfen. Verzeichnisänderungen brauchen `--protect-dir /absoluter/codepfad` und bekannten PHP-Benutzer; Erkennung wählt keine Rechteziele. Die Textausgabe nennt den exakten Undo-Befehl, JSON Backup-ID und Status. Wiederholtes implizites Rollback wählt keinen älteren Fix. Es prüft Inhalt und Metadaten, stellt ursprüngliche Zeitstempel wieder her und lässt sich nach Unterbrechung fortsetzen. Fixes erhalten aktuelle Änderungszeitpunkte. Stable 2.2.2 und die Entwicklungsvorschau enthalten eine nicht wartende Kernel-Sperre gegen parallele Fix-/Rollback-Schreibzugriffe über ein festes geschütztes Systemverzeichnis, auch bei unterschiedlichen `--backup-root`-Werten. Backups werden nicht automatisch gelöscht; Speicherplatz und benötigte Wiederherstellungen selbst verwalten.
 
 Audit, Diagnose, Inventar und Trockenlauf ändern keine Zielkonfiguration, Rechte oder Dienste. Lesen und HTTP können Zugriffszeiten und gewöhnliche Logs aktualisieren.
 
@@ -198,7 +202,7 @@ Prüfsummen erkennen Korruption oder unpassende Downloads. Prüfsumme und Datei 
 Mit angemeldeter GitHub CLI (optional; Bash und PowerShell):
 
 ```text
-gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/main --deny-self-hosted-runners
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/release/2.2 --deny-self-hosted-runners
 ```
 
 Für den Windows-Download `p2s-harden.ps1` einsetzen. `--source-digest ERWARTETER_COMMIT` bindet die Prüfung an den Release-Commit; [Bundle-/Offline-Prüfung](docs/PROVENANCE.md) erklärt das benötigte Vertrauensmaterial. Die CI-Fork gehört demselben Maintainer.

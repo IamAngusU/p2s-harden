@@ -24,6 +24,12 @@
 - Show the existing-INI package-upgrade notice before interactive approval, in human previews and with `--fix --yes`.
 - Put the provenance verification command directly in both READMEs. Published 2.2.1 assets remain unchanged while field feedback accumulates.
 
+## 2.2.2 — 2026-10-25 (maintenance branch)
+
+- Release the corrected INI editor, effective-setting preservation checks and transaction serialization as a narrow stable backport of 2.2.1 on `release/2.2`.
+- Refuse multiline/unclosed quotes and BOM-prefixed conditional sections; preserve BOM/CRLF; restore before reload if unrelated effective settings differ or verification is incomplete.
+- Keep 2.3 features in development. Update EN/DE stable downloads and provenance policy; preserve script filenames, backup data and P2S IDs.
+
 ## 2.2.1
 
 - Aggregate unchanged global/pool findings while preserving independently actionable overrides and stable global IDs.

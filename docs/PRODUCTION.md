@@ -2,9 +2,10 @@
 
 Development branches may report a development version. The new `--scan-webshells`
 mode is a **2.3.0 development preview**, not a capability of the published 2.2.1
-assets or their existing release evidence. [Detection scope and limits](WEBSHELLS.md).
+assets or stable 2.2.2. The latter is a narrow maintenance backport of the
+corrected INI editor and transaction safeguards. [Detection scope and limits](WEBSHELLS.md).
 
-p2s-harden 2.2.1 is a stable terminal product for the supported host workflow.
+php-fpm-audit 2.2.2 is the stable maintenance release for the supported host workflow.
 It is not a universal vulnerability scanner. A successful audit means its
 selected checks passed for the reported resources. It cannot establish that
 an application is free of vulnerabilities or that PHP-to-shell is impossible.
@@ -67,7 +68,9 @@ All twelve public CI jobs must pass at the source commit being released:
   four files with GitHub build attestations. [Verification](PROVENANCE.md).
 
 The [commit-specific public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
-must match source main, CI-fork main and the release tag. Downloaded release
+must match the selected source/fork branch and release tag. Stable 2.2.2 uses
+`release/2.2` and its separate `ci-proof-2.2` proof; development main uses `main`
+and `ci-proof`. [Maintenance proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md). Do not substitute a newer main run for maintenance evidence. Downloaded release
 assets must match SHA-256 sums, the reproducible source manifest and expected signed build provenance. The public
 CI belongs to the same maintainer; it is reproducible evidence, not independent
 security certification.

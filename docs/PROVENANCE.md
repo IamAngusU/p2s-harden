@@ -8,7 +8,7 @@ the workflow and source commit that produced the exact artifact bytes.
 ## Identity to require
 
 The expected signer is `angusu-de/p2s-harden/.github/workflows/ci.yml` on
-`refs/heads/main`, on GitHub-hosted runners. This is the existing public CI fork,
+`refs/heads/release/2.2` for stable 2.2.2, on GitHub-hosted runners. This is the existing public CI fork,
 owned by the same maintainer as `IamAngusU/php-fpm-audit`. It is not an independent
 builder/auditor. Runner access remains unavailable in the source account.
 
@@ -23,13 +23,18 @@ tracked source manifest, then attests the Bash file, PowerShell file, source ZIP
 and checksum file. The release uploads those exact CI-generated distribution
 files and includes the signed `p2s-harden-provenance.json` bundle.
 
+Stable 2.2.2 is built from matching source/fork `release/2.2` heads. Its public
+proof is on `ci-proof-2.2`. Earlier 2.2.1 and development-main artifacts use
+`refs/heads/main`; require that ref when verifying those specific historical or
+preview files. The release tag and exact source digest identify the version.
+
 ## Verify a downloaded file
 
 GitHub CLI is optional for verification; it is not needed to run the tool.
 With a current, authenticated `gh`, this command works in Bash and PowerShell:
 
 ```text
-gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/main --deny-self-hosted-runners
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/release/2.2 --deny-self-hosted-runners
 ```
 
 Use `p2s-harden.ps1` or the source ZIP filename for another asset. For stricter

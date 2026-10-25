@@ -1,5 +1,21 @@
 # Validation
 
+## 2.2.2 maintenance release
+
+The stable maintenance branch backports INI quote/section refusal, BOM/CRLF
+preservation, complete effective-setting comparison before reload and
+system-wide transaction serialization. It retains the 2.2 configuration scope;
+the 2.3 webshell, residual-policy, systemd-posture and new upload-route features
+are not promoted by this release.
+
+All twelve jobs are required at the release commit: Python 3.8/3.12 fixtures,
+Windows transport, 104 real FastCGI cases, 56 real INI parser cases, four distro
+VM fix/reload/rollback workflows and signed build provenance. Exact run/commit
+evidence is in the [2.2.2 release notes](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.2)
+and [maintenance proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md).
+Stable artifacts require `refs/heads/release/2.2`; historical 2.2.1 artifacts
+retain their original main-ref policy.
+
 ## 2.2.1 release gate
 
 Required: 179 tool tests plus 23 protocol/proof/guard tests per Linux Python
