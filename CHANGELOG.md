@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Shorten both READMEs to the stable quick start and key limits; move advanced commands, examples, preview guidance and verification details into the existing EN/DE detail guides.
+
 - Refuse BOM-prefixed conditional INI sections as well as ordinary conditional sections. Isolate maintenance-release CI proof on `ci-proof-2.2`, with exact source/fork `release/2.2` matching, while retaining the main preview proof.
 
 - Rename the source project/repository to `php-fpm-audit`; clarify EN/DE quick starts, separate published read-only 2.2.1 downloads from dev.7 and retain the INI fix advisory. Update branding, source links and CI source-commit checks. Keep legacy launcher/release filenames, backup paths, P2S IDs and the `angusu-de/p2s-harden` signer identity compatible. No audit engine changes.

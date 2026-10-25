@@ -1,4 +1,9 @@
-# p2s-harden 2.2.1
+# php-fpm-audit: Bedienung und technische Details
+
+Stabile Downloads und die wenigen Startbefehle stehen in der [README](../README.de.md). Dieses Dokument enthält die ausführliche Bedienung. **2.2.2 ist Stable; die zusätzlichen 2.3-Funktionen sind Entwicklungsvorschau.** Skript- und Backup-Namen bleiben kompatibel.
+
+[Ablauf und Prüfumfang](#ablauf-und-prüfumfang) · [JSON/SSH/Rollback](#json-ssh-und-rollback) · [Berichte teilen](#bericht-ohne-private-hostdetails-teilen) · [Häufige Situationen](#häufige-situationen) · [Download prüfen](#download-prüfen) · [FAQ](#faq) · [Entwicklungsvorschau](#entwicklungsvorschau-23)
+
 
 Begrenzte PHP/FPM-Prüfung für Linux mit ausdrücklich ausgewiesenem Prüfumfang.
 `OK` ist ein belegter Einzelbefund; `OPEN` ist eine Abweichung oder ein zu
@@ -283,10 +288,10 @@ erst `--dry-run`, dann den geprüften Fix mit `--yes` ausführen.
 
 Schema 2 enthält stabile Regel-/Ressourcen-IDs, severity, remediation und
 suppressed sowie has_open/has_unknown. `--ignore` lässt akzeptierte OPEN-Befunde
-sichtbar und beeinflusst nur deren Exitwirkung; UNKNOWN besteht weiterhin nie.
+sichtbar und beeinflusst nur deren Exitwirkung; In Stable 2.2.2 führt UNKNOWN weiterhin zu einem Fehlercode. Die 2.3-Vorschau erlaubt ausdrücklich geprüfte Nginx-Ausnahmen bei weiterhin sichtbarem UNKNOWN; siehe [Review-Semantik](NGINX-UPLOADS.md#explicit-review-of-unsupported-routing).
 `--fail-on open` wertet OPEN vor UNKNOWN aus. Der Standard bleibt UNKNOWN zuerst.
 Die englische [vollständige Anleitung](DETAILS.md) und [Regelübersicht](FINDINGS.md)
-erläutern diese Verträge. Die englische Quellsprache und acht Komponenten in src/
+erläutern diese Verträge. Die englische Quellsprache und Komponenten in src/
 werden vom Builder weiterhin zu eigenständigen Ein-Datei-Launchern zusammengesetzt.
 
 ## Stabile Version 2.2.0
@@ -330,15 +335,173 @@ JSON-Fix-Verweigerung ohne --yes. [Build-Herkunft prüfen](PROVENANCE.md) und
 [aktuelle Review-Antwort](REVIEW-2.2.1.md).
 
 
-## Parallele Transaktionen und Aufbewahrung (Entwicklungsvorschau)
+## Parallele Transaktionen und Aufbewahrung (2.2.2 und Vorschau)
 
 Vorbereitung, Anwenden/Reload/Fehlerwiederherstellung und Auswahl/Rücknahme einer Transaktion verwenden eine nicht wartende exklusive Kernel-Sperre auf dem festen root-eigenen Modus-0700-Verzeichnis `/run/p2s-harden`, zusätzlich zur kompatiblen Sperre auf dem Backup-Verzeichnis. Die CLI hält sie über Vorbereitung und Anwendung hinweg. Bei Belegung folgt UNKNOWN mit einem konkreten Hinweis, ohne Zieldateien zu verändern. Keine Sperrdatei oder veraltete PID muss gelöscht werden; Prozessende gibt die Sperre frei. Lesende Audits sperren nicht. Ein anderer `--backup-root` umgeht die Systemsperre nicht. Aktuelle Tool-Instanzen koordinieren sich darüber; externe Editoren/Paketprogramme und ältere Versionen nehmen nicht an der neuen Systemsperre teil. Das Sperrverzeichnis nicht bei aktiven Schreibern entfernen. Hash-/Metadatenprüfungen bleiben wirksam.
 
 Backups werden nicht automatisch bereinigt. Sie enthalten Konfiguration und Metadaten für Rollback. Verzeichnis geschützt halten, Speicherplatz überwachen und nur nicht mehr benötigte Sicherungen nach unabhängiger Prüfung des aktuellen Deployments entfernen. Eine entfernte Sicherung steht für Rollback nicht mehr zur Verfügung.
 
 
-## INI-Editor und Byte-Ausgabe (dev.4-Vorschau)
+## INI-Editor-Schutz (2.2.2 und Vorschau)
 
 Mehrzeilige oder ungeschlossene Quotes in einer Ziel-INI werden vor der Bearbeitung verweigert. Einzeilige Quotes/Kommentare bleiben unterstützt; UTF-8-BOM und CRLF werden erhalten, fehlende Zieldirektiven teilen einen neuen PHP-Abschnitt. Vor dem Schreiben werden effektive registrierte INI-Werte des betroffenen FPM erfasst und gehasht; danach werden alle anderen Direktiven vor dem Reload verglichen. Mehrdeutige oder unvollständige Tabellen blockieren den Fix. Abweichungen führen zur Wiederherstellung. Werte und Prozessumgebungen werden nicht im Bericht gespeichert. Je PHP-Version laufen 14 echte Editor-/Parserfälle, einschließlich eines 379M-memory_limit-Testwerts.
 
+## Byte-Ausgabe (nur 2.3-Vorschau)
+
 Schema-2-JSON zeigt gültige Unicode-Pfade; betroffene Pfadobjekte erhalten zusätzlich `path_bytes_hex` und `path_encoding`. Einzelne Surrogat-Escapes entfallen. Baselines prüfen die Übereinstimmung und verwenden die Originalbytes. IDs bleiben am Originalpfad; Redaction entfernt Hexfelder. [Protokoll und Entwürfe](WEBSHELLS.md#reviewed-baselines).
+
+## Ablauf und Prüfumfang
+
+1. Nginx-Webroots, feste Domains, Ports und einfache Aliases sowie FPM-Instanzen und Pools erkennen.
+2. Einstellungen, Dateisystemrechte und HTTP-Ziele prüfen.
+3. Befunde mit stabilen IDs und einem konkreten nächsten Schritt anzeigen. Änderungen brauchen `--fix` oder `--rollback`.
+
+Beispielausgabe, mit illustrativen Pfaden:
+
+```text
+OPEN    disable_functions /etc/php/8.3/fpm/php-fpm.conf: Fehlt: popen
+        P2S-PHP001-<Ressourcen-Hash>
+        --dry-run und Anwendungskompatibilität prüfen ...
+UNKNOWN HTTP https://example.test/.env: 200; entspricht Soft-404-Fallback ...
+
+OK: 12   OPEN: 1   UNKNOWN: 1   INFO: 0
+```
+
+| Prüfung | Ausgewiesener Umfang | Automatische Änderung |
+| --- | --- | --- |
+| FPM-Einstellungen | Sieben Funktionen, additive Pool-Sperren, URL-Includes, open_basedir | Unterstützte Funktions-/Include-INI-Werte |
+| FPM-Grenzen | TCP-Bindung und Client-Freigaben, konfigurierte und tatsächliche Socket-Rechte, Skript-Endungen, Umgebungsbereinigung, gemeinsame UIDs und geladene FFI-Einstellung | Einzeln prüfen und manuell ändern |
+| Code und Verzeichnisse | Echte PHP-Benutzer/Gruppen und ACL-Wirkung; PHP-Dateien auch im Laufzeitspeicher | Nur ausdrückliches --protect-dir, nicht rekursiv |
+| Sensible HTTP-Pfade | .env, .git/config, gefundene .env*, SQL-/BAK-/Log-Dateien und benannte Debugskripte | Keine; Webserver/Anwendung manuell korrigieren |
+| Fehlpfad-Baseline | Zwei zufällige Pfade erkennen statische/dynamische Soft-404s | Keine |
+| Host/manuelle Einordnung | ptrace_scope; ImageMagick nur bei gefundener Policy/Erweiterung | Keine |
+| Voraussetzungen/Abdeckung | Fehlende Helfer, unbekannte Kontexte, ausgelassene Pfade und Limits | Keine automatische Installation |
+
+`OK`: Einzelprüfung bestanden. `OPEN`: prüfen/beheben. `UNKNOWN`: Ergebnis nicht belegt. `INFO`: Kontext, keine bestandene Sicherheitsprüfung. [Behebung nach Regel-ID](FINDINGS.md).
+
+```bash
+sudo bash p2s-harden.sh --doctor --lang de
+sudo bash p2s-harden.sh --discover --lang de
+```
+
+Ohne ps nutzt die Erkennung `/proc`. HTTP nutzt Python und braucht kein curl. Fehlendes runuser betrifft fremde Benutzer; fehlende Dienstverwaltung sperrt automatische INI-Fixes. Ohne Python erklärt der Bootstrap die Voraussetzung; den Python-Audit kann er dann nicht ausführen.
+
+## JSON, SSH und Rollback
+
+Bei SSH gibt es keinen entfernten Steuer-TTY: zuerst `--dry-run`, danach ausdrücklich `--fix --yes` nutzen. Interaktive lokale Fixes fragen standardmäßig Nein ab. Für geprüfte Automatisierung:
+
+```bash
+sudo bash p2s-harden.sh --dry-run --json
+sudo bash p2s-harden.sh --fix --yes --json
+sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
+```
+
+## Bericht ohne private Hostdetails teilen
+
+```bash
+sudo bash p2s-harden.sh --check --redact --json > p2s-report.json
+```
+
+`--redact` erhält Regel-IDs, Ergebnisse, Handlungshinweise und **geprüfte
+technische Fakten**: etwa `missing_functions: ["popen"]`, `socket_mode: "0666"`,
+Schalterzustände, Zähler und HTTP-Status. Jede Regel begrenzt Felder, Typen und
+Werte. Pfade, Domains, Nutzer, Rohdiagnosen, Inventar, Pläne und Transaktionen
+entfallen. Geteilte Befund-IDs werden neu erzeugt; für einzelne `--ignore`-Ausnahmen
+lokale Original-IDs verwenden. Unterstützt: check, doctor, discover und die Webshell-Entwicklungsvorschau. Ergebnisse
+und Exit-Code bleiben gleich. Änderungsvorschauen lokal ohne Maskierung prüfen.
+Die Maskierung gilt für Bericht-stdout; SSH-/System-stderr kann den Host nennen.
+[Geprüftes Audit-Feedback senden](https://github.com/IamAngusU/php-fpm-audit/issues/new?template=audit-feedback.yml).
+
+Die Änderung bestehender INIs kann eine paketverwaltete `php.ini` betreffen. Ändern sich lokale und Paketversion, kann ein späteres Upgrade nach der gewünschten Konfiguration fragen. Diff prüfen und danach erneut auditieren; neue Drop-ins bleiben zurückgestellt. [Upgrade-Verhalten](DETAILS.md#package-upgrades).
+
+## Häufige Situationen
+
+- **Wiederholte globale Einstellungen:** Unveränderte Pool-Ergebnisse teilen den globalen Befund. Normales JSON nennt `affected_pools`; `evidence.affected_pool_count` ist teilbar. Abweichende wirksame Einstellungen und explizite unsichere Include-Overrides bleiben eigene Ursachen.
+- **TCP localhost:** Die aktuelle Host-Auflösung hat ein Zwei-Sekunden-Limit. Adressen außerhalb Loopback sind OPEN; fehlgeschlagene Auflösung und andere Hostnamen bleiben UNKNOWN. Das attestiert keinen bestehenden Listener oder Containerdienst.
+
+- **Uploads/Cache:** `--runtime-dir /srv/site/uploads` wiederholen. Schreibbare Verzeichnisse dort werden INFO; schreibbare PHP-Dateien und fehlende Abdeckung bleiben sichtbar. Ausführungssperren separat prüfen.
+- **Größere Anwendung:** Das Konfigurationsaudit hat **250000 Einträge und 10 Sekunden je Suchlauf** als Standard. `--max-paths`, `--walk-seconds` oder `--root` anpassen. Abhängigkeiten werden nicht still ausgelassen. HTTP: 128 Anfragen insgesamt, 32 automatische Zuordnungen (`--max-http-probes`, `--max-sites`). Der separate Webshell-Modus nutzt 120 Sekunden je Wurzel und 2 Sekunden je Datei. Erreichte Limits bleiben UNKNOWN.
+- **HTTP leitet zu HTTPS weiter:** `--site https://example.org=/srv/site` wählen. Ein Redirect bleibt unbekannt, bis das Ziel geprüft ist; er belegt keinen Zugriffsschutz. Automatische Zuordnungen bevorzugen HTTPS.
+- **Abweichendes Layout:** `--nginx-config /pfad/nginx.conf` oder `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. Benutzer und Sites sind wiederholbar.
+- **Automatisierung:** Schema 2 enthält `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` und `transaction`. Übersetzte Texte sind keine API-Kennung. `--verbose` zeigt alle Zeilen.
+- **Akzeptierter offener Befund:** `--ignore BEFUND_ID` für eine Ressource oder `--ignore P2S-FS002` für die ganze Regel. Der Befund bleibt sichtbar und markiert. UNKNOWN lässt sich nicht zu einem Erfolg unterdrücken. Die Option betrifft nur die Exitwertung, nicht Fixumfang oder Suchpfade.
+
+In der 2.3-Vorschau bleibt bei ausdrücklich reviewten Nginx-Einträgen UNKNOWN sichtbar; JSON unterscheidet `has_unaccepted_unknown` und `accepted_unknown`. [Review-Semantik](NGINX-UPLOADS.md#explicit-review-of-unsupported-routing). Exit 0 kann deshalb akzeptierte UNKNOWNs enthalten und ist kein Urteil über einen sauberen Server.
+
+Standard (`--fail-on complete`): **2 bei UNKNOWN/Fehler**, sonst **1 bei OPEN**, sonst **0**. Für CI mit Vorrang offener Befunde: `--fail-on open` gibt bei OPEN zuerst 1 aus; andernfalls bleibt UNKNOWN bei 2. Die Vorschau ergänzt `--fail-on review`: Ein nicht akzeptierter WS004-Code-Review oder OPEN ergibt zuerst 1; sonst ergibt UNKNOWN weiterhin 2. Gewöhnliches INFO führt nicht zum Fehlschlag. `--ignore` und exakte Baselines können Review-Befunde akzeptieren; JSON ergänzt `has_review` und `suppressed_review`. JSON zeigt alle Flags und Befunde. Ignorierte OPEN-Befunde bleiben im Bericht, beeinflussen den Exitcode aber nicht.
+
+## Download prüfen
+
+Prüfsummen erkennen Korruption oder unpassende Downloads. Prüfsumme und Datei aus demselben Release belegen allein keine Herkunft. Zusätzlich enthalten Releases **GitHub-signierte Build-Nachweise** für die vier Distributionsdateien, gebaut nach bestandenen Testjobs. Mit optionalem `gh attestation verify` Bytes, Workflow und Quell-Commit prüfen: [Befehle und Vertrauensgrenze](PROVENANCE.md).
+
+Mit angemeldeter GitHub CLI (optional; Bash und PowerShell):
+
+```text
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/release/2.2 --deny-self-hosted-runners
+```
+
+Für den Windows-Download `p2s-harden.ps1` einsetzen. `--source-digest ERWARTETER_COMMIT` bindet die Prüfung an den Release-Commit; [Bundle-/Offline-Prüfung](PROVENANCE.md) erklärt das benötigte Vertrauensmaterial. Die CI-Fork gehört demselben Maintainer.
+
+Prüfsummendatei neben den gewählten Launcher herunterladen. Unter Windows:
+
+```powershell
+$expected = (Select-String -Path .\p2s-harden-SHA256SUMS.txt -Pattern '  p2s-harden.ps1$').Line.Split(' ')[0]
+$actual = (Get-FileHash .\p2s-harden.ps1 -Algorithm SHA256).Hash
+if ($actual -ne $expected) { throw 'Prüfsumme stimmt nicht' }
+```
+
+Wenn deine Richtlinie geprüfte lokale Skripte erlaubt, etwa RemoteSigned, ist nach Prüfung des Downloads `Unblock-File` eine Alternative zum Prozess-Bypass:
+
+```powershell
+Unblock-File -LiteralPath .\p2s-harden.ps1
+.\p2s-harden.ps1 --ssh root@SERVER --lang de
+```
+
+Das entfernt die Downloadmarkierung, übersteuert aber weder Restricted noch Organisationsrichtlinien. Das frühere Bypass-Beispiel gilt für diesen Aufruf; erzwungene Organisationsrichtlinien gelten weiter. Prüfsummen erkennen veränderte Downloads. [Lesbare Quellen](../src), [generierte Engine](../p2s_harden.py), [Builder](../build-standalone.py) und CI-Belege zeigen, was die größeren Ein-Datei-Launcher enthalten.
+
+## FAQ
+
+### Behebt das PHP2Shell?
+
+Nein. PHP 8.5.12, 8.4.27, 8.3.36 und 8.2.35 wurden am 21. Oktober 2026 als Fixes für CVE-2026-109618 und CVE-2026-109619 veröffentlicht. Distributionen können Patches zurückportieren; die upstream Versionsnummer allein reicht deshalb nicht. Auch den zusätzlichen Session-Upload-Progress-Hinweis vom 23. Oktober beachten. Maßgeblich sind die [aktuellen PHP-Hinweise](https://www.php.net/archive/2026.php) und die Paketmeldung deiner Distribution. Dieses Audit prüft den Patchstand nicht.
+
+### Verändert der Standardbefehl meinen Server?
+
+Er ändert keine Zielkonfiguration, Rechte oder Dienste. Das Audit liest Dateien und führt begrenzte HTTP-Anfragen aus; normale Logs und Zugriffszeiten können sich ändern. Ausdrücklich angeforderte Review-Drafts schreiben eigene Dateien. Konfigurationsänderungen brauchen `--fix` mit interaktiver Bestätigung oder `--yes`.
+
+### Warum heißen die Dateien weiterhin p2s-harden?
+
+`php-fpm-audit` ist der neue Projekt- und Repository-Name. Die bisherigen Skriptnamen, `P2S-`-IDs und Backup-Pfade bleiben für Kompatibilität erhalten. Die öffentliche CI und der Signier-Workflow liegen weiter unter `angusu-de/p2s-harden`; bei der [Herkunftsprüfung](PROVENANCE.md) die erwartete Signiereridentität beibehalten.
+
+## Entwicklungsvorschau 2.3
+
+Stable **2.2.2** enthält den korrigierten INI-Editor und die Transaktionssperre. Die zusätzlichen Webshell-, verbleibenden Policy-, systemd- und neuen Upload-Routenprüfungen gehören zur **2.3.0-dev.7-Vorschau** auf main. Die Stable-Dateien enthalten diese Erweiterungen nicht.
+
+[Bash-Vorschau](../p2s-harden.sh?raw=1) · [PowerShell-Vorschau](../p2s-harden.ps1?raw=1).
+
+Webshell-Indikatoren lokal oder per SSH prüfen:
+
+```bash
+sudo bash p2s-harden.sh --scan-webshells --root /srv/site --lang de
+```
+
+```powershell
+.\p2s-harden.ps1 --ssh root@SERVER --scan-webshells --root /srv/site --lang de
+```
+
+Eine begrenzte statische Suche, kein Malware-Freibrief: keine Proben werden ausgeführt, hochgeladen oder entfernt. Treffer brauchen Prüfung; keine Treffer belegen keinen sauberen Server. [Regeln, Budgets, Maskierung und Baselines](WEBSHELLS.md).
+
+Upload-Routen mit der Vorschau lesend prüfen:
+
+```bash
+sudo bash p2s-harden.sh --check --root /srv/site \
+  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
+```
+
+Eine verbreitete `.*`-Upload-Sperre kann Dateinamen mit Zeilenumbruch übersehen, sofern solche Dateien im ausführbaren Upload-Pfad entstehen können. Das optionale Docker-Labor reproduziert den Fall mit harmlosen Markern, ohne Host-Pfade einzubinden oder Ports zu veröffentlichen. [Regeln und Grenzen](NGINX-UPLOADS.md) · [Labor nachstellen](UPLOAD-GUARD-LAB.md) · [Schutzmodell](DEFENSES.md). Das normale Audit erstellt keine Upload-Marker und ändert keine Nginx-Konfiguration.
+
+## Prüfnachweise und Mitwirkung
+
+[Release-Grenzen](PRODUCTION.md) · [Validierung](VALIDATION.md) · [Stable-CI](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md) · [Entwicklungs-CI](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [CI-Verfahren](CI.md) · [Mitwirken](../CONTRIBUTING.md).
+
+Die CI gehört demselben Maintainer; sie ist kein unabhängiges Audit. Wegwerf-VMs prüfen ihre Testsysteme, nicht deinen Server. Destruktive Systemtests gehören ausschließlich in ausdrücklich markierte Wegwerf-VMs.
