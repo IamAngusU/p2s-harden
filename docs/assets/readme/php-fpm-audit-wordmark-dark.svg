@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="92" viewBox="0 0 540 92" role="img" aria-labelledby="title desc">
+  <title id="title">php-fpm-audit</title>
+  <desc id="desc">A terminal prompt beside the php-fpm-audit wordmark, for dark backgrounds.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="17" width="64" height="58" rx="13" stroke="#f7f8fa" stroke-width="2.4"/>
+    <path d="M8 33h64" stroke="#f7f8fa" stroke-width="2"/>
+    <path d="m24 46 9 8-9 8m18 0h14" stroke="#8cb9d9" stroke-width="3.5"/>
+  </g>
+  <circle cx="20" cy="25" r="2" fill="#8cb9d9"/>
+  <text x="92" y="64" fill="#f7f8fa" font-family="ui-monospace,'SFMono-Regular',Consolas,'Liberation Mono',monospace" font-size="54" font-weight="700" letter-spacing="-2">php-fpm-audit</text>
+</svg>

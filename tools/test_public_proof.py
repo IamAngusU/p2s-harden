@@ -28,7 +28,11 @@ class ProofTests(unittest.TestCase):
         self.assertEqual(metadata['jobs_success'], 12)
         self.assertEqual(metadata['jobs_total'], 12)
         self.assertEqual(metadata['head_sha'], 'a' * 40)
-        self.assertEqual(metadata['source_repository'], 'IamAngusU/p2s-harden')
+        self.assertEqual(metadata['source_repository'], 'IamAngusU/php-fpm-audit')
+        self.assertEqual(metadata['repository'], 'angusu-de/p2s-harden')
+        self.assertIn('<title>php-fpm-audit CI: 12/12 jobs passed;', svg)
+        self.assertIn('# php-fpm-audit public CI evidence', readme)
+        self.assertIn('[Source repository](https://github.com/IamAngusU/php-fpm-audit)', readme)
         self.assertIn('12/12', svg)
         self.assertIn('aaaa', readme)
 

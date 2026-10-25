@@ -1,7 +1,7 @@
 # Follow-up: interoperable paths and deliberate baseline drafts
 
 This is **2.3.0-dev.5 development preview**, following the independent review of
-`c8518bf` / dev.4. The [six previous fixes and their evidence](https://github.com/IamAngusU/p2s-harden/blob/c8518bf1bbea0cc29249aa729f64fddfb06219f4/docs/REVIEW-WEBSHELLS.md)
+`c8518bf` / dev.4. The [six previous fixes and their evidence](https://github.com/IamAngusU/php-fpm-audit/blob/c8518bf1bbea0cc29249aa729f64fddfb06219f4/docs/REVIEW-WEBSHELLS.md)
 remain historical context. Published 2.2.1 assets are unchanged and their release
 notes warn about the known old INI editor limitation.
 

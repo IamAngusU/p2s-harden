@@ -221,7 +221,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(gh api repos/IamAngusU/p2s-harden/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
+          test "$(gh api repos/IamAngusU/php-fpm-audit/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
           test "$(gh api repos/angusu-de/p2s-harden/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
           python3 -B build-standalone.py --check
           python3 -B tools/package-release.py

@@ -9,8 +9,13 @@ the workflow and source commit that produced the exact artifact bytes.
 
 The expected signer is `angusu-de/p2s-harden/.github/workflows/ci.yml` on
 `refs/heads/main`, on GitHub-hosted runners. This is the existing public CI fork,
-owned by the same maintainer as `IamAngusU/p2s-harden`. It is not an independent
+owned by the same maintainer as `IamAngusU/php-fpm-audit`. It is not an independent
 builder/auditor. Runner access remains unavailable in the source account.
+
+The source repository was renamed from `IamAngusU/p2s-harden` to
+`IamAngusU/php-fpm-audit`; the CI fork and signer were not renamed. Existing
+launcher names, release assets and the provenance bundle retain `p2s-harden`.
+Keep the signer identity below unchanged when verifying these downloads.
 
 The provenance job depends on all eleven test jobs. It rebuilds the tested
 commit, requires source/fork heads to match, verifies the standalone build and

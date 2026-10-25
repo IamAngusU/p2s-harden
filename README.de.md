@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/p2s-harden-wordmark-dark.svg">
-    <img src="docs/assets/readme/p2s-harden-wordmark.svg" width="340" alt="p2s-harden — PHP-FPM im Terminal prüfen">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/php-fpm-audit-wordmark-dark.svg">
+    <img src="docs/assets/readme/php-fpm-audit-wordmark.svg" width="420" alt="php-fpm-audit — PHP-FPM im Terminal prüfen">
   </picture>
 </p>
 
@@ -10,7 +10,7 @@
 </p>
 
 <h1 align="center">PHP-FPM prüfen. Fixes vorab ansehen.</h1>
-<p align="center">Setups erkennen. Fehlende Voraussetzungen verstehen. Im Terminal bleiben.</p>
+<p align="center">PHP-FPM und Nginx lesend prüfen. Befunde verstehen und ausgewählte Fixes vorab ansehen.</p>
 
 <p align="center">
   <a href="#was-passiert-danach"><img src="docs/assets/readme/badge-default.svg" height="40" alt="Standard: zuerst nur prüfen"></a>
@@ -19,67 +19,42 @@
   <a href="LICENSE"><img src="docs/assets/readme/badge-license.svg" height="40" alt="Lizenz: MIT"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live-Status der öffentlichen CI: p2s-harden-Workflow öffnen"></a>
+  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live-Status der öffentlichen CI: php-fpm-audit-Testworkflow öffnen"></a>
 </p>
 <p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
-<p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
+<p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="#faq">FAQ</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/php-fpm-audit/releases">Releases</a></p>
 
-**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **Unterstützter Konfigurationsablauf: Debian/Ubuntu mit Host-PHP-FPM, Nginx und systemd.** Konfigurationsfixes für RHEL, Apache/mod_php und Plesk/cPanel sind nicht abgedeckt. Die statische Dateisuche mit explizitem `--root` hat einen breiteren Linux-Umfang. **2.2.1 ist die ältere veröffentlichte Konfigurationsversion; den INI-Hinweis unten beachten.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
+**php-fpm-audit** prüft ausgewählte PHP-FPM-Einstellungen, FPM-Listener und Sockets, Dateirechte und sensible HTTP-Pfade. Befunde haben stabile IDs und einen konkreten nächsten Schritt. Der unterstützte Konfigurationsablauf richtet sich an **Debian/Ubuntu mit Host-PHP-FPM, Nginx und systemd**. Englisch ist Standardsprache; `--lang de` wählt Deutsch.
+
+- **Zuerst nur prüfen.** Audit, Diagnose, Erkennung und Trockenlauf ändern keine Zielkonfiguration, Rechte oder Dienste. HTTP-Anfragen und Lesen können Logs und Zugriffszeiten aktualisieren.
+- **Änderungen vorab prüfen.** Ausgewählte INI-Fixes haben einen Diff; Rechteänderungen einen ausdrücklichen Plan. Bestätigung, Backups und Rollback mit Konfliktprüfung gehören zum Ablauf.
+- **Fehlende Abdeckung bleibt sichtbar.** `UNKNOWN` wird nie zu `OK`. Ein unauffälliger Bericht belegt keinen sauberen Server.
+- **Eine Datei starten.** Bash oder PowerShell wählen. Das Linux-Ziel braucht Python 3.8+ und lesbares `/proc`; Windows braucht bestehenden OpenSSH-Zugang.
+
+> [!IMPORTANT]
+> **PHP separat aktualisieren.** Dieses Tool erkennt oder behebt keine PHP-CVEs und prüft weder den Sicherheits-Patchstand noch einen FPM-Neustart nach Updates. Für PHP2Shell und weitere Hinweise die [aktuellen PHP-Sicherheitshinweise](https://www.php.net/archive/2026.php) und Paketmeldungen der Distribution beachten. Funktionssperren sind zusätzliche Härtung, keine Sandbox.
 
 ## Direkt starten
 
-Ein Angreifer kann durch eine verwundbare Anwendung oder eine hochgeladene Datei bereits PHP ausführen. **`disable_functions` ist zusätzliche Härtung, keine Sandbox:** `--fix` begrenzt ausgewählte direkte Wege; es verhindert weder den ersten Einbruch noch jeden indirekten Ausführungsweg und erklärt keinen Host für sauber. Anwendungsupdates, minimale Rechte, OS-Isolation und Vorfallbehandlung bleiben eigenständige Aufgaben; die neuen Nginx-/systemd-Beobachtungen sind lesend und begrenzt.
+### Veröffentlicht: 2.2.1 für lesende Audits
 
-| Angriffsweg | Gegenmaßnahme | Prüft p2s | Ändert p2s |
-|---|---|---|---|
-| Verwundbares Plugin/Anwendung | Updates, verwundbaren Code entfernen, Anmeldung schützen | Kein Anwendungs-/CVE-Audit | Nichts |
-| Ausgewählte direkte PHP-Befehlsaufrufe | Sieben Funktionssperren und URL-Include-Policy | Globale/Pool-Policy; separate CI-Worker-Tests | Unterstützte INIs nach geprüfter Bestätigung |
-| Indirekte Helfer, FFI, Umgebungs- und Datei-APIs | Anwendungsspezifische Policy plus OS-Isolation | FFI-Policy und verbleibende Policy-Möglichkeiten; kein Bypass-Nachweis | Keine zusätzlichen Sperren |
-| PHP in Upload-Pfaden | Nicht ausführbarer Speicher und korrekte Nginx-Routen | Statische Root-/URI-Zuordnungen; Mehrdeutigkeit bleibt UNKNOWN | Keine Nginx-Änderung |
-| Privileggewinn, OS-Schreiben und temporäre Dateien | NoNewPrivileges, ProtectSystem, PrivateTmp samt Ausnahmen prüfen | Manager-Properties der zugeordneten aktiven Unit; keine Worker-/Kernel-Attestierung | Keine Unit-Änderung |
-| PHP-Benutzer kann Code ersetzen | Codebesitz und beschreibbare Laufzeitdaten trennen | Benutzer-/Rechteprüfung der ausgewählten Wurzeln | Nur ausdrücklich gewählte unterstützte Verzeichnisse |
-| Bestehende Webshell/Persistenz | Beweise sichern, isolieren, neu aufsetzen, betroffene Secrets tauschen | Begrenzte PHP-Indikatoren; keine OS-/Speicher-Persistenzprüfung | Keine Malware-Entfernung/Wiederherstellung |
-
-[Bedeutung, Nginx-Umfang und Prüfnachweise](docs/DEFENSES.md).
-
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.7**.
-Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
-Zum Testen den generierten Launcher dieses Branches verwenden:
-[Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
-Die Vorschau hat Commit-genaue CI-Nachweise und ist von den Stable-Release-Dateien getrennt.
-
-**Übersieht deine Upload-Sperre einen Zeilenumbruch?**
-
-Die verbreitete Sperre `^/uploads/.*\.php$` kann einen als `%0a` kodierten
-Zeilenumbruch übersehen, während ein späterer PHP-Handler die Datei ausführt.
-Dafür muss so ein Dateiname im ausführbaren Upload-Pfad entstehen können;
-nicht jede Upload-Funktion ist dadurch ausnutzbar. Tests mit echtem Nginx/FPM
-reproduzieren die Lücke und ihre Korrektur.
-
-Mit dem **dev.7-Vorschau-Launcher oben** die tatsächlichen Pfade lesend prüfen:
-
-```bash
-sudo bash p2s-harden.sh --check --root /srv/site \
-  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
-```
-
-Das Audit erstellt keine Upload-Marker. Alle drei Varianten lokal nachstellen:
-`python3 tools/reproduce-nginx-upload-guard.py` im Quellcode-Checkout. Nur dieses
-optionale Labor braucht Python und Docker; es veröffentlicht keine Ports und
-bindet keine Host-Pfade ein. [Ein-Befehl-Anleitung und erwartete Ausgabe](docs/UPLOAD-GUARD-LAB.md)
-· [Schutzbeispiele mit weiter erreichbaren Bildern](docs/NGINX-UPLOADS.md)
-· [Teilbarer Ankündigungstext auf DE/EN](docs/LAUNCH.md).
-
-**Upload-Routen:** dev.7 erkennt begrenzte Regex- und verschachtelte PHP-Sperren, die Bilder ausliefern, meldet den Zeilenumbruch-Bypass bei `.*` und erlaubt ausdrücklich reviewte UNKNOWN-Einträge mit Bindung an die komplette Konfiguration. [Beispiele und genaue Grenzen](docs/NGINX-UPLOADS.md).
-
-**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.7-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
-[Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
+> [!WARNING]
+> **Mit 2.2.1 kein `--fix` ausführen.** Der INI-Editor kann mehrzeilig zitierte Werte beschädigen und nachfolgende Einstellungen verlieren. Lesende Audits sind nicht betroffen. Für Änderungen die Konfiguration manuell prüfen/bearbeiten oder die unten getrennt verlinkte korrigierte Entwicklungsvorschau prüfen. [Release-Warnung](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.1).
 
 Lade **eine Datei** für deinen Startrechner:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
-- [Linux/macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.sh)
-- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.1)
+- [Windows PowerShell](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.1/p2s-harden.ps1)
+- [Linux/macOS Bash](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.1/p2s-harden.sh)
+- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.1)
+
+### Entwicklungsvorschau: 2.3.0-dev.7
+
+[Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
+Die Vorschau ergänzt Webshell-Indikatoren, Upload-Routenprüfungen und INI-Schutzkorrekturen. Sie verweigert mehrdeutige Quotes und vergleicht unbeteiligte effektive INI-Werte vor dem Reload. **Sie ist kein neues Stable-Release.** Die 2.2.1-Dateien enthalten diese Erweiterungen nicht. [Webshell-Umfang](#nach-php-webshell-indikatoren-suchen) · [Upload-Prüfung](#upload-sperren-prüfen-vorschau).
+
+**Bisherige Dateinamen bleiben nutzbar:** Das Projekt hieß zuvor `p2s-harden`. Launcher, Release-Dateien, Backup-Pfade und `P2S-`-Befund-IDs behalten ihre Namen, damit vorhandene Abläufe und Rollback-Befehle funktionieren.
+
+### Audit starten
 
 Auf dem Linux-Server:
 
@@ -141,7 +116,29 @@ sudo bash p2s-harden.sh --discover --lang de
 
 Ohne ps nutzt die Erkennung `/proc`. HTTP nutzt Python und braucht kein curl. Fehlendes runuser betrifft fremde Benutzer; fehlende Dienstverwaltung sperrt automatische INI-Fixes. Ohne Python erklärt der Bootstrap die Voraussetzung; den Python-Audit kann er dann nicht ausführen.
 
+<details>
+<summary>Welche Angriffswege die Prüfungen abdecken</summary>
+
+Ein Angreifer kann durch eine verwundbare Anwendung oder eine hochgeladene Datei bereits PHP ausführen. **`disable_functions` ist zusätzliche Härtung, keine Sandbox:** `--fix` begrenzt ausgewählte direkte Wege; es verhindert weder den ersten Einbruch noch jeden indirekten Ausführungsweg und erklärt keinen Host für sauber. Anwendungsupdates, minimale Rechte, OS-Isolation und Vorfallbehandlung bleiben eigenständige Aufgaben; die neuen Nginx-/systemd-Beobachtungen sind lesend und begrenzt.
+
+| Angriffsweg | Gegenmaßnahme | Prüft das Tool | Ändert das Tool |
+|---|---|---|---|
+| Verwundbares Plugin/Anwendung | Updates, verwundbaren Code entfernen, Anmeldung schützen | Kein Anwendungs-/CVE-Audit | Nichts |
+| Ausgewählte direkte PHP-Befehlsaufrufe | Sieben Funktionssperren und URL-Include-Policy | Globale/Pool-Policy; separate CI-Worker-Tests | Unterstützte INIs nach geprüfter Bestätigung |
+| Indirekte Helfer, FFI, Umgebungs- und Datei-APIs | Anwendungsspezifische Policy plus OS-Isolation | FFI-Policy und verbleibende Policy-Möglichkeiten; kein Bypass-Nachweis | Keine zusätzlichen Sperren |
+| PHP in Upload-Pfaden | Nicht ausführbarer Speicher und korrekte Nginx-Routen | Statische Root-/URI-Zuordnungen; Mehrdeutigkeit bleibt UNKNOWN | Keine Nginx-Änderung |
+| Privileggewinn, OS-Schreiben und temporäre Dateien | NoNewPrivileges, ProtectSystem, PrivateTmp samt Ausnahmen prüfen | Manager-Properties der zugeordneten aktiven Unit; keine Worker-/Kernel-Attestierung | Keine Unit-Änderung |
+| PHP-Benutzer kann Code ersetzen | Codebesitz und beschreibbare Laufzeitdaten trennen | Benutzer-/Rechteprüfung der ausgewählten Wurzeln | Nur ausdrücklich gewählte unterstützte Verzeichnisse |
+| Bestehende Webshell/Persistenz | Beweise sichern, isolieren, neu aufsetzen, betroffene Secrets tauschen | Begrenzte PHP-Indikatoren; keine OS-/Speicher-Persistenzprüfung | Keine Malware-Entfernung/Wiederherstellung |
+
+[Bedeutung, Nginx-Umfang und Prüfnachweise](docs/DEFENSES.md).
+
+</details>
+
 ## Fixes erst ansehen, dann anwenden
+
+> [!WARNING]
+> **Die folgenden `--fix`-Beispiele brauchen die geprüfte dev.7-Vorschau.** Wegen des INI-Editorfehlers nicht mit den veröffentlichten 2.2.1-Dateien ausführen. Mit 2.2.1 manuell bearbeiten oder zuerst die [Entwicklungsvorschau](#entwicklungsvorschau-230-dev7) und die Anwendungskompatibilität prüfen.
 
 ```bash
 sudo bash p2s-harden.sh --dry-run --lang de
@@ -174,7 +171,7 @@ entfallen. Geteilte Befund-IDs werden neu erzeugt; für einzelne `--ignore`-Ausn
 lokale Original-IDs verwenden. Unterstützt: check, doctor, discover und die Webshell-Entwicklungsvorschau. Ergebnisse
 und Exit-Code bleiben gleich. Änderungsvorschauen lokal ohne Maskierung prüfen.
 Die Maskierung gilt für Bericht-stdout; SSH-/System-stderr kann den Host nennen.
-[Geprüftes Audit-Feedback senden](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
+[Geprüftes Audit-Feedback senden](https://github.com/IamAngusU/php-fpm-audit/issues/new?template=audit-feedback.yml).
 
 Die Änderung bestehender INIs kann eine paketverwaltete `php.ini` betreffen. Ändern sich lokale und Paketversion, kann ein späteres Upgrade nach der gewünschten Konfiguration fragen. Diff prüfen und danach erneut auditieren; neue Drop-ins bleiben zurückgestellt. [Upgrade-Verhalten](docs/DETAILS.md#package-upgrades).
 
@@ -222,6 +219,32 @@ Unblock-File -LiteralPath .\p2s-harden.ps1
 ```
 
 Das entfernt die Downloadmarkierung, übersteuert aber weder Restricted noch Organisationsrichtlinien. Das frühere Bypass-Beispiel gilt für diesen Aufruf; erzwungene Organisationsrichtlinien gelten weiter. Prüfsummen erkennen veränderte Downloads. [Lesbare Quellen](src), [generierte Engine](p2s_harden.py), [Builder](build-standalone.py) und CI-Belege zeigen, was die größeren Ein-Datei-Launcher enthalten.
+
+## Upload-Sperren prüfen (Vorschau)
+
+**Übersieht deine Upload-Sperre einen Zeilenumbruch?**
+
+Die verbreitete Sperre `^/uploads/.*\.php$` kann einen als `%0a` kodierten
+Zeilenumbruch übersehen, während ein späterer PHP-Handler die Datei ausführt.
+Dafür muss so ein Dateiname im ausführbaren Upload-Pfad entstehen können;
+nicht jede Upload-Funktion ist dadurch ausnutzbar. Tests mit echtem Nginx/FPM
+reproduzieren die Lücke und ihre Korrektur.
+
+Mit dem **dev.7-Vorschau-Launcher aus dem Schnellstart** die tatsächlichen Pfade lesend prüfen:
+
+```bash
+sudo bash p2s-harden.sh --check --root /srv/site \
+  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
+```
+
+Das Audit erstellt keine Upload-Marker. Alle drei Varianten lokal nachstellen:
+`python3 tools/reproduce-nginx-upload-guard.py` im Quellcode-Checkout. Nur dieses
+optionale Labor braucht Python und Docker; es veröffentlicht keine Ports und
+bindet keine Host-Pfade ein. [Ein-Befehl-Anleitung und erwartete Ausgabe](docs/UPLOAD-GUARD-LAB.md)
+· [Schutzbeispiele mit weiter erreichbaren Bildern](docs/NGINX-UPLOADS.md)
+· [Teilbarer Ankündigungstext auf DE/EN](docs/LAUNCH.md).
+
+**Upload-Routen:** dev.7 erkennt begrenzte Regex- und verschachtelte PHP-Sperren, die Bilder ausliefern, meldet den Zeilenumbruch-Bypass bei `.*` und erlaubt ausdrücklich reviewte UNKNOWN-Einträge mit Bindung an die komplette Konfiguration. [Beispiele und genaue Grenzen](docs/NGINX-UPLOADS.md).
 
 ## Nach PHP-Webshell-Indikatoren suchen
 
@@ -284,6 +307,20 @@ der ausgewählten Wurzeln bleiben außerhalb ihres Umfangs. Ziele von Startdirek
 werden nicht automatisch verfolgt. Bei bestätigtem Einbruch Beweise sichern, Host
 isolieren, Einstiegslücke schließen, aus vertrauenswürdigen Quellen neu aufsetzen
 und betroffene Zugangsdaten erneuern. Die Vorschau senkt die Scan-CPU-Priorität auf nice 10 (bereits niedrigere bleibt erhalten) und fordert Idle-I/O mit optionalem `ionice` an. `--no-nice` deaktiviert dies; fehlende oder gesperrte Helfer werden gemeldet und die Suche läuft weiter. Das sind keine festen Ressourcenlimits. Große Dateien werden vor dem Parserlimit nach PHP-Tags durchsucht. Binärartig erkannte Inhalte benötigen `<?php` oder `<?=`; einfache Short-Tags darin liegen außerhalb der Erkennung. Kopien, Casts und `basename()` behalten offene Include-Befunde. Request-Includes mit konstantem Präfix haben eine eigene MEDIUM-Regel; unbeschränkte Request-Includes bleiben HIGH. [Regeln, Grenzen und Reaktion](docs/WEBSHELLS.md).
+
+## FAQ
+
+### Behebt das PHP2Shell?
+
+Nein. PHP 8.5.12, 8.4.27, 8.3.36 und 8.2.35 wurden am 21. Oktober 2026 als Fixes für CVE-2026-109618 und CVE-2026-109619 veröffentlicht. Distributionen können Patches zurückportieren; die upstream Versionsnummer allein reicht deshalb nicht. Auch den zusätzlichen Session-Upload-Progress-Hinweis vom 23. Oktober beachten. Maßgeblich sind die [aktuellen PHP-Hinweise](https://www.php.net/archive/2026.php) und die Paketmeldung deiner Distribution. Dieses Audit prüft den Patchstand nicht.
+
+### Verändert der Standardbefehl meinen Server?
+
+Er ändert keine Zielkonfiguration, Rechte oder Dienste. Das Audit liest Dateien und führt begrenzte HTTP-Anfragen aus; normale Logs und Zugriffszeiten können sich ändern. Ausdrücklich angeforderte Review-Drafts schreiben eigene Dateien. Konfigurationsänderungen brauchen `--fix` mit interaktiver Bestätigung oder `--yes`.
+
+### Warum heißen die Dateien weiterhin p2s-harden?
+
+`php-fpm-audit` ist der neue Projekt- und Repository-Name. Die bisherigen Skriptnamen, `P2S-`-IDs und Backup-Pfade bleiben für Kompatibilität erhalten. Die öffentliche CI und der Signier-Workflow liegen weiter unter `angusu-de/p2s-harden`; bei der [Herkunftsprüfung](docs/PROVENANCE.md) die erwartete Signiereridentität beibehalten.
 
 ## Umfang und Reifegrad
 

@@ -4,7 +4,7 @@ This addresses the adversarial review of `347ad4a` / dev.3. It is an unreleased
 development preview; published 2.2.1 files do not contain these corrections.
 Both READMEs flag its known multiline-INI editing limitation before the download
 and fix instructions. Read-only checks are unaffected. The previous
-[dev.3 decisions](https://github.com/IamAngusU/p2s-harden/blob/347ad4a258ac7eb41a226d7b394d495166a8e038/docs/REVIEW-WEBSHELLS.md)
+[dev.3 decisions](https://github.com/IamAngusU/php-fpm-audit/blob/347ad4a258ac7eb41a226d7b394d495166a8e038/docs/REVIEW-WEBSHELLS.md)
 remain historical context, not the current contract.
 
 ## 1. Byte filenames and strict JSON

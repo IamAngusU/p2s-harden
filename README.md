@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/p2s-harden-wordmark-dark.svg">
-    <img src="docs/assets/readme/p2s-harden-wordmark.svg" width="340" alt="p2s-harden — terminal-based PHP-FPM checks">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/php-fpm-audit-wordmark-dark.svg">
+    <img src="docs/assets/readme/php-fpm-audit-wordmark.svg" width="420" alt="php-fpm-audit — terminal-based PHP-FPM checks">
   </picture>
 </p>
 
@@ -9,8 +9,8 @@
   <a href="README.de.md"><img src="docs/assets/readme/readme-language-de.svg" height="40" alt="Diese README auf Deutsch lesen"></a>
 </p>
 
-<h1 align="center">Check PHP-FPM. Preview the fix.</h1>
-<p align="center">Discover setups. See missing prerequisites. Stay in your terminal.</p>
+<h1 align="center">Audit PHP-FPM. Preview the fix.</h1>
+<p align="center">Read-only checks for PHP-FPM and Nginx. Review findings and preview selected fixes.</p>
 
 <p align="center">
   <a href="#what-happens-next"><img src="docs/assets/readme/badge-default.svg" height="40" alt="Default: read-only first"></a>
@@ -19,65 +19,42 @@
   <a href="LICENSE"><img src="docs/assets/readme/badge-license.svg" height="40" alt="License: MIT"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live public CI status: open the p2s-harden workflow"></a>
+  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live public CI status: open the php-fpm-audit test workflow"></a>
 </p>
 <p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
-<p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
+<p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="#faq">FAQ</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/php-fpm-audit/releases">Releases</a></p>
 
-**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **Supported configuration workflow: Debian/Ubuntu host PHP-FPM with Nginx and systemd.** RHEL, Apache/mod_php and Plesk/cPanel configuration fixes are outside the tested scope. Explicit-root static file scans have a broader Linux scope. **2.2.1 is the older published configuration release; heed the INI advisory below.** English is the source/default language; `--lang de` selects German.
+**php-fpm-audit** checks selected PHP-FPM settings, FPM listeners and sockets, filesystem permissions and sensitive HTTP paths. Findings have stable IDs and a concrete next step. The supported configuration workflow targets **Debian/Ubuntu servers running host PHP-FPM with Nginx and systemd**. English is the default; `--lang de` selects German.
+
+- **Read-only first.** Audit, doctor, discovery and dry-run do not change target configuration, permissions or services. Reads and HTTP requests can update access times and ordinary logs.
+- **Review changes before applying.** Selected INI fixes have a diff; directory changes have an explicit plan. The workflow includes confirmation, backups and rollback with conflict checks.
+- **Incomplete checks stay visible.** `UNKNOWN` never becomes `OK`. A clean report is not a clean-server verdict.
+- **Run one file.** Choose Bash or PowerShell. The Linux target needs Python 3.8+ and readable `/proc`; Windows needs existing OpenSSH access.
+
+> [!IMPORTANT]
+> **Update PHP separately.** This tool does not detect or patch PHP CVEs, check the security patch level or verify that FPM was restarted after an upgrade. For PHP2Shell and follow-up guidance, consult the [current PHP security advisories](https://www.php.net/archive/2026.php) and your distribution's package notices. Function restrictions are defense in depth, not a sandbox.
 
 ## Start here
 
-An attacker may already execute PHP through a vulnerable application or an uploaded file. **`disable_functions` is defense in depth, not a sandbox:** `--fix` restricts selected direct paths; it does not prevent the initial compromise, close every indirect execution path or make a host clean. Application updates, least privilege, OS isolation and incident recovery remain separate requirements; the new Nginx/systemd observations are read-only and bounded.
+### Published 2.2.1: read-only audits
 
-| Attack path | Countermeasure | Checked by p2s | Changed by p2s |
-|---|---|---|---|
-| Vulnerable plugin/application | Patch, remove vulnerable code, protect authentication | No application/CVE audit | Nothing |
-| Selected direct PHP-to-command calls | Seven function restrictions and URL-include policy | Global/pool policy; separate CI worker tests | Supported INIs after reviewed confirmation |
-| Indirect helpers, FFI, environment and file APIs | Application-specific policy plus OS confinement | FFI policy and residual policy observations; no bypass verdict | Nothing extra |
-| PHP stored in upload paths | Nonexecutable storage and correct Nginx routing | Selected static root/URI mappings; ambiguous routes stay UNKNOWN | No Nginx changes |
-| Privilege gain and OS writes/temp sharing | Review NoNewPrivileges, ProtectSystem, PrivateTmp and exceptions | Matched active unit's manager properties; no worker/kernel attestation | No unit changes |
-| PHP user can replace code | Separate code ownership from writable runtime data | User/permission checks in selected roots | Only explicit supported directory targets |
-| Existing webshell/persistence | Preserve evidence, isolate, rebuild, rotate exposed secrets | Bounded PHP indicators; no OS/memory persistence audit | No malware removal or recovery |
-
-[What each observation means, supported Nginx subset and verification](docs/DEFENSES.md).
-
-**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.7**.
-Published **2.2.1 downloads below do not include that mode**. Use the generated
-launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
-[PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
-Preview files have commit-specific CI evidence; they are separate from the stable-release assets.
-
-**Can your upload guard miss a newline?**
-
-The common `^/uploads/.*\.php$` denial can miss a line break encoded as `%0a`,
-while a later PHP handler still executes the file. This requires a way to place
-such a filename in the executable upload path; it is not a verdict about every
-upload form. Real Nginx/FPM fixture tests reproduce the gap and its correction.
-
-With the **dev.7 preview launcher above**, inspect your actual paths read-only:
-
-```bash
-sudo bash p2s-harden.sh --check --root /srv/site \
-  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
-```
-
-No upload marker is created by the audit. To reproduce all three outcomes in
-an isolated local lab, run `python3 tools/reproduce-nginx-upload-guard.py` from
-the source checkout. Only this optional lab needs Python and Docker; it publishes
-no ports and mounts no host paths. [One-command reproduction and expected output](docs/UPLOAD-GUARD-LAB.md)
-· [Image-preserving guard examples](docs/NGINX-UPLOADS.md)
-· [Shareable EN/DE announcement](docs/LAUNCH.md).
-
-**Upload route checks:** dev.7 recognizes bounded regex and nested PHP denials that preserve images, detects the `.*` line-break bypass, and supports explicit configuration-bound UNKNOWN review. [Examples and exact limits](docs/NGINX-UPLOADS.md).
-
-**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.7 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
+> [!WARNING]
+> **Do not run `--fix` with 2.2.1.** Its INI editor can damage multiline quoted values and lose later settings. Read-only audits are unaffected. For changes, review/edit the configuration manually or evaluate the corrected development preview linked separately below. [Release advisory](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.1).
 
 Download **one file** for the computer you run it from:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
-- [Linux / macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.sh)
-- [Source package and SHA-256 sums](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.1)
+- [Windows PowerShell](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.1/p2s-harden.ps1)
+- [Linux / macOS Bash](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.1/p2s-harden.sh)
+- [Source package and SHA-256 sums](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.1)
+
+### Development preview: 2.3.0-dev.7
+
+[Bash preview](p2s-harden.sh?raw=1) · [PowerShell preview](p2s-harden.ps1?raw=1).
+The preview adds webshell indicators, upload-route checks and INI editing safeguards. It refuses ambiguous quotes and checks unrelated effective INI values before reload. **It is not a new stable release.** The 2.2.1 files do not include these additions. [Webshell scope](#look-for-php-webshell-indicators) · [Upload checks](#check-upload-guards-preview).
+
+**Existing filenames remain compatible:** this project was previously named `p2s-harden`. Launchers, release assets, backup paths and `P2S-` finding IDs retain their names so existing workflows and rollback commands keep working.
+
+### Run the audit
 
 On the Linux server:
 
@@ -140,7 +117,29 @@ sudo bash p2s-harden.sh --discover
 
 Without `ps`, discovery falls back to `/proc`. HTTP uses Python, so curl is unnecessary. Missing `runuser` affects foreign-user permission checks; missing service management blocks automatic INI changes. No Python means the bootstrap explains that prerequisite; it cannot perform the Python audit.
 
+<details>
+<summary>How the checks relate to attack paths</summary>
+
+An attacker may already execute PHP through a vulnerable application or an uploaded file. **`disable_functions` is defense in depth, not a sandbox:** `--fix` restricts selected direct paths; it does not prevent the initial compromise, close every indirect execution path or make a host clean. Application updates, least privilege, OS isolation and incident recovery remain separate requirements; the new Nginx/systemd observations are read-only and bounded.
+
+| Attack path | Countermeasure | Checked by this tool | Changed by this tool |
+|---|---|---|---|
+| Vulnerable plugin/application | Patch, remove vulnerable code, protect authentication | No application/CVE audit | Nothing |
+| Selected direct PHP-to-command calls | Seven function restrictions and URL-include policy | Global/pool policy; separate CI worker tests | Supported INIs after reviewed confirmation |
+| Indirect helpers, FFI, environment and file APIs | Application-specific policy plus OS confinement | FFI policy and residual policy observations; no bypass verdict | Nothing extra |
+| PHP stored in upload paths | Nonexecutable storage and correct Nginx routing | Selected static root/URI mappings; ambiguous routes stay UNKNOWN | No Nginx changes |
+| Privilege gain and OS writes/temp sharing | Review NoNewPrivileges, ProtectSystem, PrivateTmp and exceptions | Matched active unit's manager properties; no worker/kernel attestation | No unit changes |
+| PHP user can replace code | Separate code ownership from writable runtime data | User/permission checks in selected roots | Only explicit supported directory targets |
+| Existing webshell/persistence | Preserve evidence, isolate, rebuild, rotate exposed secrets | Bounded PHP indicators; no OS/memory persistence audit | No malware removal or recovery |
+
+[What each observation means, supported Nginx subset and verification](docs/DEFENSES.md).
+
+</details>
+
 ## Review fixes before applying
+
+> [!WARNING]
+> **The `--fix` examples below require the reviewed dev.7 preview.** Do not use them with published 2.2.1 files because of the INI editing defect. Use manual edits with 2.2.1, or evaluate the [development preview](#development-preview-230-dev7) and test application compatibility first.
 
 ```bash
 sudo bash p2s-harden.sh --dry-run
@@ -160,6 +159,31 @@ sudo bash p2s-harden.sh --rollback --backup-id BACKUP_ID --json
 The existing-file fix can modify a package-managed `php.ini`. If both local and package-maintainer versions change, a later package upgrade may ask which configuration to keep. Review that diff and re-audit after upgrading; new-file drop-ins remain deferred. [Upgrade behavior](docs/DETAILS.md#package-upgrades).
 
 Audit, doctor, inventory and dry-run do not change target configuration, permissions or services. Reads and HTTP requests can update access times and ordinary logs.
+
+## Check upload guards (preview)
+
+**Can your upload guard miss a newline?**
+
+The common `^/uploads/.*\.php$` denial can miss a line break encoded as `%0a`,
+while a later PHP handler still executes the file. This requires a way to place
+such a filename in the executable upload path; it is not a verdict about every
+upload form. Real Nginx/FPM fixture tests reproduce the gap and its correction.
+
+With the **dev.7 preview launcher from the quick start**, inspect your actual paths read-only:
+
+```bash
+sudo bash p2s-harden.sh --check --root /srv/site \
+  --nginx-config /etc/nginx/nginx.conf --runtime-dir /srv/site/uploads
+```
+
+No upload marker is created by the audit. To reproduce all three outcomes in
+an isolated local lab, run `python3 tools/reproduce-nginx-upload-guard.py` from
+the source checkout. Only this optional lab needs Python and Docker; it publishes
+no ports and mounts no host paths. [One-command reproduction and expected output](docs/UPLOAD-GUARD-LAB.md)
+· [Image-preserving guard examples](docs/NGINX-UPLOADS.md)
+· [Shareable EN/DE announcement](docs/LAUNCH.md).
+
+**Upload route checks:** dev.7 recognizes bounded regex and nested PHP denials that preserve images, detects the `.*` line-break bypass, and supports explicit configuration-bound UNKNOWN review. [Examples and exact limits](docs/NGINX-UPLOADS.md).
 
 ## Look for PHP webshell indicators
 
@@ -233,7 +257,7 @@ omitted. Shared finding IDs are fresh per report; use the original local IDs
 for per-resource `--ignore`. Supported modes: check, doctor, discover and the development webshell scan.
 Results and exit codes stay the same. Review change previews locally without
 redaction. Report stdout is covered; SSH/system stderr may identify the host.
-[Send reviewed audit feedback](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
+[Send reviewed audit feedback](https://github.com/IamAngusU/php-fpm-audit/issues/new?template=audit-feedback.yml).
 
 ## Common situations
 
@@ -279,6 +303,20 @@ Unblock-File -LiteralPath .\p2s-harden.ps1
 ```
 
 Unblocking removes the downloaded-file marker; it does not override Restricted or organizational policies. The earlier `-ExecutionPolicy Bypass` example applies only to that invocation and also respects enforced organizational policy. Checksums detect changed downloads; the readable [source components](src), generated [Python engine](p2s_harden.py), [build script](build-standalone.py) and exact-commit CI evidence let you inspect what is embedded in the larger launchers.
+
+## FAQ
+
+### Does this fix PHP2Shell?
+
+No. PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35 were released on 21 October 2026 to fix CVE-2026-109618 and CVE-2026-109619. Distributions may backport fixes, so the upstream version alone is insufficient. Also review the additional session upload progress notice dated 23 October. Follow the [current PHP guidance](https://www.php.net/archive/2026.php) and your distribution's package advisory. This audit does not check the patch level.
+
+### Does the default command change my server?
+
+It does not change target configuration, permissions or services. The audit reads files and makes bounded HTTP requests, which can update ordinary logs and access times. Explicitly requested review drafts write their own files. Configuration changes require `--fix` with interactive confirmation or `--yes`.
+
+### Why are the files still named p2s-harden?
+
+`php-fpm-audit` is the new project and repository name. Existing script names, `P2S-` IDs and backup paths remain compatible. Public CI and the signing workflow still use `angusu-de/p2s-harden`; retain that expected signer identity when [verifying provenance](docs/PROVENANCE.md).
 
 ## Scope and release status
 

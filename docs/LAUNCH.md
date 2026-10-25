@@ -12,14 +12,14 @@ Die verbreitete Regel `^/uploads/.*\.php$` kann einen Dateinamen mit Zeilenumbru
 voraus, dass so eine Datei im ausführbaren Upload-Pfad entstehen kann; nicht jede
 Upload-Funktion ist dadurch ausnutzbar.
 
-p2s-harden erkennt diesen Konfigurationsfall, erklärt den Befund und zeigt eine
+php-fpm-audit erkennt diesen Konfigurationsfall, erklärt den Befund und zeigt eine
 geprüfte Regel mit DOTALL, die PHP sperrt und Bilder weiter ausliefert. Ein
 lokales Docker-Labor reproduziert alle drei Fälle mit echten Nginx/FPM-Prozessen
 und harmlosen Markern: kein Guard, klassische Regel und korrigierte Regel.
 Ohne veröffentlichte Ports oder Änderungen an deiner Serverkonfiguration.
 
-[Reproduzieren](https://github.com/IamAngusU/p2s-harden/blob/main/docs/UPLOAD-GUARD-LAB.md)
-· [Tool und lesender Audit](https://github.com/IamAngusU/p2s-harden)
+[Reproduzieren](https://github.com/IamAngusU/php-fpm-audit/blob/main/docs/UPLOAD-GUARD-LAB.md)
+· [Tool und lesender Audit](https://github.com/IamAngusU/php-fpm-audit)
 
 **2.3.0-dev.7 ist eine Entwicklungsvorschau.** Der Konfigurationsworkflow richtet
 sich an Debian/Ubuntu mit Host-FPM, Nginx und systemd. Funktionssperren sind keine
@@ -36,13 +36,13 @@ while a later PHP handler still executes it. Exploitation requires a way to put
 that filename in the executable upload path; this does not make every upload
 form vulnerable.
 
-p2s-harden identifies this configuration pattern and documents a tested DOTALL
+php-fpm-audit identifies this configuration pattern and documents a tested DOTALL
 denial that blocks PHP while preserving image access. A local Docker lab
 reproduces no guard, the ordinary rule and its correction with real Nginx/FPM
 processes and harmless markers. No published ports or host configuration edits.
 
-[Reproduce it](https://github.com/IamAngusU/p2s-harden/blob/main/docs/UPLOAD-GUARD-LAB.md)
-· [Tool and read-only audit](https://github.com/IamAngusU/p2s-harden)
+[Reproduce it](https://github.com/IamAngusU/php-fpm-audit/blob/main/docs/UPLOAD-GUARD-LAB.md)
+· [Tool and read-only audit](https://github.com/IamAngusU/php-fpm-audit)
 
 **2.3.0-dev.7 is a development preview.** The configuration workflow targets
 Debian/Ubuntu host FPM, Nginx and systemd. Function restrictions are not a sandbox;

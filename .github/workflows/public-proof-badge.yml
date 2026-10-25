@@ -38,7 +38,7 @@ jobs:
           test -f "$proof_dir/proof/public-proof.json" || exit 0
           current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
           test "$current" = "$PROOF_HEAD_SHA" || exit 0
-          source=$(gh api "repos/IamAngusU/p2s-harden/git/ref/heads/main" --jq .object.sha)
+          source=$(gh api "repos/IamAngusU/php-fpm-audit/git/ref/heads/main" --jq .object.sha)
           test "$source" = "$PROOF_HEAD_SHA" || exit 0
           cd "$proof_dir"
           git init -q

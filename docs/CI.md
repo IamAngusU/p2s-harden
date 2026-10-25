@@ -1,7 +1,13 @@
 # Public CI and commit evidence
 
-The source repository is [IamAngusU/p2s-harden](https://github.com/IamAngusU/p2s-harden).
+The source repository is [IamAngusU/php-fpm-audit](https://github.com/IamAngusU/php-fpm-audit).
 GitHub-hosted runner access is currently unavailable in the source account. Public checks therefore run in its fork [angusu-de/p2s-harden](https://github.com/angusu-de/p2s-harden), a separate account belonging to the same maintainer. This follows the maintainer's ByeClaude/ContextBridge setup. It is not an independent audit.
+
+The source repository was renamed from `IamAngusU/p2s-harden`. The CI fork and
+provenance signer keep their existing `angusu-de/p2s-harden` identity. Launcher
+and release filenames also keep `p2s-harden` for compatibility. Source-head
+checks use the new repository name; this rename does not change the expected
+signer or make earlier CI evidence apply to a newer commit.
 
 ## What is checked
 
@@ -32,7 +38,7 @@ create that marker on an existing server.
 The fork is synchronized for releases; it does not automatically track every source push. Maintainers with access to the CI account can synchronize it with:
 
 ```bash
-gh repo sync angusu-de/p2s-harden --source IamAngusU/p2s-harden --branch main
+gh repo sync angusu-de/p2s-harden --source IamAngusU/php-fpm-audit --branch main
 ```
 
 Then inspect the new run, or trigger `CLI tests` manually in the fork. Compare the source/fork commit IDs and wait for all expected jobs and proof publication before relying on the badge for a release. A later source change does not inherit a previous successful result.
