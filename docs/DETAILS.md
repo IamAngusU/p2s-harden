@@ -36,7 +36,7 @@ sudo "$(brew --prefix)/bin/php-fpm-audit"
 
 Use `--dry-run` before `--fix`. For rollback, pass the printed rollback options to this installed command, using the absolute path with sudo as above. The legacy `p2s-harden.sh` command is also installed.
 
-Update with `brew update && brew upgrade php-fpm-audit`; remove with `brew uninstall php-fpm-audit`. The formula verifies a versioned release archive with SHA-256 and preserves the embedded launcher bytes. It provides Homebrew Bash and, on Linux, Python; remote Linux hosts still need their own Python 3.8+ and readable `/proc`. [Packaging CI](https://github.com/angusu-de/homebrew-tap/actions/workflows/ci.yml) uses the same maintainer's separate CI account.
+Update with `brew update && brew upgrade php-fpm-audit`; remove with `brew uninstall php-fpm-audit`. The formula verifies a versioned release archive with SHA-256 and preserves the embedded launcher bytes. It uses the existing system Bash and provides Python on Linux; remote Linux hosts still need their own Python 3.8+ and readable `/proc`. [Packaging CI](https://github.com/angusu-de/homebrew-tap/actions/workflows/ci.yml) uses the same maintainer's separate CI account.
 
 ## Discovery and audit limits
 
