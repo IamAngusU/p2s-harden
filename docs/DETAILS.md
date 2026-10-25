@@ -19,6 +19,27 @@ Python/Bash. Full foreign-user permission checks and changes need root. Missing
 capabilities affect the relevant checks and remain visible; the tool installs
 nothing. `--doctor` explains prerequisites and `--discover` shows inventory.
 
+## Homebrew installation
+
+The [maintainer's tap](https://github.com/IamAngusU/homebrew-tap) packages stable 2.2.2 for Linux and macOS:
+
+```sh
+brew install iamangusu/tap/php-fpm-audit
+php-fpm-audit --ssh root@SERVER
+```
+
+macOS is an SSH client; the audit target remains Linux. For a complete local Linux audit, use the absolute installed path so sudo does not need Homebrew in its command search path:
+
+```sh
+sudo "$(brew --prefix)/bin/php-fpm-audit"
+```
+
+Use `--dry-run` before `--fix`. For rollback, pass the printed rollback options to this installed command, using the absolute path with sudo as above. The legacy `p2s-harden.sh` command is also installed.
+
+Update with `brew update && brew upgrade php-fpm-audit`; remove with `brew uninstall php-fpm-audit`. The formula verifies a versioned release archive with SHA-256 and preserves the embedded launcher bytes. It provides Homebrew Bash and, on Linux, Python; remote Linux hosts still need their own Python 3.8+ and readable `/proc`. [Packaging CI](https://github.com/angusu-de/homebrew-tap/actions/workflows/ci.yml) uses the same maintainer's separate CI account.
+
+## Discovery and audit limits
+
 Literal Nginx server names, roots, ports and simple aliases can be discovered.
 Protected includes are parsed without running Nginx modules. Ambiguous/dynamic
 paths, unresolved includes, symlinks and inaccessible areas are not certified.

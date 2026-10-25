@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an independently versioned Homebrew tap for the unchanged stable 2.2.2 launcher, with a `php-fpm-audit` command, legacy command alias and Linux/macOS packaging checks. Keep detailed installation and sudo-path guidance in the EN/DE guides.
+
 - Shorten both READMEs to the stable quick start and key limits; move advanced commands, examples, preview guidance and verification details into the existing EN/DE detail guides.
 
 - Refuse BOM-prefixed conditional INI sections as well as ordinary conditional sections. Isolate maintenance-release CI proof on `ci-proof-2.2`, with exact source/fork `release/2.2` matching, while retaining the main preview proof.

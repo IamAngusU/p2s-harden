@@ -15,7 +15,14 @@
 
 ## Direkt starten
 
-Stabile Version **2.2.2** herunterladen:
+Mit Homebrew auf Linux/macOS:
+
+```sh
+brew install iamangusu/tap/php-fpm-audit
+php-fpm-audit --ssh root@SERVER --lang de
+```
+
+Oder Stable **2.2.2** als einzelne Datei herunterladen:
 
 - [Windows: PowerShell-Datei](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.ps1)
 - [Linux/macOS: Bash-Datei](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.sh)

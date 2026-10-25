@@ -12,6 +12,25 @@ Es gibt kein pauschales Urteil â€žServer sicherâ€œ.
 
 Zur kurzen Einstiegshilfe: [README auf Deutsch](../README.de.md).
 
+## Homebrew-Installation
+
+Der [Tap des Maintainers](https://github.com/IamAngusU/homebrew-tap) stellt Stable 2.2.2 für Linux und macOS bereit:
+
+```sh
+brew install iamangusu/tap/php-fpm-audit
+php-fpm-audit --ssh root@SERVER --lang de
+```
+
+macOS dient als SSH-Client; das Audit-Ziel bleibt Linux. Für ein vollständiges lokales Linux-Audit den absoluten installierten Pfad verwenden, damit sudo Homebrew nicht im Suchpfad braucht:
+
+```sh
+sudo "$(brew --prefix)/bin/php-fpm-audit" --lang de
+```
+
+Vor `--fix` zunächst `--dry-run` prüfen. Für Rollback die ausgegebenen Rollback-Optionen an diesen installierten Befehl übergeben, bei sudo wie oben mit absolutem Pfad. Der bisherige Befehl `p2s-harden.sh` wird ebenfalls installiert.
+
+Updates: `brew update && brew upgrade php-fpm-audit`. Entfernen: `brew uninstall php-fpm-audit`. Die Formel prüft das versionierte Release-Archiv mit SHA-256 und erhält die eingebetteten Launcher-Bytes unverändert. Homebrew stellt Bash und auf Linux Python bereit; entfernte Linux-Ziele brauchen weiterhin selbst Python 3.8+ und lesbares `/proc`. [Paketierungs-CI](https://github.com/angusu-de/homebrew-tap/actions/workflows/ci.yml) läuft auf dem separaten CI-Konto desselben Maintainers.
+
 ## Start mit einer Datei
 
 Nur `p2s-harden.sh` herunterladen. Die Python-Engine ist darin enthalten.
