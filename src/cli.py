@@ -124,9 +124,10 @@ def main(argv=None):
                     return report.exit_code()
                 tx = Transaction(args.backup_root)
                 def apply():
-                    tx.prepare(updates, args.protect_dir, instances,
-                               expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
-                    tx.apply(instances, users)
+                    with tx.locked(create=True):
+                        tx.prepare(updates, args.protect_dir, instances,
+                                   expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
+                        tx.apply(instances, users)
                 transaction_output(apply)
                 report, _, _, _ = scan(args)
                 report.plan, report.transaction = plan, summarize(tx)

@@ -1,5 +1,22 @@
 # Validation
 
+## 2.2.2 maintenance release gate
+
+Required at the release commit: all twelve public jobs, including the complete
+Python 3.8/3.12 fixture suites, native Windows transport, 104 actual FastCGI
+cases, 56 real INI editor/parser cases and four booted distribution VMs with
+fix/reload/worker observations and rollback. The INI cases include multiline
+refusal, BOM/CRLF, comments, duplicates and an unchanged memory-limit sentinel.
+Transaction fixtures verify unrelated-setting recovery before reload and
+system-wide serialization across backup roots.
+
+The signed files must come from matching source/fork `release/2.2` heads.
+The [maintenance proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md)
+and release notes identify the exact tested commit/run. Verify downloaded bytes,
+checksums, source manifest and expected signed provenance, including rejection
+of altered bytes, a wrong source commit and a wrong signer policy.
+This maintenance release excludes the 2.3 development features.
+
 ## 2.2.1 release gate
 
 Required: 179 tool tests plus 23 protocol/proof/guard tests per Linux Python
@@ -96,9 +113,9 @@ Automatic fix and rollback failure handling were exercised on fixture files, inc
 
 ## Public CI evidence
 
-Public CI uses [the maintainer's CI fork](https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml). Its generated [commit/run/job/step proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) records the actual result and the exact tested source commit. [How the proof is produced and synchronized](CI.md). Local test results above were executed on 2026-10-22; repository publication and CI integration were prepared on 2026-10-23.
+Public CI uses [the maintainer's CI fork](https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml). Its generated [maintenance commit/run/job/step proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md) records the actual result and the exact tested source commit. [How the proof is produced and synchronized](CI.md). Local test results above were executed on 2026-10-22; repository publication and CI integration were prepared on 2026-10-23.
 
-## What remains before a stable release
+## Ongoing validation and broader support
 
 Broader real-world feedback, additional Linux/FPM layouts and application compatibility testing remain necessary. Current automatic INI support stays limited to conventional Debian/Ubuntu host FPM configuration and matching systemd services.
 

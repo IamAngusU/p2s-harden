@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.2 — 2026-10-25
+
+- Backport the corrected INI editor to the stable 2.2.1 configuration workflow. Refuse multiline/unclosed quotes and conditional PATH/HOST sections before editing; preserve BOM/CRLF and unrelated settings.
+- Compare complete effective registered INI tables before and after editing; restore original files before reload if unrelated settings differ or verification is incomplete.
+- Serialize fix/rollback writers through the fixed protected system lock, including different backup roots; retain the lock across preparation and apply.
+- Add INI refusal/preservation/recovery regressions and 14 real parser cases per PHP-FPM image, alongside the stable 104 FastCGI cases and four distro VM workflows.
+- Keep launcher filenames, rollback data and P2S IDs compatible. Webshell, residual-policy, systemd-posture and new upload-route features remain outside this maintenance release.
+- Build and sign exact tested files on matching source/fork `release/2.2` heads; publish separate maintenance CI proof without changing the main preview proof.
+
 ## 2.2.1
 
 - Aggregate unchanged global/pool findings while preserving independently actionable overrides and stable global IDs.

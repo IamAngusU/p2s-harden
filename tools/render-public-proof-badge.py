@@ -10,7 +10,8 @@ import urllib.request
 
 DESIGN_COMMIT = "775ec50cbc778fc4e4181ba14b98f9fc0beb4e5c"
 REPOSITORY = "angusu-de/p2s-harden"
-SOURCE_REPOSITORY = "IamAngusU/p2s-harden"
+SOURCE_REPOSITORY = "IamAngusU/php-fpm-audit"
+SOURCE_BRANCH = "release/2.2"
 EXPECTED = (
     "linux (python:3.8.20-slim-bookworm)",
     "linux (python:3.12-slim-bookworm)",
@@ -30,7 +31,7 @@ TEMPLATE = Path(__file__).resolve().parents[1] / "docs/assets/readme/public-proo
 
 def github_json(path, repository=REPOSITORY):
     request = urllib.request.Request("https://api.github.com/repos/" + repository + "/" + path,
-        headers={"Accept": "application/vnd.github+json", "User-Agent": "p2s-harden-CI-proof",
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "php-fpm-audit-2.2-CI-proof",
                  "Authorization": "Bearer " + os.environ["GITHUB_TOKEN"],
                  "X-GitHub-Api-Version": "2022-11-28"})
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -76,7 +77,7 @@ def render(run, jobs):
     passed = sum(status(j) == "success" for j in jobs)
     metric = f"{passed}/{len(jobs)}"
     claim = "Separate account, same maintainer; CI evidence, not a third-party audit."
-    title = f"p2s-harden CI: {metric} jobs passed; {run['head_sha'][:12]}; run {run['id']}, attempt {run['run_attempt']}. {claim}"
+    title = f"php-fpm-audit {SOURCE_BRANCH} CI: {metric} jobs passed; {run['head_sha'][:12]}; run {run['id']}, attempt {run['run_attempt']}. {claim}"
     svg = TEMPLATE.read_text(encoding="utf-8")
     for anchor in ('data-badge-system="IamAngusU/Badges"', 'id="proof-metric"', 'id="proof-segments"'):
         if anchor not in svg:
@@ -97,14 +98,15 @@ def render(run, jobs):
     svg = re.sub(r'(<g id="proof-segments">).*?(</g>)', lambda m: m[1] + '\n' + '\n'.join(segments) + '\n' + m[2], svg, count=1, flags=re.S)
     metadata = {"claim": claim, "source_repository": SOURCE_REPOSITORY, "badge_design_source": "IamAngusU/Badges",
         "badge_design_source_commit": DESIGN_COMMIT, "repository": REPOSITORY,
+        "source_branch": SOURCE_BRANCH, "source_ref": "refs/heads/" + SOURCE_BRANCH,
         "head_sha": run['head_sha'], "run_id": run['id'], "run_attempt": run['run_attempt'],
         "run_url": run['html_url'], "run_conclusion": run.get('conclusion'),
         "jobs_success": passed, "jobs_total": len(jobs),
         "jobs": [{k: j.get(k) for k in ('name', 'status', 'conclusion', 'html_url', 'steps')} for j in jobs]}
-    lines = ["# p2s-harden public CI evidence", "", claim, "",
+    lines = ["# php-fpm-audit 2.2 maintenance CI evidence", "", claim, "",
         f"Commit: `{run['head_sha']}` · [Run {run['id']}, attempt {run['run_attempt']}]({run['html_url']})",
         "", f"**{metric} jobs passed.** Overall workflow: `{run.get('conclusion') or run['status']}`.", "",
-        "[Source repository](https://github.com/IamAngusU/p2s-harden) and CI fork were checked at this same commit.",
+        f"[Source repository](https://github.com/{SOURCE_REPOSITORY}) and CI fork `{SOURCE_BRANCH}` heads were checked at this same commit.",
         "", "This snapshot describes the linked commit. Check the commit before relying on it for a newer checkout.",
         "", "[Machine-readable evidence](public-proof.json)", ""]
     for job in jobs:
@@ -119,12 +121,12 @@ def main():
     if len(sys.argv) != 3 or not sys.argv[1].isdigit():
         raise SystemExit("usage: render-public-proof-badge.py RUN_ID OUTPUT_DIRECTORY")
     run = github_json("actions/runs/" + sys.argv[1])
-    if (run['name'] != 'CLI tests' or run['event'] not in ('push', 'workflow_dispatch') or run['head_branch'] != 'main'
+    if (run['name'] != 'CLI tests' or run['event'] not in ('push', 'workflow_dispatch') or run['head_branch'] != SOURCE_BRANCH
             or run['head_repository']['full_name'] != REPOSITORY):
         raise SystemExit("Refusing proof from a different workflow, branch or repository")
-    if (github_json('git/ref/heads/main')['object']['sha'] != run['head_sha']
-            or github_json('git/ref/heads/main', SOURCE_REPOSITORY)['object']['sha'] != run['head_sha']):
-        print("Skipping proof: source main, CI fork main and tested commit must match.")
+    if (github_json('git/ref/heads/' + SOURCE_BRANCH)['object']['sha'] != run['head_sha']
+            or github_json('git/ref/heads/' + SOURCE_BRANCH, SOURCE_REPOSITORY)['object']['sha'] != run['head_sha']):
+        print(f"Skipping proof: source {SOURCE_BRANCH}, CI fork {SOURCE_BRANCH} and tested commit must match.")
         return
     svg, metadata, readme = render(run, load_jobs(run))
     destination = Path(sys.argv[2])

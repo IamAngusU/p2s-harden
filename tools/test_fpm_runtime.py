@@ -345,6 +345,78 @@ def audit_comparison(engine, case, data, directory):
     return failures
 
 
+def ini_editor_inputs():
+    ordinary='disable_functions=exec\nallow_url_include=On\nmemory_limit=379M\n'
+    return [
+        ('plain',ordinary,False),('crlf',ordinary.replace('\n','\r\n'),False),
+        ('bom','\ufeff'+ordinary,False),('duplicates','disable_functions=system\n'+ordinary,False),
+        ('quoted',ordinary.replace('=exec','=\"exec,system\"'),False),
+        ('inline-comment',ordinary.replace('=exec','=exec ; a lone \" in a comment'),False),
+        ('quoted-semicolon','include_path="/lab/a;b"\n'+ordinary,False),
+        ('escaped-quote','include_path="/lab/a\\\"b"\n'+ordinary,False),
+        ('absent-keys','memory_limit=379M\n',False),
+        ('no-final-newline','memory_limit=379M',False),
+        ('ordinary-section','[Date]\ndate.timezone=UTC\nmemory_limit=379M\n',False),
+        ('conditional-section','memory_limit=379M\n[PATH=/lab]\ndisable_functions=exec\n',True),
+        ('multiline-target','disable_functions="exec,\nsystem"\nmemory_limit=379M\n',True),
+        ('multiline-unrelated','include_path="/lab/first\nsecond"\n'+ordinary,True),
+    ]
+
+
+def verify_ini_editor(engine, image, run_id):
+    """Real PHP configuration parser; never mount or modify host configuration."""
+    result=[]
+    updates=dict(disable_functions=','.join(sorted(REQUIRED)),allow_url_include='Off')
+    with tempfile.TemporaryDirectory(prefix='p2s-ini-runtime-') as temporary:
+        directory=Path(temporary)
+        directory.chmod(0o755)
+        target=directory/'php.ini'
+        def observe_ini():
+            name='p2s-ini-runtime-'+uuid.uuid4().hex[:16]
+            probe=['php','-c','/lab/php.ini','-d','display_errors=0','-d','display_startup_errors=0','-r',"echo json_encode(['version'=>PHP_VERSION,'values'=>ini_get_all(null,false)],JSON_THROW_ON_ERROR);"] if refuse else ['php-fpm','-c','/lab/php.ini','-i']
+            try:
+                observed=run(['docker','run','--rm','--name',name,'--label',LABEL+'='+run_id,
+                    '--cpus','0.5','--memory','128m','--pids-limit','32','--network','none','--read-only',
+                    '--cap-drop','ALL','--security-opt','no-new-privileges','--user',container_user(),
+                    '--mount','type=bind,src='+str(directory)+',dst=/lab,readonly',
+                    '--env','PHP_INI_SCAN_DIR=',image,*probe])
+                if 'syntax error' in observed.stderr.lower():
+                    raise EvidenceError('INI fixture introduced a PHP syntax error')
+                if refuse:
+                    value=json.loads(observed.stdout)
+                    value['snapshot']={key:hashlib.sha256(json.dumps(item,sort_keys=True).encode()).hexdigest() for key,item in value['values'].items()}
+                    return value
+                values=engine.info_values(observed.stdout)
+                try:snapshot=engine.ini_snapshot(observed.stdout)
+                except engine.CheckError as exc:raise EvidenceError('Real FPM INI snapshot could not be verified: '+str(exc)) from exc
+                return dict(version=values.get('PHP Version'),values=values,snapshot=snapshot)
+            finally:
+                cleanup_container(name,run_id)
+        for name,original,refuse in ini_editor_inputs():
+            print(image+' INI editor '+name,file=sys.stderr,flush=True)
+            target.write_bytes(original.encode('utf-8'))
+            target.chmod(0o644)
+            before=observe_ini()
+            refused=False
+            try:changed=engine.set_ini(original,updates)
+            except engine.CheckError:changed,refused=original,True
+            target.write_bytes(changed.encode('utf-8'))
+            after=observe_ini()
+            untouched=lambda value:{k:v for k,v in value['snapshot'].items() if k not in updates}
+            failures=[]
+            if refused!=refuse:failures.append('Unexpected editor acceptance/refusal')
+            if untouched(before)!=untouched(after):failures.append('Unrelated effective INI settings changed')
+            if before['values'].get('memory_limit')!='379M' or after['values'].get('memory_limit')!='379M':failures.append('Memory limit sentinel was lost')
+            if refuse and target.read_bytes()!=original.encode('utf-8'):failures.append('Refused input was modified')
+            if not refuse:
+                if set(after['values']['disable_functions'].split(','))!=set(REQUIRED):failures.append('Target function restrictions differ')
+                if str(after['values']['allow_url_include']).lower() not in ('','0','off'):failures.append('URL includes were not disabled')
+            result.append(dict(name=name,status='FAIL' if failures else 'PASS',failures=failures,
+                php_version=after['version'],refused=refused,unrelated_directives=len(untouched(before)),
+                unrelated_settings_preserved=untouched(before)==untouched(after)))
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--image", action="append", help="Official PHP-FPM image/digest; repeat for a matrix")
@@ -396,10 +468,12 @@ def main(argv=None):
                             failures.extend(audit_comparison(engine, case, observed, directory))
                     entry["cases"].append(dict(name=case["name"], status="FAIL" if failures else "PASS", failures=failures,
                         input=dict(global_disabled=case["global_disabled"], pool=case["pool"]), runtime=observed))
+                if engine:
+                    entry["ini_editor_cases"] = verify_ini_editor(engine, entry["image_id"], run_id)
             except (EvidenceError, OSError, ValueError, KeyError, TypeError, AttributeError, StopIteration) as exc:
                 entry["error"] = str(exc)
-        unknown = any(e.get("error") or len(e["cases"]) != len(cases()) for e in report["images"])
-        failed = any(c["status"] == "FAIL" for e in report["images"] for c in e["cases"])
+        unknown = any(e.get("error") or len(e["cases"]) != len(cases()) or engine is not None and len(e.get("ini_editor_cases", [])) != len(ini_editor_inputs()) for e in report["images"])
+        failed = any(c["status"] == "FAIL" for e in report["images"] for c in e["cases"] + e.get("ini_editor_cases", []))
         report["exit_code"] = 2 if unknown else 1 if failed else 0
     except (EvidenceError, OSError, ValueError, ImportError, TypeError, AttributeError) as exc:
         report["error"] = str(exc)

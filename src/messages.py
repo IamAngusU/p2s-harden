@@ -765,6 +765,16 @@ _POOL_TEMPLATES = {
     "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
 }
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
+_NEW_GERMAN.update({
+    "Multiline or unclosed INI quotes: automatic changes refused; review the file manually": "Mehrzeilige oder offene INI-Anführungszeichen: automatische Änderungen verweigert; Datei manuell prüfen",
+    "PHP INI snapshot is ambiguous; automatic changes refused": "Effektive PHP-INI-Werte nicht eindeutig lesbar; automatische Änderungen verweigert",
+    "Cannot verify the complete PHP INI snapshot; automatic changes refused": "Effektive PHP-INI-Werte nicht vollständig prüfbar; automatische Änderungen verweigert",
+    "Complete FPM instances are required for before/after INI verification": "Vollständige FPM-Zuordnung für den INI-Vorher-/Nachhervergleich erforderlich",
+    "Unrelated effective PHP INI settings changed; restoring the original configuration before reload": "Andere effektive PHP-INI-Werte wurden verändert; ursprüngliche Konfiguration wird vor dem Reload wiederhergestellt",
+    "Transaction lock and backup directories must have mode 0700 and be owned by root": "Transaktionssperr- und Backup-Verzeichnisse müssen root gehören und Modus 0700 haben",
+    "Another fix or rollback is running; wait for it to finish and rerun": "Ein anderer Fix oder Rollback läuft; Abschluss abwarten und erneut ausführen",
+    "Transaction lock directory changed while acquiring the lock": "Verzeichnis der Transaktionssperre wurde beim Sperren ausgetauscht",
+})
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]

@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -15,7 +16,7 @@ spec.loader.exec_module(proof)
 
 class ProofTests(unittest.TestCase):
     def run_data(self):
-        return dict(id=123, run_attempt=1, name='CLI tests', event='push', head_branch='main',
+        return dict(id=123, run_attempt=1, name='CLI tests', event='push', head_branch='release/2.2',
                     head_repository={'full_name': proof.REPOSITORY}, head_sha='a' * 40,
                     status='completed', conclusion='success', html_url='https://github.com/example/run/123')
 
@@ -28,7 +29,13 @@ class ProofTests(unittest.TestCase):
         self.assertEqual(metadata['jobs_success'], 12)
         self.assertEqual(metadata['jobs_total'], 12)
         self.assertEqual(metadata['head_sha'], 'a' * 40)
-        self.assertEqual(metadata['source_repository'], 'IamAngusU/p2s-harden')
+        self.assertEqual(metadata['source_repository'], 'IamAngusU/php-fpm-audit')
+        self.assertEqual(metadata['repository'], 'angusu-de/p2s-harden')
+        self.assertEqual(metadata['source_branch'], 'release/2.2')
+        self.assertEqual(metadata['source_ref'], 'refs/heads/release/2.2')
+        self.assertIn('<title>php-fpm-audit release/2.2 CI: 12/12 jobs passed;', svg)
+        self.assertIn('[Source repository](https://github.com/IamAngusU/php-fpm-audit)', readme)
+        self.assertIn('CI fork `release/2.2` heads', readme)
         self.assertIn('12/12', svg)
         self.assertIn('aaaa', readme)
 
@@ -85,6 +92,56 @@ class ProofTests(unittest.TestCase):
         run = dict(self.run_data(), name='another workflow')
         with patch.object(proof, 'github_json', return_value=run), patch.object(sys, 'argv', ['proof', '123', '/unused']), self.assertRaises(SystemExit):
             proof.main()
+
+    def test_main_and_other_release_branches_are_rejected(self):
+        for branch in ('main', 'release/2.3', 'release/2.2-extra'):
+            with self.subTest(branch=branch):
+                run = dict(self.run_data(), head_branch=branch)
+                with patch.object(proof, 'github_json', return_value=run) as api, patch.object(sys, 'argv', ['proof', '123', '/unused']), self.assertRaises(SystemExit):
+                    proof.main()
+                self.assertEqual(api.call_count, 1)
+
+    def test_foreign_repository_and_pull_request_events_are_rejected(self):
+        for fields in (dict(head_repository={'full_name': 'other/repository'}), dict(event='pull_request')):
+            with self.subTest(fields=fields):
+                run = dict(self.run_data(), **fields)
+                with patch.object(proof, 'github_json', return_value=run) as api, patch.object(sys, 'argv', ['proof', '123', '/unused']), self.assertRaises(SystemExit):
+                    proof.main()
+                self.assertEqual(api.call_count, 1)
+
+    def test_newer_fork_commit_prevents_proof_publication(self):
+        run = self.run_data()
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / 'proof'
+            def api(path, repository=proof.REPOSITORY):
+                if path == 'actions/runs/123':
+                    return run
+                self.assertEqual(path, 'git/ref/heads/release/2.2')
+                return {'object': {'sha': ('b' if repository == proof.REPOSITORY else 'a') * 40}}
+            with patch.object(proof, 'github_json', side_effect=api), patch.object(proof, 'load_jobs') as load_jobs, patch.object(sys, 'argv', ['proof', '123', str(destination)]), contextlib.redirect_stdout(io.StringIO()):
+                proof.main()
+            self.assertFalse(destination.exists())
+            load_jobs.assert_not_called()
+
+    def test_matching_release_heads_publish_branch_specific_evidence(self):
+        for event in ('push', 'workflow_dispatch'):
+            with self.subTest(event=event), tempfile.TemporaryDirectory() as temporary:
+                run = dict(self.run_data(), event=event)
+                destination = Path(temporary) / 'proof'
+                checked = []
+                def api(path, repository=proof.REPOSITORY):
+                    if path == 'actions/runs/123':
+                        return run
+                    self.assertEqual(path, 'git/ref/heads/release/2.2')
+                    checked.append(repository)
+                    return {'object': {'sha': 'a' * 40}}
+                with patch.object(proof, 'github_json', side_effect=api), patch.object(proof, 'load_jobs', return_value=self.jobs()), patch.object(sys, 'argv', ['proof', '123', str(destination)]):
+                    proof.main()
+                self.assertEqual(checked, ['angusu-de/p2s-harden', 'IamAngusU/php-fpm-audit'])
+                metadata = json.loads((destination / 'public-proof.json').read_text(encoding='utf-8'))
+                self.assertEqual(metadata['source_ref'], 'refs/heads/release/2.2')
+                self.assertEqual(metadata['head_sha'], run['head_sha'])
+                self.assertEqual(metadata['jobs_success'], 12)
 
 
 if __name__ == '__main__':

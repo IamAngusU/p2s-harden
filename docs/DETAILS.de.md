@@ -1,4 +1,4 @@
-# p2s-harden 2.2.1
+# php-fpm-audit 2.2.2
 
 Begrenzte PHP/FPM-PrÃ¼fung fÃ¼r Linux mit ausdrÃ¼cklich ausgewiesenem PrÃ¼fumfang.
 `OK` ist ein belegter Einzelbefund; `OPEN` ist eine Abweichung oder ein zu
@@ -328,3 +328,19 @@ Diff prüfen und danach erneut auditieren. Neue Drop-ins bleiben zurückgestellt
 Die Matrix enthält Debian 12/13 und Ubuntu 22.04/24.04 samt echter
 JSON-Fix-Verweigerung ohne --yes. [Build-Herkunft prüfen](PROVENANCE.md) und
 [aktuelle Review-Antwort](REVIEW-2.2.1.md).
+
+## INI-Schutz in 2.2.2
+
+Automatische Änderungen verweigern mehrzeilige oder offene Quotes sowie
+bedingte PATH/HOST-Abschnitte. BOM/CRLF und unbeteiligte Bytes bleiben erhalten.
+Fehlende Werte werden gemeinsam in einem PHP-Abschnitt ergänzt. Vor und nach
+dem Schreiben werden gehashte effektive INI-Werte verglichen; nur die gewollten
+Änderungen sind ausgenommen. Unvollständige Nachweise oder abweichende andere
+Werte führen zur Wiederherstellung vor dem Service-Reload. Werte und
+Prozessumgebungen werden nicht im Prüfnachweis gespeichert.
+
+Fix und Rollback sperren das feste, root-eigene Verzeichnis `/run/p2s-harden`
+mit Modus 0700 und das geschützte Backup-Verzeichnis. Die CLI hält die Sperre
+von Vorbereitung bis Anwendung, auch bei verschiedenen Backup-Wurzeln.
+Andere Editoren/Paketwerkzeuge und ältere Versionen nehmen daran nicht teil.
+Backups bleiben bis zur ausdrücklichen Entfernung erhalten.

@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/p2s-harden-wordmark-dark.svg">
-    <img src="docs/assets/readme/p2s-harden-wordmark.svg" width="340" alt="p2s-harden — terminal-based PHP-FPM checks">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/php-fpm-audit-wordmark-dark.svg">
+    <img src="docs/assets/readme/php-fpm-audit-wordmark.svg" width="420" alt="php-fpm-audit — terminal-based PHP-FPM checks">
   </picture>
 </p>
 
@@ -9,8 +9,8 @@
   <a href="README.de.md"><img src="docs/assets/readme/readme-language-de.svg" height="40" alt="Diese README auf Deutsch lesen"></a>
 </p>
 
-<h1 align="center">Check PHP-FPM. Preview the fix.</h1>
-<p align="center">Discover setups. See missing prerequisites. Stay in your terminal.</p>
+<h1 align="center">Audit PHP-FPM. Preview the fix.</h1>
+<p align="center">Read-only checks for PHP-FPM and Nginx. Review findings and preview selected fixes.</p>
 
 <p align="center">
   <a href="#what-happens-next"><img src="docs/assets/readme/badge-default.svg" height="40" alt="Default: read-only first"></a>
@@ -19,20 +19,33 @@
   <a href="LICENSE"><img src="docs/assets/readme/badge-license.svg" height="40" alt="License: MIT"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live public CI status: open the p2s-harden workflow"></a>
+  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof-2.2/proof/public-proof.svg" height="54" alt="Live public CI status: open the maintenance release workflow"></a>
 </p>
-<p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
-<p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
+<p align="center"><sub>Public CI on a separate account, same maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md">Tested commit and individual steps</a>. Badge design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
+<p align="center"><a href="#start-here">Get started</a> · <a href="#review-fixes-before-applying">Preview fixes</a> · <a href="#scope-and-release-status">Scope</a> · <a href="docs/DETAILS.md">Documentation</a> · <a href="https://github.com/IamAngusU/php-fpm-audit/releases">Releases</a></p>
 
-**p2s means PHP-to-shell.** p2s-harden audits selected PHP-FPM settings, filesystem permissions and local HTTP paths, then previews a bounded, reversible fix. **2.2.1 is the stable release for the supported host layouts below.** English is the source/default language; `--lang de` selects German.
+**php-fpm-audit** checks selected PHP-FPM settings, FPM listeners and sockets, filesystem permissions and sensitive HTTP paths. Findings have stable IDs and a concrete next step. The supported configuration workflow targets **Debian/Ubuntu servers running host PHP-FPM with Nginx and systemd**. English is the default; `--lang de` selects German.
+
+- **Read-only first.** Audit, doctor, discovery and dry-run do not change target configuration, permissions or services. Reads and HTTP requests can update access times and ordinary logs.
+- **Review changes before applying.** Selected INI fixes have a diff; directory changes have an explicit plan. The workflow includes confirmation, backups and rollback with conflict checks.
+- **Incomplete checks stay visible.** `UNKNOWN` never becomes `OK`. A clean report is not a clean-server verdict.
+- **Run one file.** Choose Bash or PowerShell. The Linux target needs Python 3.8+ and readable `/proc`; Windows needs existing OpenSSH access.
+
+> [!IMPORTANT]
+> **Update PHP separately.** This tool does not detect or patch PHP CVEs, check the security patch level or verify that FPM was restarted after an upgrade. For PHP2Shell and follow-up guidance, consult the [current PHP security advisories](https://www.php.net/archive/2026.php) and your distribution's package notices. Function restrictions are defense in depth, not a sandbox.
+
+**Stable maintenance release 2.2.2:** corrected INI editing on the 2.2.1 configuration workflow. Webshell and new upload-route checks remain in the [separate development preview](https://github.com/IamAngusU/php-fpm-audit/tree/main).
 
 ## Start here
 
+> [!NOTE]
+> **Use 2.2.2 or newer for automatic fixes.** Older 2.2.1 can damage multiline quoted INI values. 2.2.2 refuses these inputs and verifies unrelated effective settings before reload. Refused files require manual review.
+
 Download **one file** for the computer you run it from:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
-- [Linux / macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.sh)
-- [Source package and SHA-256 sums](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.1)
+- [Windows PowerShell](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.ps1)
+- [Linux / macOS Bash](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.sh)
+- [Source package and SHA-256 sums](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.2)
 
 On the Linux server:
 
@@ -53,6 +66,9 @@ bash p2s-harden.sh --ssh root@SERVER
 ```
 
 Replace `SERVER` with a hostname, IP or existing SSH alias. The Linux target needs **Python 3.8+ and readable `/proc`**. Windows needs neither Bash nor Python locally. No pip, Composer, project configuration or Docker is needed for ordinary use. Missing capabilities are explained; independent checks continue. Full cross-user checks and fixes need root. If root SSH is disabled, copy the Bash file to the server and run it with `sudo`; an ordinary SSH account can run the checks it can read.
+
+
+**Existing filenames are retained:** the project is now named `php-fpm-audit`; scripts, backup paths and `P2S-` finding IDs remain compatible.
 
 ## Who is this for?
 
@@ -130,7 +146,7 @@ omitted. Shared finding IDs are fresh per report; use the original local IDs
 for per-resource `--ignore`. Supported modes: check, doctor and discover.
 Results and exit codes stay the same. Review change previews locally without
 redaction. Report stdout is covered; SSH/system stderr may identify the host.
-[Send reviewed audit feedback](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
+[Send reviewed audit feedback](https://github.com/IamAngusU/php-fpm-audit/issues/new?template=audit-feedback.yml).
 
 ## Common situations
 
@@ -171,7 +187,7 @@ Unblocking removes the downloaded-file marker; it does not override Restricted o
 
 **Stable within the documented scope.** Disk inspection does not prove that every existing worker loaded that configuration, every vHost/container is covered, or every attack path is blocked. The disposable distro VM tests separately exercise real `/proc` discovery, Nginx mapping, PHP-user permissions, systemd fix/reload, HTTP worker values and rollback on Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The FastCGI matrix covers PHP 8.2–8.5. [Latest review response](docs/REVIEW-2.2.1.md) · [Validation](docs/VALIDATION.md) · [Release scope and acceptance gates](docs/PRODUCTION.md).
 
-GitHub-hosted runner access is currently unavailable in the source account. The public CI fork uses a separate account owned by the same maintainer; it is not an independent audit. The proof checks that the tested commit, source main and fork main match before publishing. [Exact jobs and steps](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [How synchronization works](docs/CI.md).
+GitHub-hosted runner access is currently unavailable in the source account. The public CI fork uses a separate account owned by the same maintainer; it is not an independent audit. The proof checks that the tested commit, source `release/2.2` and fork `release/2.2` match before publishing. [Exact jobs and steps](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md) · [How synchronization works](docs/CI.md).
 
 ## For contributors
 

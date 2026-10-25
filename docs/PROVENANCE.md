@@ -8,15 +8,22 @@ the workflow and source commit that produced the exact artifact bytes.
 ## Identity to require
 
 The expected signer is `angusu-de/p2s-harden/.github/workflows/ci.yml` on
-`refs/heads/main`, on GitHub-hosted runners. This is the existing public CI fork,
-owned by the same maintainer as `IamAngusU/p2s-harden`. It is not an independent
+`refs/heads/release/2.2`, on GitHub-hosted runners. This is the existing public CI fork,
+owned by the same maintainer as `IamAngusU/php-fpm-audit`. It is not an independent
 builder/auditor. Runner access remains unavailable in the source account.
 
+The source repository was renamed from `IamAngusU/p2s-harden` to
+`IamAngusU/php-fpm-audit`; the CI fork and signer were not renamed. Existing
+launcher names, release assets and the provenance bundle retain `p2s-harden`.
+Keep the signer identity below unchanged when verifying these downloads.
+
 The provenance job depends on all eleven test jobs. It rebuilds the tested
-commit, requires source/fork heads to match, verifies the standalone build and
+commit, requires source/fork maintenance-branch heads to match, verifies the standalone build and
 tracked source manifest, then attests the Bash file, PowerShell file, source ZIP
 and checksum file. The release uploads those exact CI-generated distribution
 files and includes the signed `p2s-harden-provenance.json` bundle.
+
+For 2.2.2, require the maintenance ref above. Earlier 2.2.1 downloads were signed on `refs/heads/main`; use that ref when verifying those historical files.
 
 ## Verify a downloaded file
 
@@ -24,7 +31,7 @@ GitHub CLI is optional for verification; it is not needed to run the tool.
 With a current, authenticated `gh`, this command works in Bash and PowerShell:
 
 ```text
-gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/main --deny-self-hosted-runners
+gh attestation verify p2s-harden.sh --repo angusu-de/p2s-harden --signer-workflow angusu-de/p2s-harden/.github/workflows/ci.yml --source-ref refs/heads/release/2.2 --deny-self-hosted-runners
 ```
 
 Use `p2s-harden.ps1` or the source ZIP filename for another asset. For stricter

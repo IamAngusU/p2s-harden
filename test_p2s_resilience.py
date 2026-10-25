@@ -18,6 +18,9 @@ class ResilienceTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='p2s-resilience-', dir=Path.cwd())
         self.root = Path(self.tmp.name)
+        lock_path = patch.object(p, "TRANSACTION_LOCK_ROOT", str(self.root / "system-transaction-lock"))
+        lock_path.start()
+        self.addCleanup(lock_path.stop)
         self.ini = self.root / 'php.ini'
         self.ini.write_text('allow_url_include=Off\n')
         self.cap = dict(platform='linux', python='3.11.0', proc=True, root=True, systemd=True,

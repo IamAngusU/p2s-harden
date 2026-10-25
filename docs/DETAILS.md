@@ -1,4 +1,4 @@
-# p2s-harden CLI and recovery
+# php-fpm-audit CLI and recovery
 
 `p2s` means PHP-to-shell. This tool supplies selected configuration evidence and
 reversible changes for conventional Debian/Ubuntu host PHP-FPM. It does not
@@ -181,3 +181,19 @@ a drop-in is not automatically a safe rollback if another tool changed it later.
 Checksums alone detect corruption, not independent origin. See the optional
 [GitHub attestation verification](PROVENANCE.md) for exact bytes, signer workflow,
 source-ref/commit checks and the same-maintainer CI account's trust boundary.
+
+## INI safeguards in 2.2.2
+
+Automatic editing refuses multiline/unclosed quotes anywhere in the file and
+conditional PATH/HOST sections. BOM/CRLF and unrelated bytes are preserved;
+missing settings share one appended PHP section. The transaction compares
+hashed effective registered INI values before and after writing, excluding only
+the intended settings. An incomplete snapshot or unrelated change restores the
+original files before service reload. Configuration values and environments are
+not persisted in the verification evidence.
+
+Fix and rollback use a nonblocking lock on the fixed root-owned mode-0700
+`/run/p2s-harden` directory, plus the protected backup directory. The CLI holds
+the lock across preparation and application, including different backup roots.
+Other editors/package tools and older tool versions do not participate.
+Backups remain until the operator removes them. Keep needed recovery data.

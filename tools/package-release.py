@@ -17,6 +17,7 @@ names = [
     'p2s-harden.sh', 'p2s-harden.ps1', 'p2s_harden.py', 'p2s-launcher.sh.in', 'p2s-launcher.ps1.in',
     'build-standalone.py', 'test_p2s_harden.py', 'test_p2s_resilience.py', 'test_p2s_transactions.py',
     'test_p2s_language.py', 'test_p2s_http.py', 'test_p2s_cli.py', 'test_p2s_contracts.py', 'test_p2s_pools.py', 'test_p2s_review.py', 'test-windows-launcher.ps1',
+    'test_p2s_ini.py',
     'README.md', 'README.de.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
     '.gitattributes', '.gitignore', '.github/workflows/ci.yml', '.github/workflows/public-proof-badge.yml', '.github/ISSUE_TEMPLATE/audit-feedback.yml',
     'docs/VALIDATION.md', 'docs/DETAILS.de.md', 'docs/DETAILS.md', 'docs/FINDINGS.md', 'docs/CI.md',

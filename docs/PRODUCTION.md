@@ -1,9 +1,13 @@
 # Stable scope and release gates
 
-p2s-harden 2.2.1 is a stable terminal product for the supported host workflow.
+php-fpm-audit 2.2.2 is a stable terminal product for the supported host workflow.
 It is not a universal vulnerability scanner. A successful audit means its
 selected checks passed for the reported resources. It cannot establish that
 an application is free of vulnerabilities or that PHP-to-shell is impossible.
+
+This is a maintenance backport, not promotion of the 2.3 development preview.
+The 2.2.1 INI editing advisory is addressed by refusing ambiguous input and
+checking unrelated effective INI values before service reload.
 
 ## Supported workflow
 
@@ -50,6 +54,8 @@ All twelve public CI jobs must pass at the source commit being released:
 - PHP 8.2, 8.3, 8.4 and 8.5: 26 cases each, including actual harmless function
   calls, URL-include controls, `.txt` execution allowed/denied by extension policy,
   parent environment clearing and comparison with parsed real TCP pool dumps.
+  Each image also runs 14 real INI editor/parser cases, preserving unrelated
+  effective values and refusing multiline or conditional input.
   The network fixture publishes no port and has no external network.
 - Debian 12/13 and Ubuntu 22.04/24.04: nine integration stages each, with actual `/proc`
   and Nginx discovery, PHP-user permissions, new pool checks, private reports,
@@ -62,8 +68,8 @@ All twelve public CI jobs must pass at the source commit being released:
   all eleven test jobs pass, require matching source/fork heads, then sign the
   four files with GitHub build attestations. [Verification](PROVENANCE.md).
 
-The [commit-specific public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md)
-must match source main, CI-fork main and the release tag. Downloaded release
+The [commit-specific public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md)
+must match source `release/2.2`, CI-fork `release/2.2` and the release tag. Downloaded release
 assets must match SHA-256 sums, the reproducible source manifest and expected signed build provenance. The public
 CI belongs to the same maintainer; it is reproducible evidence, not independent
 security certification.

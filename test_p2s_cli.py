@@ -18,6 +18,9 @@ class CliContracts(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(dir=Path.cwd(), prefix="p2s-cli-")
         self.root = Path(self.temporary.name)
+        lock_path = patch.object(p, "TRANSACTION_LOCK_ROOT", str(self.root / "system-transaction-lock"))
+        lock_path.start()
+        self.addCleanup(lock_path.stop)
         self.ini = self.root / "php.ini"
         self.original = b"allow_url_include=On\n"
         self.ini.write_bytes(self.original)
@@ -68,6 +71,23 @@ class CliContracts(unittest.TestCase):
         self.assertIsNotNone(result["plan"])
         self.assertFalse(self.backups.exists())
         self.assertEqual(self.ini.read_bytes(), self.original)
+
+    def test_fix_keeps_global_lock_between_prepare_and_apply(self):
+        original_prepare = p.Transaction.prepare
+        competitor_root = self.root / "competing-backups"
+        prepared = []
+        def checked_prepare(transaction, *args, **kwargs):
+            result = original_prepare(transaction, *args, **kwargs)
+            prepared.append(transaction.path)
+            with self.assertRaisesRegex(p.CheckError, "Another fix or rollback"):
+                p.Transaction(competitor_root).prepare({}, [], [])
+            return result
+        with patch.object(p.Transaction, "prepare", new=checked_prepare):
+            code, result = self.invoke("--fix")
+        self.assertEqual(code, 0)
+        self.assertEqual(len(prepared), 1)
+        self.assertEqual(result["transaction"]["status"], "applied")
+        self.assertFalse(competitor_root.exists())
 
     def test_preview_contains_only_changed_directives_and_detects_concurrent_edit(self):
         self.ini.write_text("extension_secret=DO_NOT_PRINT_THIS\nallow_url_include=On\n")

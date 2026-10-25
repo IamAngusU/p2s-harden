@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/p2s-harden-wordmark-dark.svg">
-    <img src="docs/assets/readme/p2s-harden-wordmark.svg" width="340" alt="p2s-harden — PHP-FPM im Terminal prüfen">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/php-fpm-audit-wordmark-dark.svg">
+    <img src="docs/assets/readme/php-fpm-audit-wordmark.svg" width="420" alt="php-fpm-audit — PHP-FPM im Terminal prüfen">
   </picture>
 </p>
 
@@ -10,7 +10,7 @@
 </p>
 
 <h1 align="center">PHP-FPM prüfen. Fixes vorab ansehen.</h1>
-<p align="center">Setups erkennen. Fehlende Voraussetzungen verstehen. Im Terminal bleiben.</p>
+<p align="center">PHP-FPM und Nginx lesend prüfen. Befunde verstehen und ausgewählte Fixes vorab ansehen.</p>
 
 <p align="center">
   <a href="#was-passiert-danach"><img src="docs/assets/readme/badge-default.svg" height="40" alt="Standard: zuerst nur prüfen"></a>
@@ -19,20 +19,33 @@
   <a href="LICENSE"><img src="docs/assets/readme/badge-license.svg" height="40" alt="Lizenz: MIT"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof/proof/public-proof.svg" height="54" alt="Live-Status der öffentlichen CI: p2s-harden-Workflow öffnen"></a>
+  <a href="https://github.com/angusu-de/p2s-harden/actions/workflows/ci.yml"><img src="https://raw.githubusercontent.com/angusu-de/p2s-harden/ci-proof-2.2/proof/public-proof.svg" height="54" alt="Live-Status der öffentlichen CI: Wartungsrelease-Workflow öffnen"></a>
 </p>
-<p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
-<p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/p2s-harden/releases">Releases</a></p>
+<p align="center"><sub>Öffentliche CI auf einem separaten Konto, gleicher Maintainer. <a href="https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md">Getesteter Commit und einzelne Prüfschritte</a>. Badge-Design: <a href="https://github.com/IamAngusU/Badges">IamAngusU/Badges</a>.</sub></p>
+<p align="center"><a href="#direkt-starten">Starten</a> · <a href="#fixes-erst-ansehen-dann-anwenden">Fixes vorab ansehen</a> · <a href="#umfang-und-reifegrad">Prüfumfang</a> · <a href="docs/DETAILS.de.md">Dokumentation</a> · <a href="https://github.com/IamAngusU/php-fpm-audit/releases">Releases</a></p>
 
-**p2s bedeutet PHP-to-shell.** Das Tool prüft ausgewählte PHP-FPM-Einstellungen, Rechte und lokale HTTP-Pfade und zeigt einen begrenzten, rücknehmbaren Fix. **2.2.1 ist die stabile Version für die unten beschriebenen Host-Setups.** Englisch ist Quell- und Standardsprache; `--lang de` wählt Deutsch.
+**php-fpm-audit** prüft ausgewählte PHP-FPM-Einstellungen, FPM-Listener und Sockets, Dateirechte und sensible HTTP-Pfade. Befunde haben stabile IDs und einen konkreten nächsten Schritt. Der unterstützte Konfigurationsablauf richtet sich an **Debian/Ubuntu mit Host-PHP-FPM, Nginx und systemd**. Englisch ist Standardsprache; `--lang de` wählt Deutsch.
+
+- **Zuerst nur prüfen.** Audit, Diagnose, Erkennung und Trockenlauf ändern keine Zielkonfiguration, Rechte oder Dienste. HTTP-Anfragen und Lesen können Logs und Zugriffszeiten aktualisieren.
+- **Änderungen vorab prüfen.** Ausgewählte INI-Fixes haben einen Diff; Rechteänderungen einen ausdrücklichen Plan. Bestätigung, Backups und Rollback mit Konfliktprüfung gehören zum Ablauf.
+- **Fehlende Abdeckung bleibt sichtbar.** `UNKNOWN` wird nie zu `OK`. Ein unauffälliger Bericht belegt keinen sauberen Server.
+- **Eine Datei starten.** Bash oder PowerShell wählen. Das Linux-Ziel braucht Python 3.8+ und lesbares `/proc`; Windows braucht bestehenden OpenSSH-Zugang.
+
+> [!IMPORTANT]
+> **PHP separat aktualisieren.** Dieses Tool erkennt oder behebt keine PHP-CVEs und prüft weder den Sicherheits-Patchstand noch einen FPM-Neustart nach Updates. Für PHP2Shell und weitere Hinweise die [aktuellen PHP-Sicherheitshinweise](https://www.php.net/archive/2026.php) und Paketmeldungen der Distribution beachten. Funktionssperren sind zusätzliche Härtung, keine Sandbox.
+
+**Stabile Wartungsversion 2.2.2:** korrigierter INI-Editor auf Basis von 2.2.1. Webshell- und neue Upload-Routenprüfungen bleiben in der [separaten Entwicklungsvorschau](https://github.com/IamAngusU/php-fpm-audit/tree/main).
 
 ## Direkt starten
 
+> [!NOTE]
+> **Für automatische Fixes 2.2.2 oder neuer verwenden.** Die alte Version 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. 2.2.2 verweigert solche Eingaben und prüft unbeteiligte effektive INI-Werte vor einem Reload. Bei verweigerten Dateien ist eine manuelle Prüfung erforderlich.
+
 Lade **eine Datei** für deinen Startrechner:
 
-- [Windows PowerShell](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.ps1)
-- [Linux/macOS Bash](https://github.com/IamAngusU/p2s-harden/releases/download/v2.2.1/p2s-harden.sh)
-- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/p2s-harden/releases/tag/v2.2.1)
+- [Windows PowerShell](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.ps1)
+- [Linux/macOS Bash](https://github.com/IamAngusU/php-fpm-audit/releases/download/v2.2.2/p2s-harden.sh)
+- [Quellpaket und SHA-256-Prüfsummen](https://github.com/IamAngusU/php-fpm-audit/releases/tag/v2.2.2)
 
 Auf dem Linux-Server:
 
@@ -53,6 +66,9 @@ bash p2s-harden.sh --ssh root@SERVER --lang de
 ```
 
 `SERVER` durch Hostname, IP oder bestehenden SSH-Alias ersetzen. Das Linux-Ziel braucht **Python 3.8+ und lesbares `/proc`**. Windows braucht lokal weder Bash noch Python. Kein pip, Composer, Konfigurationsprojekt oder Docker für normale Nutzung. Fehlende Fähigkeiten werden erklärt; unabhängige Prüfungen laufen weiter. Vollständige Benutzerprüfungen und Fixes brauchen root. Ohne Root-SSH die Bash-Datei auf den Server kopieren und dort mit `sudo` starten; normale SSH-Benutzer können lesbare Teilprüfungen ausführen.
+
+
+**Bisherige Dateinamen bleiben erhalten:** Das Projekt heißt jetzt `php-fpm-audit`; Skripte, Backup-Pfade und `P2S-`-Befund-IDs bleiben kompatibel.
 
 ## Für wen?
 
@@ -127,7 +143,7 @@ entfallen. Geteilte Befund-IDs werden neu erzeugt; für einzelne `--ignore`-Ausn
 lokale Original-IDs verwenden. Unterstützt: check, doctor und discover. Ergebnisse
 und Exit-Code bleiben gleich. Änderungsvorschauen lokal ohne Maskierung prüfen.
 Die Maskierung gilt für Bericht-stdout; SSH-/System-stderr kann den Host nennen.
-[Geprüftes Audit-Feedback senden](https://github.com/IamAngusU/p2s-harden/issues/new?template=audit-feedback.yml).
+[Geprüftes Audit-Feedback senden](https://github.com/IamAngusU/php-fpm-audit/issues/new?template=audit-feedback.yml).
 
 Die Änderung bestehender INIs kann eine paketverwaltete `php.ini` betreffen. Ändern sich lokale und Paketversion, kann ein späteres Upgrade nach der gewünschten Konfiguration fragen. Diff prüfen und danach erneut auditieren; neue Drop-ins bleiben zurückgestellt. [Upgrade-Verhalten](docs/DETAILS.md#package-upgrades).
 
@@ -170,7 +186,7 @@ Das entfernt die Downloadmarkierung, übersteuert aber weder Restricted noch Org
 
 **Stabil innerhalb des dokumentierten Umfangs.** Datenträgerprüfung belegt nicht die Konfiguration jedes bestehenden Workers oder alle vHosts/Container/Angriffspfade. Separate Wegwerf-VM-Tests prüfen echten `/proc`-Discover, Nginx-Zuordnung, PHP-Benutzerrechte, systemd-Fix/Reload, HTTP-Workerwerte und Rollback auf Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/Distributions-PHP 8.1 und Ubuntu 24.04/PHP 8.3. Die FastCGI-Matrix umfasst PHP 8.2–8.5. [Aktuelle Review-Antwort](docs/REVIEW-2.2.1.md) · [Prüfnachweise](docs/VALIDATION.md) · [Release-Umfang und Abnahmekriterien](docs/PRODUCTION.md).
 
-Der Quellaccount kann derzeit keine GitHub-gehosteten Runner starten. Deshalb läuft öffentliche CI auf einem zweiten Account desselben Maintainers. Das ist kein unabhängiges Audit. Der Proof verlangt übereinstimmende getestete Quell-/Fork-Commits. [Jobs und Schritte](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) · [Synchronisierung](docs/CI.md).
+Der Quellaccount kann derzeit keine GitHub-gehosteten Runner starten. Deshalb läuft öffentliche CI auf einem zweiten Account desselben Maintainers. Das ist kein unabhängiges Audit. Der Proof verlangt übereinstimmende getestete Quell-/Fork-Commits auf `release/2.2`. [Jobs und Schritte](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md) · [Synchronisierung](docs/CI.md).
 
 ## Für Mitwirkende
 

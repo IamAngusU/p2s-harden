@@ -1,7 +1,13 @@
 # Public CI and commit evidence
 
-The source repository is [IamAngusU/p2s-harden](https://github.com/IamAngusU/p2s-harden).
+The source repository is [IamAngusU/php-fpm-audit](https://github.com/IamAngusU/php-fpm-audit).
 GitHub-hosted runner access is currently unavailable in the source account. Public checks therefore run in its fork [angusu-de/p2s-harden](https://github.com/angusu-de/p2s-harden), a separate account belonging to the same maintainer. This follows the maintainer's ByeClaude/ContextBridge setup. It is not an independent audit.
+
+The source repository was renamed from `IamAngusU/p2s-harden`. The CI fork and
+provenance signer keep their existing `angusu-de/p2s-harden` identity. Launcher
+and release filenames also keep `p2s-harden` for compatibility. Source-head
+checks use the new repository name; this rename does not change the expected
+signer or make earlier CI evidence apply to a newer commit.
 
 ## What is checked
 
@@ -11,11 +17,15 @@ GitHub-hosted runner access is currently unavailable in the source account. Publ
 - Four real booted VMs with distro Nginx/systemd: Debian 12/PHP 8.2, Debian 13/PHP 8.4, Ubuntu 22.04/distro PHP 8.1 and Ubuntu 24.04/PHP 8.3. The guarded system harness exercises actual discovery, automatic mapping, check, private report projection, preview, unapproved-JSON-fix refusal, confirmed fix, permission changes, service reload and HTTP worker observations, then rollback and repeated rollback. No fixture instance or mocked systemctl is used.
 - Windows: generated-file consistency and native PowerShell/SSH transport with a temporary fake SSH executable, including quoting and exit codes.
 
-- A dependent provenance job signs the four exact distribution files only after all eleven test jobs pass and source/fork heads match. [Signer identity and verification](PROVENANCE.md).
+- Each real FPM job additionally runs 14 INI editor/parser cases: BOM, CRLF, duplicates, comments, quoting, missing keys, section handling and multiline refusal. All unrelated effective registered directives and the 379M memory sentinel must remain unchanged.
 
-Actual jobs and steps are recorded in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/README.md) and [JSON](https://github.com/angusu-de/p2s-harden/blob/ci-proof/proof/public-proof.json). Each snapshot names its exact source commit, run and attempt. The badge counts measured job results; missing expected jobs remain visible and do not pass.
+- A dependent provenance job signs the four exact distribution files only after all eleven test jobs pass and source/fork maintenance-branch heads match. [Signer identity and verification](PROVENANCE.md).
 
-The proof workflow publishes only when the tested commit, source `main` and CI-fork `main` match. A newer commit requires a new matching run. This is reproducibility evidence from the maintainer, not a third-party audit or a guarantee about a user's server.
+Actual jobs and steps are recorded in the [public proof](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/README.md) and [JSON](https://github.com/angusu-de/p2s-harden/blob/ci-proof-2.2/proof/public-proof.json). Each snapshot names its exact source commit, run and attempt. The badge counts measured job results; missing expected jobs remain visible and do not pass.
+
+The proof workflow publishes only when the tested commit, source `release/2.2` and CI-fork `release/2.2` match. A newer commit requires a new matching run. This is reproducibility evidence from the maintainer, not a third-party audit or a guarantee about a user's server.
+
+The maintenance proof uses the separate `ci-proof-2.2` branch. Existing 2.2.1 attestations still require `refs/heads/main`; do not use the new source-ref policy for old downloads.
 
 All twelve expected jobs must pass for a full proof, including all four system VMs and provenance.
 VM actions, checkout/setup and artifact actions are pinned to commit SHAs.
@@ -30,9 +40,9 @@ create that marker on an existing server.
 The fork is synchronized for releases; it does not automatically track every source push. Maintainers with access to the CI account can synchronize it with:
 
 ```bash
-gh repo sync angusu-de/p2s-harden --source IamAngusU/p2s-harden --branch main
+gh repo sync angusu-de/p2s-harden --source IamAngusU/php-fpm-audit --branch release/2.2
 ```
 
 Then inspect the new run, or trigger `CLI tests` manually in the fork. Compare the source/fork commit IDs and wait for all expected jobs and proof publication before relying on the badge for a release. A later source change does not inherit a previous successful result.
 
-The separate `ci-proof` branch contains generated evidence only and is excluded from ordinary push CI. The proof workflow is enabled only in the named CI fork and uses its own scoped workflow token. No cross-account personal token is stored in this repository.
+The separate `ci-proof-2.2` branch contains generated evidence only and is excluded from ordinary push CI. The proof workflow is enabled only in the named CI fork and uses its own scoped workflow token. No cross-account personal token is stored in this repository.

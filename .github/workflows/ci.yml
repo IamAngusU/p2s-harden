@@ -1,7 +1,7 @@
 name: CLI tests
 on:
   push:
-    branches: [main]
+    branches: [release/2.2]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -174,7 +174,7 @@ jobs:
   provenance:
     name: Release provenance
     needs: [linux, fpm, system_ubuntu, system_debian, windows]
-    if: ${{ github.repository == 'angusu-de/p2s-harden' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ github.repository == 'angusu-de/p2s-harden' && github.ref == 'refs/heads/release/2.2' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -190,8 +190,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(gh api repos/IamAngusU/p2s-harden/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
-          test "$(gh api repos/angusu-de/p2s-harden/git/ref/heads/main --jq .object.sha)" = "$GITHUB_SHA"
+          test "$(gh api repos/IamAngusU/php-fpm-audit/git/ref/heads/release/2.2 --jq .object.sha)" = "$GITHUB_SHA"
+          test "$(gh api repos/angusu-de/p2s-harden/git/ref/heads/release/2.2 --jq .object.sha)" = "$GITHUB_SHA"
           python3 -B build-standalone.py --check
           python3 -B tools/package-release.py
           git diff --exit-code -- SHA256.json

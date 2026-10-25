@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import pwd
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -18,6 +19,9 @@ class TransactionTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="p2s-transactions-", dir=Path.cwd())
         self.root = Path(self.temp.name)
+        lock_path = patch.object(p, "TRANSACTION_LOCK_ROOT", str(self.root / "system-transaction-lock"))
+        lock_path.start()
+        self.addCleanup(lock_path.stop)
         self.ini = self.make_ini("php.ini")
         self.backups = self.root / "backups"
 
@@ -155,6 +159,119 @@ class TransactionTests(unittest.TestCase):
         self.assertTrue(result.noop)
         self.assertIn(b"Off", self.ini.read_bytes())
         self.assertEqual(second.read_bytes(), b"allow_url_include=On\n")
+
+    def test_concurrent_fix_prepare_apply_and_rollback_are_refused_without_changes(self):
+        tx=self.prepare(self.ini)
+        self.apply(tx)
+        original=self.ini.read_bytes()
+        before={path.name for path in self.backups.iterdir()}
+        code='''import json,sys
+from pathlib import Path
+import p2s_harden as p
+p.TRANSACTION_LOCK_ROOT=sys.argv[5]
+try:
+    tx=p.Transaction(sys.argv[1])
+    if sys.argv[4].startswith('prepare'):tx.prepare({sys.argv[2]:{'allow_url_include':'Off'}},[],[])
+    elif sys.argv[4]=='apply':
+        tx.path=Path(sys.argv[3]);tx.data=json.loads((tx.path/'manifest.json').read_text());tx.apply([],[])
+    else:p.Transaction.rollback(sys.argv[1])
+except p.CheckError as exc:
+    print(str(exc));sys.exit(3)
+'''
+        with tx.locked():
+            for operation in ('prepare','apply','rollback','prepare-alternate-root'):
+                with self.subTest(operation=operation):
+                    backup_root=self.root/'alternate-backups' if operation=='prepare-alternate-root' else self.backups
+                    run=subprocess.run([sys.executable,'-B','-c',code,str(backup_root),str(self.ini),str(tx.path),operation,p.TRANSACTION_LOCK_ROOT],capture_output=True,text=True,timeout=10)
+                    self.assertEqual(run.returncode,3,run.stdout+run.stderr)
+                    self.assertIn('Another fix or rollback',run.stdout)
+                    self.assertEqual(self.ini.read_bytes(),original)
+                    self.assertEqual({path.name for path in self.backups.iterdir()},before)
+            self.assertFalse((self.root/'alternate-backups').exists())
+        self.rollback()
+        self.assertEqual(self.ini.read_bytes(),b'allow_url_include=On\n')
+
+    def test_kernel_releases_transaction_lock_after_process_is_terminated(self):
+        tx=self.prepare(self.ini)
+        code="import sys,time; import p2s_harden as p; p.TRANSACTION_LOCK_ROOT=sys.argv[2]; tx=p.Transaction(sys.argv[1]); guard=tx.locked(); guard.__enter__(); print('locked',flush=True); time.sleep(30)"
+        child=subprocess.Popen([sys.executable,'-B','-c',code,str(self.backups),p.TRANSACTION_LOCK_ROOT],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            self.assertEqual(child.stdout.readline().strip(),'locked')
+            with self.assertRaisesRegex(p.CheckError,'Another fix or rollback'):
+                self.apply(tx)
+        finally:
+            child.terminate()
+            child.communicate(timeout=10)
+        self.apply(tx)
+        self.assertIn(b'Off',self.ini.read_bytes())
+
+    def test_lock_refuses_symlinks_writable_roots_and_special_files(self):
+        self.backups.mkdir(mode=0o700)
+        alias=self.root/'alias'
+        alias.symlink_to(self.backups,target_is_directory=True)
+        with self.assertRaises(p.CheckError),p.Transaction(alias).locked():pass
+        self.backups.chmod(0o770)
+        with self.assertRaises(p.CheckError),p.Transaction(self.backups).locked():pass
+        self.backups.chmod(0o700)
+        fifo=self.root/'fifo'
+        os.mkfifo(fifo,mode=0o600)
+        with self.assertRaises(OSError),p.Transaction(fifo).locked():pass
+
+    def test_global_lock_also_blocks_a_different_backup_root(self):
+        tx=self.prepare(self.ini)
+        other=p.Transaction(self.root/'different-backups')
+        with tx.locked(),self.assertRaisesRegex(p.CheckError,'Another fix or rollback'):
+            other.prepare({str(self.ini):{'allow_url_include':'Off'}},[],[])
+        self.assertFalse(other.root.exists())
+        other.prepare({str(self.ini):{'allow_url_include':'Off'}},[],[])
+
+    def test_multiline_ini_is_refused_before_any_configuration_change(self):
+        self.ini.write_bytes(b'disable_functions="exec,\nsystem"\nmemory_limit=379M\n')
+        before=self.ini.read_bytes()
+        with self.assertRaisesRegex(p.CheckError,'quotes'):
+            self.prepare(self.ini)
+        self.assertEqual(self.ini.read_bytes(),before)
+
+    def test_ini_crlf_bom_roundtrip_preserves_unrelated_bytes_and_backup(self):
+        original=b'\xef\xbb\xbf; keep this comment\r\nmemory_limit=379M\r\nallow_url_include=On\r\n'
+        self.ini.write_bytes(original)
+        tx=self.prepare(self.ini)
+        self.assertEqual((tx.path/tx.data['files'][0]['backup']).read_bytes(),original)
+        self.apply(tx)
+        self.assertEqual(self.ini.read_bytes(),original.replace(b'allow_url_include=On',b'allow_url_include = Off'))
+        self.rollback()
+        self.assertEqual(self.ini.read_bytes(),original)
+
+    def test_missing_fpm_instance_or_ambiguous_snapshot_refuses_before_target_write(self):
+        instance=dict(pid=123,start='fixture',binary=str(self.ini),config=str(self.ini),service='fixture.service',
+                      env={},inis=[str(self.ini)])
+        for instances,command_result,message in (([],None,'Complete FPM'),([instance],('not an INI table',''),'snapshot')):
+            with self.subTest(message=message):
+                tx=p.Transaction(self.backups)
+                tx.prepare({str(self.ini):{'allow_url_include':'Off'}},[],[instance])
+                with patch.object(p,'command',return_value=command_result),patch.object(p,'reload_instances') as reload:
+                    with self.assertRaisesRegex(p.CheckError,message):
+                        tx.apply(instances,[])
+                reload.assert_not_called()
+                self.assertEqual(self.ini.read_bytes(),b'allow_url_include=On\n')
+                self.assertFalse(tx.data['files'][0].get('started',False))
+
+    def test_unrelated_effective_setting_change_is_restored_before_reload(self):
+        instance=dict(pid=123,start='fixture',binary=str(self.ini),config=str(self.ini),service='fixture.service',
+                      env={},inis=[str(self.ini)])
+        tx=p.Transaction(self.backups)
+        tx.prepare({str(self.ini):{'allow_url_include':'Off'}},[],[instance])
+        table='Directive => Local Value => Master Value\ndisable_functions => '+','.join(sorted(p.REQUIRED))+' => '+','.join(sorted(p.REQUIRED))+'\n'
+        before=table+'allow_url_include => On => On\nmemory_limit => 379M => 379M\n'
+        after=table+'allow_url_include => Off => Off\nmemory_limit => 128M => 128M\n'
+        infos=iter([before,after])
+        def command(argv,**kwargs):
+            return (next(infos),'') if '-i' in argv else ('123\n','')
+        with patch.object(p,'command',side_effect=command),patch.object(p,'reload_instances') as reload, self.assertRaisesRegex(p.CheckError,'Unrelated effective'):
+            tx.apply([instance],[])
+        reload.assert_not_called()
+        self.assertEqual(self.ini.read_bytes(),b'allow_url_include=On\n')
+        self.assertEqual(tx.data['status'],'rolled_back')
 
     def test_latest_unstarted_transaction_does_not_fall_back(self):
         older = self.prepare(self.ini)

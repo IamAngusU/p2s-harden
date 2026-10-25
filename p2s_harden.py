@@ -34,7 +34,7 @@ import threading
 import time
 import uuid
 
-VERSION = "2.2.1"
+VERSION = "2.2.2"
 DEFAULT_MAX_PATHS = 250000
 REQUIRED = frozenset("exec system shell_exec passthru popen proc_open pcntl_exec".split())
 
@@ -176,22 +176,72 @@ def pool_values(text):
 def active_ini_lines(text, key):
     # Exclude both PHP comment syntaxes, retain only real assignments.
     pattern = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
-    return [i for i, line in enumerate(text.splitlines()) if pattern.match(line)]
+    return [i for i, line in enumerate(text.splitlines()) if pattern.match(line[1:] if i == 0 and line.startswith("\ufeff") else line)]
+
+
+def validate_ini_edit(text):
+    """Refuse multiline/unclosed quotes anywhere before a line-based edit."""
+    for line in text.splitlines():
+        quote, escaped = None, False
+        if line.lstrip("\ufeff \t").startswith((";", "#")):
+            continue
+        for char in line:
+            if escaped:
+                escaped = False
+            elif quote and char == "\\":
+                escaped = True
+            elif quote and char == quote:
+                quote = None
+            elif quote is None and char in ("'", '"'):
+                quote = char
+            elif quote is None and char in (";", "#"):
+                break
+        if quote:
+            raise CheckError("Multiline or unclosed INI quotes: automatic changes refused; review the file manually")
+
+
+def ini_snapshot(text):
+    """Hash only PHP's three-column INI tables, never its environment dump."""
+    values, table = {}, False
+    for line in text.splitlines():
+        if line.strip() == "Directive => Local Value => Master Value":
+            table = True
+            continue
+        if not line.strip():
+            table = False
+            continue
+        if not table:
+            continue
+        parts = line.split(" => ")
+        key = parts[0].strip()
+        if len(parts) != 3 or key in values or re.fullmatch(r"[A-Za-z_][A-Za-z_0-9.-]*", key) is None:
+            raise CheckError("PHP INI snapshot is ambiguous; automatic changes refused")
+        values[key] = digest(json.dumps(parts[1:], ensure_ascii=True).encode("ascii"))
+    if not {"disable_functions", "allow_url_include", "memory_limit"} <= values.keys():
+        raise CheckError("Cannot verify the complete PHP INI snapshot; automatic changes refused")
+    return values
 
 
 def set_ini(text, updates):
-    if re.search(r"^\s*\[(?:PATH|HOST)\s*=", text, re.M | re.I):
+    validate_ini_edit(text)
+    if re.search(r"^\s*\[(?:PATH|HOST)\s*=", text[1:] if text.startswith("\ufeff") else text, re.M | re.I):
         raise CheckError('Conditional PATH/HOST INI sections: automatic changes refused')
     lines = text.splitlines(keepends=True)
+    newline = next(iter(re.findall(r"\r\n|\n|\r", text)), "\n")
+    missing = []
     for key, value in updates.items():
         indices = active_ini_lines("".join(lines), key)
-        replacement = f"{key} = {value}\n"
         if indices:
-            lines[indices[-1]] = replacement
+            old = lines[indices[-1]]
+            ending = "\r\n" if old.endswith("\r\n") else "\n" if old.endswith("\n") else "\r" if old.endswith("\r") else newline
+            bom = "\ufeff" if indices[-1] == 0 and old.startswith("\ufeff") else ""
+            lines[indices[-1]] = bom + f"{key} = {value}" + ending
         else:
-            if lines and not lines[-1].endswith("\n"):
-                lines[-1] += "\n"
-            lines.extend(["\n[PHP]\n", replacement])
+            missing.append(f"{key} = {value}" + newline)
+    if missing:
+        if lines and not lines[-1].endswith(("\n", "\r")):
+            lines[-1] += newline
+        lines.extend([newline + "[PHP]" + newline, *missing])
     return "".join(lines)
 
 
@@ -1658,6 +1708,16 @@ _POOL_TEMPLATES = {
     "{count} pools share UID {uid}; they do not form a Unix-user isolation boundary": "{count} Pools teilen UID {uid}; sie bilden keine Isolation durch Unix-Benutzer",
 }
 _MESSAGE_TEMPLATES += tuple((en, en, de) for en, de in _POOL_TEMPLATES.items())
+_NEW_GERMAN.update({
+    "Multiline or unclosed INI quotes: automatic changes refused; review the file manually": "Mehrzeilige oder offene INI-Anführungszeichen: automatische Änderungen verweigert; Datei manuell prüfen",
+    "PHP INI snapshot is ambiguous; automatic changes refused": "Effektive PHP-INI-Werte nicht eindeutig lesbar; automatische Änderungen verweigert",
+    "Cannot verify the complete PHP INI snapshot; automatic changes refused": "Effektive PHP-INI-Werte nicht vollständig prüfbar; automatische Änderungen verweigert",
+    "Complete FPM instances are required for before/after INI verification": "Vollständige FPM-Zuordnung für den INI-Vorher-/Nachhervergleich erforderlich",
+    "Unrelated effective PHP INI settings changed; restoring the original configuration before reload": "Andere effektive PHP-INI-Werte wurden verändert; ursprüngliche Konfiguration wird vor dem Reload wiederhergestellt",
+    "Transaction lock and backup directories must have mode 0700 and be owned by root": "Transaktionssperr- und Backup-Verzeichnisse müssen root gehören und Modus 0700 haben",
+    "Another fix or rollback is running; wait for it to finish and rerun": "Ein anderer Fix oder Rollback läuft; Abschluss abwarten und erneut ausführen",
+    "Transaction lock directory changed while acquiring the lock": "Verzeichnis der Transaktionssperre wurde beim Sperren ausgetauscht",
+})
 _MESSAGES.update({en: (en, de) for en, de in _NEW_GERMAN.items()})
 _COMPILED_MESSAGES = [(*_compile_message(source), en, de)
                       for source, en, de in _MESSAGE_TEMPLATES]
@@ -2374,12 +2434,66 @@ def confirm_fix(args):
         raise CheckError("No controlling terminal; review --dry-run first, then use --fix --yes") from exc
 
 
+TRANSACTION_LOCK_ROOT = "/run/p2s-harden"
+
+
+@contextlib.contextmanager
+def transaction_directory_lock(path, create=False):
+    """Lock a protected directory inode without a replaceable lock file."""
+    import fcntl
+    path = Path(path)
+    if not path.is_absolute():
+        raise CheckError('Backup directory must be absolute')
+    trusted(path.parent)
+    if create:
+        try:
+            path.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+    trusted(path)
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        opened = os.fstat(fd)
+        if opened.st_uid != 0 or stat.S_IMODE(opened.st_mode) != 0o700:
+            raise CheckError('Transaction lock and backup directories must have mode 0700 and be owned by root')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise CheckError('Another fix or rollback is running; wait for it to finish and rerun') from exc
+        current = path.lstat()
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+            raise CheckError('Transaction lock directory changed while acquiring the lock')
+        yield fd
+    finally:
+        os.close(fd)
+
+
 class Transaction:
     def __init__(self, backup_root):
         self.root = Path(backup_root)
         self.path = None
         self.noop = False
+        self._lock_fd = None
         self.data = dict(version=1, status="prepared", files=[], directories=[], instances=[])
+
+    @contextlib.contextmanager
+    def locked(self, create=False):
+        """One system-wide writer plus the legacy backup-root lock.
+
+        Both protected directory inodes are pinned; no configurable global
+        path, replaceable lock file or stale PID. Reentrant only for this object.
+        """
+        if self._lock_fd is not None:
+            yield
+            return
+        if os.geteuid() != 0:
+            raise CheckError('Changes and rollback require root')
+        with transaction_directory_lock(TRANSACTION_LOCK_ROOT, create=True) as fd, transaction_directory_lock(self.root, create=create):
+            self._lock_fd = fd
+            try:
+                yield
+            finally:
+                self._lock_fd = None
 
     def begin(self):
         import time
@@ -2412,6 +2526,10 @@ class Transaction:
         self.save()
 
     def prepare(self, updates, protect_dirs, instances, expected=None):
+        with self.locked(create=True):
+            return self._prepare(updates, protect_dirs, instances, expected)
+
+    def _prepare(self, updates, protect_dirs, instances, expected=None):
         # Guard callers other than main as well: never edit first and discover
         # a missing reload/user-switch capability during recovery.
         affected = [i for i in instances if set(updates).intersection(i["inis"])]
@@ -2444,7 +2562,15 @@ class Transaction:
         self.save()
 
     def apply(self, instances, users):
+        with self.locked():
+            return self._apply(instances, users)
+
+    def _apply(self, instances, users):
         try:
+            affected = [i for i in instances if i["pid"] in {r["pid"] for r in self.data["instances"]}]
+            if {i["pid"] for i in affected} != {i["pid"] for i in self.data["instances"]}:
+                raise CheckError("Complete FPM instances are required for before/after INI verification")
+            snapshots = {i["pid"]: ini_snapshot(command([i["binary"], "-i"], env=i["env"])[0]) for i in affected}
             for item in self.data["files"]:
                 path = trusted(item["path"])
                 original = path.read_bytes()
@@ -2482,10 +2608,14 @@ class Transaction:
                     output = as_user(user, [sys.executable, "-B", "-c", "import os,sys; print(int(os.access(sys.argv[1], os.W_OK)))", str(path)])
                     if output.strip() != "0":
                         raise CheckError(f'{path} remains writable by {user}')
-            affected = [i for i in instances if i["pid"] in {r["pid"] for r in self.data["instances"]}]
             for i in affected:
                 command([i["binary"], "-t", "-y", i["config"]], env=i["env"])
                 out, _ = command([i["binary"], "-i"], env=i["env"])
+                before_settings, after_settings = snapshots[i["pid"]], ini_snapshot(out)
+                allowed = {key for item in self.data["files"] if item["path"] in i["inis"] for key in item["values"]}
+                if ({key: value for key, value in before_settings.items() if key not in allowed} !=
+                        {key: value for key, value in after_settings.items() if key not in allowed}):
+                    raise CheckError("Unrelated effective PHP INI settings changed; restoring the original configuration before reload")
                 values = info_values(out)
                 if not REQUIRED <= functions(values.get("disable_functions", "")) or "allow_url_include" not in values or values["allow_url_include"].lower() not in ("off", "0", "no", "false", ""):
                     raise CheckError('Expected PHP settings did not take effect')
@@ -2520,6 +2650,10 @@ class Transaction:
         return states
 
     def restore(self, allow_partial=False, recover_service=False):
+        with self.locked():
+            return self._restore(allow_partial, recover_service)
+
+    def _restore(self, allow_partial=False, recover_service=False):
         # Preflight ALL entries before touching anything, so a conflict does
         # not leave a half-restored configuration or overwrite a newer edit.
         files = [i for i in self.data["files"] if i.get("started")]
@@ -2584,6 +2718,11 @@ class Transaction:
     @classmethod
     def rollback(cls, backup_root, backup_id=None):
         tx = cls(backup_root)
+        with tx.locked():
+            return tx._rollback(backup_id)
+
+    def _rollback(tx, backup_id=None):
+        cls = type(tx)
         trusted(tx.root)
         if backup_id is not None and not re.fullmatch(r"\d{8}T\d{6}-[a-f0-9]{10}", backup_id):
             raise CheckError('Invalid backup ID')
@@ -2787,9 +2926,10 @@ def main(argv=None):
                     return report.exit_code()
                 tx = Transaction(args.backup_root)
                 def apply():
-                    tx.prepare(updates, args.protect_dir, instances,
-                               expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
-                    tx.apply(instances, users)
+                    with tx.locked(create=True):
+                        tx.prepare(updates, args.protect_dir, instances,
+                                   expected={entry["path"]: entry["before_sha256"] for entry in plan["ini"]})
+                        tx.apply(instances, users)
                 transaction_output(apply)
                 report, _, _, _ = scan(args)
                 report.plan, report.transaction = plan, summarize(tx)
