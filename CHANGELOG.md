@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refuse BOM-prefixed conditional INI sections as well as ordinary conditional sections. Isolate maintenance-release CI proof on `ci-proof-2.2`, with exact source/fork `release/2.2` matching, while retaining the main preview proof.
+
 - Rename the source project/repository to `php-fpm-audit`; clarify EN/DE quick starts, separate published read-only 2.2.1 downloads from dev.7 and retain the INI fix advisory. Update branding, source links and CI source-commit checks. Keep legacy launcher/release filenames, backup paths, P2S IDs and the `angusu-de/p2s-harden` signer identity compatible. No audit engine changes.
 
 - Keep the dev.7 audit engine unchanged; add a one-command, isolated Nginx/FPM upload-guard lab, expected observations, prominent EN/DE README entry and shareable announcement drafts. CI reproduces the three real responses and wrong-image cleanup. No ports are published, no host paths mounted and no production configuration edited. Keep whole-include review identities and conservative front-controller UNKNOWNs; explain the safety reasons.

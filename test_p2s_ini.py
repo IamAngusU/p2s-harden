@@ -5,6 +5,13 @@ import p2s_harden as p
 
 
 class IniEditing(unittest.TestCase):
+    def test_conditional_sections_are_refused_with_or_without_initial_bom(self):
+        for section in ('PATH=/lab', 'HOST=example.test'):
+            for prefix in ('', '\ufeff'):
+                text = prefix + '[' + section + ']\ndisable_functions=exec\n'
+                with self.subTest(section=section, prefix=prefix), self.assertRaisesRegex(p.CheckError, 'Conditional'):
+                    p.set_ini(text, dict(disable_functions='exec,system'))
+
     def test_multiline_quotes_in_targets_or_unrelated_values_are_refused(self):
         for text in ('disable_functions="exec,\nsystem"\nmemory_limit=379M\n',
                      "disable_functions='exec,\nsystem'\nmemory_limit=379M\n",

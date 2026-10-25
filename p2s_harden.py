@@ -235,7 +235,7 @@ def ini_snapshot(text):
 
 def set_ini(text, updates):
     validate_ini_edit(text)
-    if re.search(r"^\s*\[(?:PATH|HOST)\s*=", text, re.M | re.I):
+    if re.search(r"^\s*\[(?:PATH|HOST)\s*=", text[1:] if text.startswith("\ufeff") else text, re.M | re.I):
         raise CheckError('Conditional PATH/HOST INI sections: automatic changes refused')
     lines = text.splitlines(keepends=True)
     newline = next(iter(re.findall(r"\r\n|\n|\r", text)), "\n")
