@@ -27,7 +27,7 @@ names = [
     'tools/test_system_runtime.py', 'tools/test_system_runtime_guard.py',
     'tools/test_json_interop.py', 'tools/json-interop/Cargo.toml', 'tools/json-interop/Cargo.lock', 'tools/json-interop/src/main.rs',
 ]
-names += ['test_p2s_defenses.py', 'docs/DEFENSES.md']
+names += ['test_p2s_defenses.py', 'test_p2s_nginx_guards.py', 'docs/DEFENSES.md', 'docs/NGINX-UPLOADS.md']
 names += sorted(path.relative_to(base).as_posix() for path in (base / 'docs/assets/readme').glob('*.svg'))
 names += sorted(path.relative_to(base).as_posix() for path in (base / 'src').glob('*.py'))
 files = {name: (base / name).read_bytes() for name in sorted(names)}

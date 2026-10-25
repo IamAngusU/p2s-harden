@@ -42,13 +42,15 @@ Ein Angreifer kann durch eine verwundbare Anwendung oder eine hochgeladene Datei
 
 [Bedeutung, Nginx-Umfang und Prüfnachweise](docs/DEFENSES.md).
 
-**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.6**.
+**Entwicklungsvorschau:** Dieser Branch ergänzt `--scan-webshells` in **2.3.0-dev.7**.
 Die unten verlinkten **2.2.1-Downloads enthalten diesen Modus noch nicht**.
 Zum Testen den generierten Launcher dieses Branches verwenden:
 [Bash-Vorschau](p2s-harden.sh?raw=1) · [PowerShell-Vorschau](p2s-harden.ps1?raw=1).
 Die Vorschau hat Commit-genaue CI-Nachweise und ist von den Stable-Release-Dateien getrennt.
 
-**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.6-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
+**Upload-Routen:** dev.7 erkennt begrenzte Regex- und verschachtelte PHP-Sperren, die Bilder ausliefern, meldet den Zeilenumbruch-Bypass bei `.*` und erlaubt ausdrücklich reviewte UNKNOWN-Einträge mit Bindung an die komplette Konfiguration. [Beispiele und genaue Grenzen](docs/NGINX-UPLOADS.md).
+
+**Hinweis zu INI-Fixes:** 2.2.1 kann mehrzeilig zitierte INI-Werte beschädigen. Vor `--fix` die korrigierte dev.7-Vorschau oben verwenden oder die Konfiguration manuell prüfen/bearbeiten. Lesende Audits sind nicht betroffen. Die Vorschau verweigert mehrdeutige Quotes und vergleicht andere effektive INI-Werte vor dem Reload.
 [Umfang und Befehle](#nach-php-webshell-indikatoren-suchen).
 
 Lade **eine Datei** für deinen Startrechner:
@@ -165,6 +167,8 @@ Die Änderung bestehender INIs kann eine paketverwaltete `php.ini` betreffen. Ä
 - **Abweichendes Layout:** `--nginx-config /pfad/nginx.conf` oder `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. Benutzer und Sites sind wiederholbar.
 - **Automatisierung:** Schema 2 enthält `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` und `transaction`. Übersetzte Texte sind keine API-Kennung. `--verbose` zeigt alle Zeilen.
 - **Akzeptierter offener Befund:** `--ignore BEFUND_ID` für eine Ressource oder `--ignore P2S-FS002` für die ganze Regel. Der Befund bleibt sichtbar und markiert. UNKNOWN lässt sich nicht zu einem Erfolg unterdrücken. Die Option betrifft nur die Exitwertung, nicht Fixumfang oder Suchpfade.
+
+Bei ausdrücklich reviewten Nginx-Einträgen bleibt UNKNOWN sichtbar; JSON unterscheidet `has_unaccepted_unknown` und `accepted_unknown`. [Review-Semantik](docs/NGINX-UPLOADS.md#explicit-review-of-unsupported-routing). Exit 0 kann deshalb akzeptierte UNKNOWNs enthalten und ist kein Urteil über einen sauberen Server.
 
 Standard (`--fail-on complete`): **2 bei UNKNOWN/Fehler**, sonst **1 bei OPEN**, sonst **0**. Für CI mit Vorrang offener Befunde: `--fail-on open` gibt bei OPEN zuerst 1 aus; andernfalls bleibt UNKNOWN bei 2. Die Vorschau ergänzt `--fail-on review`: Ein nicht akzeptierter WS004-Code-Review oder OPEN ergibt zuerst 1; sonst ergibt UNKNOWN weiterhin 2. Gewöhnliches INFO führt nicht zum Fehlschlag. `--ignore` und exakte Baselines können Review-Befunde akzeptieren; JSON ergänzt `has_review` und `suppressed_review`. JSON zeigt alle Flags und Befunde. Ignorierte OPEN-Befunde bleiben im Bericht, beeinflussen den Exitcode aber nicht.
 

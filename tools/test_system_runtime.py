@@ -130,11 +130,13 @@ def main(argv=None):
         evidence['cases'].append(dict(name='actual-systemd-manager-policy-observation',status='PASS',properties=expected,worker_attestation=False))
         uploads=root/'uploads';uploads.mkdir(mode=0o755)
         (uploads/'p2s-upload.php').write_text('<?php echo "P2S_UPLOAD_FIXTURE";')
-        def upload_response(expected_status=200):
+        (uploads/'p2s-line\nbreak.php').write_text('<?php echo "P2S_UPLOAD_FIXTURE";')
+        (uploads/'image.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+        def upload_response(expected_status=200, path='/uploads/p2s-upload.php'):
             for _ in range(60):
                 connection=http.client.HTTPConnection('127.0.0.1',18080,timeout=2)
                 try:
-                    connection.request('GET','/uploads/p2s-upload.php',headers={'Host':'p2s-ci.test'})
+                    connection.request('GET',path,headers={'Host':'p2s-ci.test'})
                     response=connection.getresponse()
                     result=response.status,response.read(65536)
                     if result[0]==expected_status:return result
@@ -164,6 +166,46 @@ def main(argv=None):
         assert upload_row()['status']=='UNKNOWN'
         assert upload_response()==(200,b'P2S_UPLOAD_FIXTURE')
         evidence['cases'].append(dict(name='actual-upload-nested-route-never-false-green',status='PASS',http_status=200,php_executed=True,audit_status='UNKNOWN',configuration_unchanged=True))
+        # Review is an explicit UNKNOWN acknowledgement, never an OK verdict.
+        draft=Path('/root/p2s-nginx-review.json')
+        drafted=cli('--check','--runtime-dir',str(uploads),'--write-nginx-review-draft',str(draft))
+        review=json.loads(draft.read_text());assert review['entries'] and all(entry['reviewed'] is False for entry in review['entries'])
+        assert draft.stat().st_mode & 0o777 == 0o600
+        rejected=cli('--check','--runtime-dir',str(uploads),'--nginx-baseline',str(draft))
+        assert any(row['rule_id']=='P2S-NGX002' and row['status']=='UNKNOWN' for row in rejected['findings'])
+        for entry in review['entries']:entry.update(reviewed=True,reason='Disposable fixture: independently inspected route and live response; execution is intentionally allowed here.')
+        draft.write_text(json.dumps(review))
+        accepted=cli('--check','--runtime-dir',str(uploads),'--nginx-baseline',str(draft))
+        assert accepted['accepted_unknown']==1 and any(row.get('review_accepted') and row['status']=='UNKNOWN' for row in accepted['findings'])
+        nginx.write_text(nginx.read_text()+'\n# configuration identity changed\n')
+        expired=cli('--check','--runtime-dir',str(uploads),'--nginx-baseline',str(draft))
+        assert expired['accepted_unknown']==0
+        evidence['cases'].append(dict(name='actual-nginx-reviewed-unknown-expires-on-change',status='PASS',unreviewed_rejected=True,unknown_retained=True,changed_configuration_rejected=True))
+        generic='location ~ \\.php$'
+        def ordered_variant(guard):
+            assert generic in nginx_text
+            nginx.write_text(nginx_text.replace(generic,guard+' '+generic,1))
+            run(['nginx','-t']);run(['systemctl','reload','nginx'])
+        weak='location ~* ^/uploads/.*\\.php$ { deny all; }'
+        ordered_variant(weak)
+        assert upload_row()['status']=='OPEN' and upload_row()['evidence']['outcome']=='regex_line_break_gap'
+        assert upload_response(403)[0]==403
+        assert upload_response(200,'/uploads/p2s-line%0abreak.php')==(200,b'P2S_UPLOAD_FIXTURE')
+        evidence['cases'].append(dict(name='actual-upload-regex-line-break-bypass',status='PASS',http_status=200,php_executed=True,audit_status='OPEN',configuration_unchanged=True))
+        robust=weak.replace('^/','(?s)^/')
+        ordered_variant(robust)
+        assert upload_row()['status']=='OK'
+        assert upload_response(403)[0]==403 and upload_response(403,'/uploads/p2s-line%0abreak.php')[0]==403
+        assert upload_response(200,'/uploads/image.svg')==(200,b'<svg xmlns="http://www.w3.org/2000/svg"/>')
+        evidence['cases'].append(dict(name='actual-upload-ordered-regex-guard-preserves-images',status='PASS',http_status=403,php_executed=False,audit_status='OK',image_http_status=200,line_break_http_status=403,configuration_unchanged=True))
+        route_variant('location ^~ /uploads/ { location ~* \\.php$ { deny all; } }')
+        assert upload_row()['status']=='OK'
+        assert upload_response(403)[0]==403 and upload_response(403,'/uploads/p2s-line%0abreak.php')[0]==403
+        assert upload_response(200,'/uploads/image.svg')[0]==200
+        evidence['cases'].append(dict(name='actual-upload-nested-denial-preserves-images',status='PASS',http_status=403,php_executed=False,audit_status='OK',image_http_status=200,line_break_http_status=403,configuration_unchanged=True))
+        route_variant(robust)
+        assert upload_row()['status']=='OPEN' and upload_response()==(200,b'P2S_UPLOAD_FIXTURE')
+        evidence['cases'].append(dict(name='actual-upload-late-regex-denial-loses-to-handler',status='PASS',http_status=200,php_executed=True,audit_status='OPEN',configuration_unchanged=True))
         nginx.write_text(nginx_text);run(['nginx','-t']);run(['systemctl','reload','nginx'])
         preview=cli('--dry-run')
         assert preview['plan']['ini'] and not preview['plan']['blockers']

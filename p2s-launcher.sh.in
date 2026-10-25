@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p2s-harden 2.3.0-dev.6 — self-contained; engine is embedded below.
+# p2s-harden 2.3.0-dev.7 — self-contained; engine is embedded below.
 set -uo pipefail
 
 # Read language before handling --help or local/SSH prerequisite failures.
@@ -25,7 +25,7 @@ message() {
 usage() {
   if [ "$lang" = en ]; then
     cat <<'HELP'
-p2s-harden 2.3.0-dev.6 — one file, automatic discovery
+p2s-harden 2.3.0-dev.7 — one file, automatic discovery
 
   sudo bash p2s-harden.sh                     Discover and audit locally
   bash p2s-harden.sh --ssh root@SERVER         Discover and audit over SSH
@@ -45,6 +45,8 @@ Options (override automatically discovered values):
   --root /path                 Limit the filesystem audit scope
   --site URL=DOCUMENT_ROOT     Explicit virtual host; repeatable
   --nginx-config /path         Custom Nginx main configuration
+  --nginx-baseline FILE        Reviewed UNKNOWN exceptions; --check only
+  --write-nginx-review-draft FILE  Private unreviewed draft; --check only
   --web-user USER              Additional FPM user
   --no-auto                   Use explicit mappings only
   --max-sites 32              Limit automatic HTTP mappings
@@ -64,19 +66,19 @@ Options (override automatically discovered values):
   --scan-file-bytes N          PHP parsing byte limit; larger files streamed (2097152)
   --scan-total-bytes N         Webshell scan: bytes per root (268435456)
   --yes, -y                   Approve the fix without an interactive prompt
-  --fail-on complete|open|review     Exit precedence; UNKNOWN never passes
+  --fail-on complete|open|review     Exit precedence; unacknowledged UNKNOWN never passes
   --ignore ID                 Keep a finding visible but suppress its OPEN/review exit
   --verbose                   Include all findings, including OK
   --no-progress               Hide interactive progress messages
 
 Discovery never infers permission-change targets.
 --check/--discover/--dry-run do not modify configuration or reload services.
-Exit 0: selected checks passed; 1: open findings (or review with --fail-on review); 2: unknown/error.
+Exit 0: no active blockers (reviewed UNKNOWN may remain); 1: open findings (or review with --fail-on review); 2: unknown/error.
 HELP
     return
   fi
   cat <<'HELP'
-p2s-harden 2.3.0-dev.6 — eine Datei, automatische Erkennung
+p2s-harden 2.3.0-dev.7 — eine Datei, automatische Erkennung
 
   sudo bash p2s-harden.sh                     Lokal erkennen und prüfen
   bash p2s-harden.sh --ssh root@SERVER         Remote erkennen und prüfen
@@ -96,6 +98,8 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --root /pfad                 Dateisystem-Prüfbereich einschränken
   --site URL=DOKUMENTWURZEL     Expliziter vHost, wiederholbar
   --nginx-config /pfad          Abweichende Nginx-Hauptkonfiguration
+  --nginx-baseline DATEI       Reviewte UNKNOWN-Ausnahmen; nur --check
+  --write-nginx-review-draft DATEI  Privater ungeprüfter Entwurf; nur --check
   --web-user BENUTZER           Zusätzlicher FPM-Benutzer
   --no-auto                    Nur explizite Zuordnungen verwenden
   --max-sites 32               Limit automatischer HTTP-Zuordnungen
@@ -115,14 +119,14 @@ Optional (automatisch erkannte Werte lassen sich überschreiben):
   --scan-file-bytes N           PHP-Parserlimit; größere Dateien gestreamt (2097152)
   --scan-total-bytes N          Webshell-Suche: Bytes je Wurzel (268435456)
   --yes, -y                    Fix ohne interaktive Rückfrage freigeben
-  --fail-on complete|open|review      Exit-Vorrang; UNKNOWN besteht niemals
+  --fail-on complete|open|review      Exit-Vorrang; nicht akzeptiertes UNKNOWN besteht niemals
   --ignore ID                  Befund sichtbar lassen, seine OPEN-/Review-Exitwirkung ausnehmen
   --verbose                    Alle Einzelbefunde einschließlich OK anzeigen
   --no-progress                Phasenhinweise im interaktiven Terminal ausblenden
 
 Erkennung leitet keine automatischen Rechteänderungen ab.
 --check/--discover/--dry-run schreiben keine Zielkonfiguration und laden nichts neu.
-Exit 0: ausgewiesene Einzelprüfungen bestanden; 1: offen (oder Review mit --fail-on review); 2: unbekannt/Fehler.
+Exit 0: keine aktiven Blocker (reviewtes UNKNOWN kann bleiben); 1: offen (oder Review mit --fail-on review); 2: unbekannt/Fehler.
 HELP
 }
 
@@ -142,7 +146,7 @@ while [ "$#" -gt 0 ]; do
       ipv6_pattern='^([A-Za-z0-9_.-]+@)?\[[0-9A-Fa-f:.%]+\]$'
       [[ "$target" =~ $name_pattern || "$target" =~ $ipv6_pattern ]] || { message 'Invalid SSH target' 'Ungültiges SSH-Ziel' >&2; exit 2; } ;;
     --help|-h) usage; exit 0 ;;
-    --version) echo 'p2s-harden 2.3.0-dev.6'; exit 0 ;;
+    --version) echo 'p2s-harden 2.3.0-dev.7'; exit 0 ;;
     --json) json_mode=1; args+=("$1"); shift ;;
     --yes|-y) args+=("$1"); shift ;;
     --no-self-guard)
@@ -199,7 +203,7 @@ bootstrap() {
   fi
   [ -n "$p2s_problem" ] || return 0
   if [ "$1" = 1 ]; then
-    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
+    printf '{"schema_version":2,"version":"2.3.0-dev.7","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-75568215812df402","rule_id":"P2S-EXEC001","resource":"bootstrap","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"%s","detail":"%s","remediation":"%s"}],"discovery":{"bootstrap":true,"capabilities":{"tools":{' "$p2s_lang" "$p2s_title" "$p2s_problem" "$p2s_problem"
     p2s_comma=''
     for p2s_tool in python3 ps runuser systemctl; do
       p2s_present=false
@@ -228,7 +232,7 @@ ssh_bin=${SSH_BIN:-$default_ssh}
 if ! command -v "$ssh_bin" >/dev/null 2>&1; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'OpenSSH client is missing; provide the client or set SSH_BIN.' 'OpenSSH-Client fehlt; Client bereitstellen oder SSH_BIN setzen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.7","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'Prerequisite missing: OpenSSH client (or set SSH_BIN).' 'Voraussetzung fehlt: OpenSSH-Client (oder SSH_BIN setzen).' >&2
   fi
@@ -247,7 +251,7 @@ result=$?
 if [ "$result" = 255 ]; then
   if [ "$json_mode" = 1 ]; then
     detail=$(message 'Target unreachable or login failed; check your existing SSH access and retry.' 'Ziel nicht erreichbar oder Anmeldung fehlgeschlagen; vorhandenen SSH-Zugang prüfen und erneut ausführen.')
-    printf '{"schema_version":2,"version":"2.3.0-dev.6","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
+    printf '{"schema_version":2,"version":"2.3.0-dev.7","language":"%s","exit_code":2,"has_open":false,"has_unknown":true,"findings":[{"id":"P2S-EXEC001-9773e1e8b98e2493","rule_id":"P2S-EXEC001","resource":"ssh_transport","severity":"unknown","suppressed":false,"status":"UNKNOWN","title":"SSH","detail":"%s","remediation":"%s"}],"discovery":{}}\n' "$lang" "$detail" "$detail"
   else
     message 'SSH connection unavailable. Check your existing SSH access, then run the same command again.' 'SSH-Verbindung nicht verfügbar. Vorhandenen SSH-Zugang prüfen; danach denselben Befehl erneut ausführen.' >&2
   fi

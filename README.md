@@ -42,13 +42,15 @@ An attacker may already execute PHP through a vulnerable application or an uploa
 
 [What each observation means, supported Nginx subset and verification](docs/DEFENSES.md).
 
-**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.6**.
+**Development preview:** this branch adds `--scan-webshells` in **2.3.0-dev.7**.
 Published **2.2.1 downloads below do not include that mode**. Use the generated
 launcher from this branch to try it: [Bash preview](p2s-harden.sh?raw=1) ·
 [PowerShell preview](p2s-harden.ps1?raw=1). [Scope and commands](#look-for-php-webshell-indicators).
 Preview files have commit-specific CI evidence; they are separate from the stable-release assets.
 
-**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.6 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
+**Upload route checks:** dev.7 recognizes bounded regex and nested PHP denials that preserve images, detects the `.*` line-break bypass, and supports explicit configuration-bound UNKNOWN review. [Examples and exact limits](docs/NGINX-UPLOADS.md).
+
+**INI fix advisory:** 2.2.1 can mishandle multiline quoted INI values. Before using `--fix`, use the fixed dev.7 preview above or edit/review the configuration manually. Read-only audits are unaffected. The preview refuses ambiguous quotes and verifies unrelated effective INI settings before reload.
 
 Download **one file** for the computer you run it from:
 
@@ -223,6 +225,8 @@ redaction. Report stdout is covered; SSH/system stderr may identify the host.
 - **Different layout:** supply `--nginx-config /path/nginx.conf`, or `--root /srv/site --web-user www-data --site https://example.org=/srv/site`. Users and sites are repeatable.
 - **Automation:** schema 2 JSON includes `id`, `rule_id`, `resource`, `severity`, `remediation`, `suppressed`, `has_open`, `has_unknown`, `plan` and `transaction`. Text/paths are not an API identifier. `--verbose` shows every row.
 - **Known accepted OPEN finding:** repeat `--ignore FINDING_ID` for one resource, or `--ignore P2S-FS002` for the entire rule. It stays visible and marked suppressed; UNKNOWN cannot be suppressed into a pass. This affects exit evaluation only, not fix scope or file traversal.
+
+For explicit configuration-bound Nginx acknowledgements, raw UNKNOWN remains visible; JSON distinguishes `has_unaccepted_unknown` and `accepted_unknown`. [Review semantics](docs/NGINX-UPLOADS.md#explicit-review-of-unsupported-routing). Exit 0 can therefore include acknowledged UNKNOWNs; it is never a clean-server verdict.
 
 Default exit precedence (`--fail-on complete`) is **2 for UNKNOWN/error**, otherwise **1 for OPEN**, otherwise **0**. For CI that must distinguish an OPEN even alongside incomplete checks, use `--fail-on open`: OPEN returns 1 first, otherwise UNKNOWN still returns 2. The preview adds `--fail-on review`: an unaccepted WS004 code-review item or OPEN returns 1 first; otherwise UNKNOWN returns 2. Ordinary INFO does not fail. `--ignore`/exact baselines may accept review rows; JSON adds `has_review` and `suppressed_review`. JSON always exposes the flags and every finding. Ignored OPEN rows do not change the exit code; they remain in the report.
 

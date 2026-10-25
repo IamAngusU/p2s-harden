@@ -84,7 +84,7 @@ def webshell_baseline_entries(data):
     return result
 
 
-def read_webshell_baseline(name):
+def read_webshell_baseline(name, validator=None):
     """Do not let an application-writable baseline approve attacker changes."""
     path = Path(os.path.abspath(name))
     fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
@@ -114,7 +114,7 @@ def read_webshell_baseline(name):
         after = os.fstat(fd)
         if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
             raise CheckError("Baseline changed while reading")
-        return webshell_baseline_entries(json.loads(b"".join(chunks).decode("utf-8")))
+        return (validator or webshell_baseline_entries)(json.loads(b"".join(chunks).decode("utf-8")))
     finally:
         os.close(fd)
 

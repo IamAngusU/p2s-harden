@@ -1,4 +1,4 @@
-# What p2s-harden can reduce - 2.3.0-dev.6 preview
+# What p2s-harden can reduce - 2.3.0-dev.7 preview
 
 Assume an attacker may already execute PHP through an application bug or an
 uploaded file. Restricting selected direct functions reduces some follow-on
@@ -57,17 +57,24 @@ The check handles literal server/http roots and a small static location subset:
   `$realpath_root$fastcgi_script_name`. This is a configuration opportunity if
   a PHP file can be stored there, not an uploaded/executed exploit or proof of
   network reachability.
-- **OK:** only a selected static `^~` prefix with an unconditional leaf
+- **OK:** a supported ordered PHP denial or one nested regex leaf under a static
+  `^~` prefix can preserve images; the guard must cover case, extensions,
+  PATH_INFO and line breaks. See [tested examples and review](NGINX-UPLOADS.md).
+  The checker also recognizes a selected static `^~` prefix with an unconditional leaf
   `return 403`, `404`, `410` or `444`, no conflicting exact/longer child route,
   no aliases, and no unsupported control flow. OK applies to the selected URI
   prefix in that parsed server block, not all ways an application might include
   the file. A plain `/uploads/` location does not outrank a generic PHP regex.
-- **UNKNOWN:** aliases, nested/named/predicate locations, arbitrary regexes,
+- **UNKNOWN:** aliases, unsupported nested/named/predicate locations, arbitrary regexes,
   conflicting mappings, access gates, nonstandard script-name rewrites, selected root overrides, internal redirects/error pages,
   conditionals and unsupported directives. Unknown PCRE is not executed through
   Python's regex engine. A static front-controller mapping is not treated as
   execution of an uploaded PHP file. At most 128 target/server pairs are assessed;
-  exceeding the budget stays UNKNOWN.
+  exceeding the budget stays UNKNOWN. Selected unsupported routing can be
+  explicitly acknowledged through a protected complete-configuration review;
+  UNKNOWN stays visible and changed includes invalidate it. Read/race/scope
+  failures are never reviewable. Ordinary `.*` before a PHP suffix can permit
+  URL-decoded line breaks; a detected gap remains OPEN, not reviewable.
 
 Related static roots are checked even when an upload directory is another
 server's entire document root. Alias presence prevents a blanket static-block
@@ -110,7 +117,7 @@ properties and their limitations](https://www.freedesktop.org/software/systemd/m
 
 ## Validation and release boundary
 
-The regression suite has **281 tool tests and 23 auxiliary tests**. It covers route priority, exact/longer descendants, aliases,
+The regression suite has **309 tool tests and 23 auxiliary tests**. It covers route priority, exact/longer descendants, aliases,
 unknown regex/module behavior, missing scopes, residual-policy grouping/privacy,
 active service identity and property parsing. Native launchers and real Rust JSON
 interoperability retain their existing checks. Actual FPM observations distinguish
@@ -121,7 +128,7 @@ Each of the four disposable distro VMs adds manager-property comparison and
 harmless fixture HTTP observations: stored PHP executes under an open route,
 a static prefix guard returns 403, and a nested executable route must remain
 UNKNOWN. The normal tool does not run this harness. The full matrix retains 104
-FastCGI observations and 56 real INI cases, with **13 stages per VM / 52 overall**.
+FastCGI observations and 56 real INI cases, with **18 stages per VM / 72 overall**.
 Exact tested commits, engine hashes and signed main build provenance identify
 the evidence; the CI fork has the same maintainer.
 

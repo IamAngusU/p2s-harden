@@ -16,6 +16,7 @@ RULES = {
     "PHP004": ("high", "Review whether FFI is needed; set ffi.enable=Off in the effective FPM configuration when compatible, then reload and test the application."),
     "PHP005": ("info", "disable_functions is defense in depth, not isolation. Review mail/helper commands, environment and file access, FFI policy and OS confinement against application requirements. Policy does not prove function availability or exploitability. No extra functions are disabled automatically."),
     "NGX001": ("high", "Keep untrusted uploads outside executable code paths. Review an explicit Nginx rejection for upload PHP and all aliases/locations, validate with nginx -t and test the real virtual hosts. This tool changes no Nginx configuration and creates no upload probes."),
+    "NGX002": ("info", "Review the complete Nginx include closure and real routes before accepting a draft. An acknowledgement retains UNKNOWN and never proves blocking. Changed configuration invalidates it."),
     "FPM001": ("high", "Prefer a Unix socket or loopback bind; for required TCP access set listen.allowed_clients to the intended proxy IPs and verify firewall/container publication."),
     "FPM002": ("high", "Restrict the Unix socket to the web-server identity, normally mode 0660 or 0600; review named ACL grants and verify the live socket after restart."),
     "FPM003": ("medium", "Set security.limit_extensions=.php after checking application requirements; fix upload execution rules in the web server as well."),
@@ -64,8 +65,9 @@ def safe_evidence(rule_id, evidence):
                        sendmail_path=choices("empty", "configured", "unknown"), policy_only=boolean, affected_pool_count=count),
         "NGX001": dict(outcome=choices("not_assessed", "limit", "static_directory_rejection", "php_fastcgi_mapping", "unmapped",
                         "redirect_or_conditional", "nested_location", "unsupported_location", "dynamic_path", "duplicate_location",
-                        "unsupported_regex", "no_proven_handler", "location_filesystem_mapping", "unsupported_directive"),
+                        "unsupported_regex", "no_proven_handler", "location_filesystem_mapping", "unsupported_directive", "ordered_php_rejection", "nested_php_rejection", "competing_location", "regex_line_break_gap", "configuration_snapshot_incomplete"),
                        declared=boolean, candidate_count=count, configuration_only=boolean),
+        "NGX002": dict(review_entries=count),
         "SYS002": dict(assessment=choices("not_assessed", "manager_policy", "unavailable"),
                        no_new_privileges=choices("yes", "no"), protect_system=choices("no", "yes", "full", "strict"),
                        private_tmp=choices("no", "yes", "disconnected"), worker_attestation=boolean),
@@ -98,7 +100,7 @@ def safe_evidence(rule_id, evidence):
 
 
 RULE_NAMES = {"PHP001": "Shell function restrictions", "PHP002": "URL includes", "PHP003": "Filesystem restriction",
-              "PHP004": "PHP FFI", "PHP005": "Residual PHP capabilities", "NGX001": "Nginx upload execution", "SYS002": "FPM systemd hardening", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
+              "PHP004": "PHP FFI", "PHP005": "Residual PHP capabilities", "NGX001": "Nginx upload execution", "NGX002": "Nginx review", "SYS002": "FPM systemd hardening", "FPM001": "FPM TCP listener", "FPM002": "FPM Unix socket",
               "FPM003": "FPM script extensions", "FPM004": "FPM environment clearing", "FPM005": "Shared FPM account",
               "FS001": "Writable PHP files", "FS002": "Writable directories", "FS004": "Declared runtime storage",
               "HTTP001": "Sensitive HTTP path", "SYS001": "ptrace_scope",
@@ -110,6 +112,7 @@ def evidence_summary(rule_id, evidence, lang="en"):
     facts = safe_evidence(rule_id, evidence)
     say = lambda value: _EVIDENCE_GERMAN.get(value, value) if lang == "de" else {
         "non_loopback":"outside loopback", "acl":"ACL", "not_assessed":"not assessed", "manager_policy":"manager policy",
+        "ordered_php_rejection":"ordered PHP rejection", "nested_php_rejection":"nested PHP rejection", "competing_location":"competing location", "regex_line_break_gap":"regex permits a line-break bypass",
         "static_directory_rejection":"static URI prefix rejected", "php_fastcgi_mapping":"PHP FastCGI mapping",
         "redirect_or_conditional":"redirect or conditional", "nested_location":"nested location", "unsupported_location":"unsupported location",
         "dynamic_path":"dynamic path", "duplicate_location":"duplicate location", "unsupported_regex":"unsupported regex",
@@ -128,7 +131,7 @@ def evidence_summary(rule_id, evidence, lang="en"):
                   cpu_priority="CPU priority", io_priority="I/O priority", accepted_incomplete_files="Reviewed incomplete files", windowed_files="Windowed files",
                   not_disabled_functions="Not disabled by policy", enable_dl="enable_dl", sendmail_path="Mail helper command",
                   policy_only="Policy only", outcome="Assessment", candidate_count="Storage candidates", declared="Declared storage",
-                  assessment="Assessment", no_new_privileges="NoNewPrivileges", protect_system="ProtectSystem", private_tmp="PrivateTmp", worker_attestation="Worker attestation", configuration_only="Configuration only")
+                  assessment="Assessment", no_new_privileges="NoNewPrivileges", protect_system="ProtectSystem", private_tmp="PrivateTmp", worker_attestation="Worker attestation", configuration_only="Configuration only", review_entries="Review entries")
     parts = []
     for key, value in facts.items():
         if key == "affected_pool_count":
@@ -185,9 +188,12 @@ class Report:
         policy = getattr(self, "fail_on", "complete")
         if policy in ("open", "review") and (self.has("OPEN") or policy == "review" and self.has_review()):
             return 1
-        if self.has("UNKNOWN"):
+        if self.has_unaccepted_unknown():
             return 2
         return int(self.has("OPEN"))
+
+    def has_unaccepted_unknown(self):
+        return any(row["status"] == "UNKNOWN" and not (row["rule_id"] == "P2S-NGX001" and row.get("review_accepted") is True) for row in self.rows)
 
     def show(self, as_json=False, verbose=False, lang="en", redact=False):
         configure_output(as_json)
@@ -214,13 +220,16 @@ class Report:
                             detail=detail,
                             severity=row["severity"], remediation=localize(RULES[row["rule_id"][4:]][1], lang),
                             evidence=evidence, suppressed=row["suppressed"],
-                            **({"baseline_accepted":row["baseline_accepted"] is True} if "baseline_accepted" in row else {}))
+                            **({"baseline_accepted":row["baseline_accepted"] is True} if "baseline_accepted" in row else {}),
+                            **({"review_accepted":True} if row.get("review_accepted") is True else {}))
             rows = [project(index, row) for index, row in enumerate(self.rows)]
             discovery = dict(redacted=True, doctor=bool(self.discovery.get("doctor")),
                              inventory_only=bool(self.discovery.get("inventory_only")))
         if as_json:
             print(json.dumps(json_paths(dict(schema_version=2, version=VERSION, language=lang, redacted=redact, findings=rows,
                                   has_open=self.has("OPEN"), has_unknown=self.has("UNKNOWN"),
+                                  has_unaccepted_unknown=self.has_unaccepted_unknown(),
+                                  accepted_unknown=sum(row.get("review_accepted") is True for row in rows),
                                   counts={state: sum(r["status"] == state for r in rows) for state in ("OK", "OPEN", "UNKNOWN", "INFO")},
                                   suppressed_open=sum(r["suppressed"] and r["status"] == "OPEN" for r in rows),
                                   has_review=self.has_review(),
@@ -276,7 +285,7 @@ class Report:
         for row in shown if verbose else shown[:40]:
             emit(f"{row['status']:7} {row['title']}: {row['detail']}")
             if row["status"] in ("OPEN", "UNKNOWN") or row["rule_id"] == "P2S-WS004":
-                marker = " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
+                marker = " [reviewed UNKNOWN]" if row.get("review_accepted") else " [baseline]" if row.get("baseline_accepted") else " [ignored review]" if row["suppressed"] and self.review_row(row) else " [ignored OPEN]" if row["suppressed"] else ""
                 emit("        " + row["id"] + marker)
                 if row.get("affected_pools"):
                     count = len(row["affected_pools"])
@@ -291,6 +300,10 @@ class Report:
         accepted = sum(r.get("baseline_accepted") is True for r in self.rows)
         if accepted:
             emit(localize("Baseline accepted: {count} unchanged indicator rows; --verbose or --json retains them", lang).format(count=accepted))
+        acknowledged = sum(row.get("review_accepted") is True for row in rows)
+        if acknowledged:
+            emit(("Reviewte UNKNOWN-Befunde: " if lang == "de" else "Acknowledged UNKNOWN findings: ") + str(acknowledged) +
+                 ("; keine nachgewiesene Sperre." if lang == "de" else "; blocking remains unproven."))
         emit("Nur die ausgewiesenen Host-Pfade/Instanzen wurden geprüft; keine Sicherheitszertifizierung." if lang == "de" else
              "Only the reported host paths and instances were checked; this is not a security certification.")
         if self.discovery.get("assessment"):
