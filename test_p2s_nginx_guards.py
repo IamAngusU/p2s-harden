@@ -117,6 +117,12 @@ class CommonGuards(unittest.TestCase):
         self.assertEqual(self.route(guard+self.php,server='merge_slashes off;')[0],'UNKNOWN')
         self.assertEqual(self.route(guard+self.php,http='merge_slashes off;')[0],'UNKNOWN')
 
+    def test_location_budget_precedes_any_guard_language_comparison(self):
+        config=' '.join('location /path'+str(index)+'/ { return 403; }' for index in range(513))
+        with patch.object(p,'nginx_php_pattern',side_effect=AssertionError('must not compare')):
+            self.assertEqual(self.route(config+self.php),('UNKNOWN','limit'))
+        self.assertNotIn('limit',p.NGINX_REVIEWABLE)
+
 
 class ReviewContract(unittest.TestCase):
     token = dict(finding_id='P2S-NGX001-'+'a'*16,snapshot_sha256='b'*64,outcome='unsupported_regex')

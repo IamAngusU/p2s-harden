@@ -117,7 +117,7 @@ properties and their limitations](https://www.freedesktop.org/software/systemd/m
 
 ## Validation and release boundary
 
-The regression suite has **308 tool tests and 23 auxiliary tests**. It covers route priority, exact/longer descendants, aliases,
+The regression suite has **309 tool tests and 23 auxiliary tests**. It covers route priority, exact/longer descendants, aliases,
 unknown regex/module behavior, missing scopes, residual-policy grouping/privacy,
 active service identity and property parsing. Native launchers and real Rust JSON
 interoperability retain their existing checks. Actual FPM observations distinguish

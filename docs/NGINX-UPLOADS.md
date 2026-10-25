@@ -73,6 +73,8 @@ available. A conventional filename alone is insufficient to establish safety.
   locations, complex nesting, `merge_slashes off`, unsupported modules,
   fixed front controllers and absent proven PHP handlers can stay UNKNOWN.
   An unresolved or changing include closure cannot be acknowledged.
+- More than 512 direct locations in a server yields an unreviewable limit
+  UNKNOWN before comparing guard languages; scope remains at most 128 pairs.
 
 OK concerns only these selected root/URI mappings in the parsed server blocks.
 Application-level includes, alternate filesystem paths, symlinks, workers'

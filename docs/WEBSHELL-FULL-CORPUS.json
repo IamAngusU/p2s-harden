@@ -6,7 +6,7 @@
   "archive_bytes": 70753300,
   "regular_files": 5320,
   "source_bytes": 167112154,
-  "engine_sha256": "b565318fbb1f5f60b2ddd745c568c4693eee0bb74daf4d3d2045d6729ce3901e",
+  "engine_sha256": "a42c4aee487a91367de916d740b75b3c2b19104ae7c67cd7cab138d9a5c7eb6b",
   "scanner_version": "2.3.0-dev.7",
   "platform": "linux",
   "python": "3.10.12",
@@ -14,7 +14,7 @@
     {
       "settings": "defaults",
       "cli_overrides": [],
-      "elapsed_seconds": 11.473,
+      "elapsed_seconds": 13.128,
       "exit_code": 2,
       "has_open": true,
       "has_unknown": true,
@@ -138,7 +138,7 @@
         "--scan-file-seconds",
         "10"
       ],
-      "elapsed_seconds": 10.578,
+      "elapsed_seconds": 10.398,
       "exit_code": 2,
       "has_open": true,
       "has_unknown": true,
@@ -250,7 +250,7 @@
         "--baseline",
         "<protected-reviewed-fixture.json>"
       ],
-      "elapsed_seconds": 9.37,
+      "elapsed_seconds": 9.289,
       "exit_code": 0,
       "has_open": false,
       "has_unknown": false,

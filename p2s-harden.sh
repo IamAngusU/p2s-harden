@@ -2998,7 +2998,10 @@ def nginx_upload_route(http, server, uri):
     if any(node["name"] not in parent_names and not node["name"].startswith(("ssl_", "gzip", "client_")) for node in http["children"] + nodes):
         return "UNKNOWN", "unsupported_directive"
     prefix, regex = [], []
-    for node in (n for n in nodes if n["name"] == "location" and n["children"] is not None):
+    locations = [n for n in nodes if n["name"] == "location" and n["children"] is not None]
+    if len(locations) > 512:
+        return "UNKNOWN", "limit"
+    for node in locations:
         args = node["args"]
         if len(args) == 1 and args[0].startswith("/"):
             modifier, path = "", args[0]
